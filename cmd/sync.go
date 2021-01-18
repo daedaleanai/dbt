@@ -14,6 +14,7 @@ const masterVersion = "master"
 
 var syncCmd = &cobra.Command{
 	Use:   "sync",
+	Args:  cobra.NoArgs,
 	Short: "Recursively clones and updates modules to satisfy all dependencies.",
 	Long: `Recursively clones and updates modules to satisfy the dependencies
 declared in the MODULE files of each module, starting from the top-level MODULE file.`,
@@ -69,7 +70,7 @@ func runSync(cmd *cobra.Command, args []string) {
 		log.Log("\nProcessing module '%s'.\n", mod.Name())
 		log.IndentationLevel = 1
 
-		deps := module.GetModuleDependencies(mod.Path())
+		deps := module.ReadModuleFile(mod.Path())
 		log.Log("Module has %d dependencies.\n", len(deps))
 
 		for idx, dep := range deps {

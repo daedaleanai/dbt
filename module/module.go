@@ -109,20 +109,6 @@ func SetupModule(mod Module) {
 	}
 }
 
-// GetModuleDependencies returns the Dependencies of a module by reading its MODULE file.
-func GetModuleDependencies(modulePath string) []Dependency {
-	moduleFilePath := path.Join(modulePath, util.ModuleFileName)
-	if !util.FileExists(moduleFilePath) {
-		log.Warning("Module has no %s file.\n", util.ModuleFileName)
-		return []Dependency{}
-	}
-	deps, err := ReadModuleFile(moduleFilePath)
-	if err != nil {
-		log.Error("Failed to read %s file: %s.\n", util.ModuleFileName, err)
-	}
-	return deps
-}
-
 var dependencyURLRegexp = regexp.MustCompile(`/([A-Za-z0-9_\-.]+)(\.git|\.tar\.gz)$`)
 
 type moduleFile struct {
@@ -137,32 +123,42 @@ type Dependency struct {
 
 // ModuleName parses the module name from the Dependency's URL.
 func (d Dependency) ModuleName() string {
-	return dependencyURLRegexp.FindStringSubmatch(d.URL)[1]
+	match := dependencyURLRegexp.FindStringSubmatch(d.URL)
+	if len(match) < 2 {
+		log.Error("Failed to parse dependency URL '%s': must match regex '%s'\n", d.URL, dependencyURLRegexp.String())
+	}
+	return match[1]
 }
 
 // ReadModuleFile reads and parses module Dependencies from a MODULE file.
-func ReadModuleFile(moduleFilePath string) ([]Dependency, error) {
+func ReadModuleFile(modulePath string) []Dependency {
+	moduleFilePath := path.Join(modulePath, util.ModuleFileName)
+	if !util.FileExists(moduleFilePath) {
+		log.Warning("Module has no MODULE file.\n")
+		return []Dependency{}
+	}
+
 	data, err := ioutil.ReadFile(moduleFilePath)
 	if err != nil {
-		return nil, err
+		log.Error("Failed to read MODULE file: %s.\n", err)
 	}
 
 	var moduleFile moduleFile
 	err = yaml.Unmarshal(data, &moduleFile)
 	if err != nil {
-		return nil, err
+		log.Error("Failed to read MODULE file: %s.\n", err)
 	}
 
 	deps := []Dependency{}
 	for url, version := range moduleFile.Dependencies {
 		deps = append(deps, Dependency{url, version})
 	}
-
-	return deps, nil
+	return deps
 }
 
 // WriteModuleFile serializes and writes a Module's Dependencies to a MODULE file.
-func WriteModuleFile(moduleFilePath string, deps []Dependency) error {
+func WriteModuleFile(modulePath string, deps []Dependency) {
+	moduleFilePath := path.Join(modulePath, util.ModuleFileName)
 	moduleFile := moduleFile{map[string]string{}}
 	for _, dep := range deps {
 		moduleFile.Dependencies[dep.URL] = dep.Version
@@ -170,7 +166,10 @@ func WriteModuleFile(moduleFilePath string, deps []Dependency) error {
 
 	data, err := yaml.Marshal(moduleFile)
 	if err != nil {
-		return err
+		log.Error("Failed to write MODULE file: %s.\n", err)
 	}
-	return ioutil.WriteFile(moduleFilePath, data, util.FileMode)
+	err = ioutil.WriteFile(moduleFilePath, data, util.FileMode)
+	if err != nil {
+		log.Error("Failed to write MODULE file: %s.\n", err)
+	}
 }
