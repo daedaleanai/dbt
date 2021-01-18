@@ -15,9 +15,6 @@ const DirMode = 0775
 // ModuleFileName is the name of the file describing each module.
 const ModuleFileName = "MODULE"
 
-// SetupFileName is the name of the file initializing a module.
-const SetupFileName = "SETUP.go"
-
 // DepsDirName is directory that dependencies are stored in.
 const DepsDirName = "DEPS"
 
