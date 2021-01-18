@@ -1,10 +1,13 @@
 package cmd
 
 import (
+	"bytes"
 	"dwm/log"
 	"dwm/module"
 	"dwm/util"
 	"fmt"
+	"os"
+	"os/exec"
 	"path"
 	"strings"
 
@@ -24,11 +27,7 @@ func init() {
 	rootCmd.AddCommand(syncCmd)
 }
 
-func createOrOpenModule(modulePath string, url string) (module.Module, error) {
-	if util.DirExists(modulePath) {
-		return module.OpenModule(modulePath)
-	}
-
+func createModule(modulePath string, url string) (module.Module, error) {
 	log.Spinner.Start()
 	defer log.Spinner.Stop()
 
@@ -43,6 +42,39 @@ func createOrOpenModule(modulePath string, url string) (module.Module, error) {
 	}
 
 	return nil, fmt.Errorf("could not determine module type from dependency url '%s'", url)
+}
+
+func setupModule(mod module.Module) {
+	setupFilePath := path.Join(mod.Path(), util.SetupFileName)
+	if !util.FileExists(setupFilePath) {
+		log.Log(2, "Module has no SETUP.go file.\n")
+		return
+	}
+
+	log.Log(2, "Running SETUP.go.\n")
+	var stdout, stderr bytes.Buffer
+	cmd := exec.Command("go", "run", setupFilePath)
+	cmd.Dir = mod.Path()
+	cmd.Stderr = &stderr
+	cmd.Stdout = &stdout
+	err := cmd.Run()
+	if err != nil {
+		log.Error(2, "Running SETUP.go failed:\nSTDOUT:\n%s\n\nSTDERR:\n%s\n", string(stdout.Bytes()), string(stderr.Bytes()))
+	}
+}
+
+func createOrOpenModule(modulePath string, url string) (module.Module, error) {
+	if util.DirExists(modulePath) {
+		return module.OpenModule(modulePath)
+	}
+
+	mod, err := createModule(modulePath, url)
+	if err != nil {
+		return nil, err
+	}
+
+	setupModule(mod)
+	return mod, nil
 }
 
 func getModuleDependencies(mod module.Module) []module.Dependency {
@@ -63,12 +95,30 @@ func runSync(cmd *cobra.Command, args []string) {
 	if err != nil {
 		log.Error(0, "Could not identify workspace root directory: %s.\n", err)
 	}
-	log.Log(0, "Using workspace '%s'.\n", workspaceRoot)
+	log.Log(0, "Current workspace is '%s'.\n", workspaceRoot)
 
 	// The top-level module must already exist and will never be cloned or downloaded by the tool.
 	rootModule, err := module.OpenModule(workspaceRoot)
 	if err != nil {
 		log.Error(0, "Failed open top-level module: %s.\n", err)
+	}
+
+	// Create the DEPS subdirectory and create a symlink to the top-level module.
+	rootModuleSymlink := path.Join(workspaceRoot, util.DepsDirName, rootModule.Name())
+	if !util.DirExists(rootModuleSymlink) {
+		setupModule(rootModule)
+
+		log.Log(0, "Creating symlink for the top-level module: DEPS/%s -> %s.\n", rootModule.Name(), workspaceRoot)
+
+		err = os.MkdirAll(path.Dir(rootModuleSymlink), util.DirMode)
+		if err != nil {
+			log.Error(0, "Failed to create DEPS directory: %s.\n", err)
+		}
+		err = os.Symlink("..", rootModuleSymlink)
+		if err != nil {
+			log.Error(0, "Failed to create symlink to top-level module: %s.\n", err)
+		}
+
 	}
 
 	// Keeps track of the modules whose versions have already been fixed and the
