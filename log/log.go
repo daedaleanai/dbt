@@ -4,7 +4,13 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
+
+	"github.com/briandowns/spinner"
 )
+
+// Spinner will be shown during long running operations.
+var Spinner = spinner.New(spinner.CharSets[14], 150*time.Millisecond)
 
 // Log prints an indented and formatted message to os.Stdout.
 func Log(level int, format string, a ...interface{}) {

@@ -8,9 +8,6 @@ import (
 	"path"
 	"strings"
 
-	"time"
-
-	"github.com/briandowns/spinner"
 	"github.com/spf13/cobra"
 )
 
@@ -32,9 +29,8 @@ func createOrOpenModule(modulePath string, url string) (module.Module, error) {
 		return module.OpenModule(modulePath)
 	}
 
-	spin := spinner.New(spinner.CharSets[14], 150*time.Millisecond)
-	defer spin.Stop()
-	spin.Start()
+	log.Spinner.Start()
+	defer log.Spinner.Stop()
 
 	if strings.HasSuffix(url, ".git") {
 		log.Log(2, "Cloning '%s'.\n", url)
@@ -72,7 +68,7 @@ func runSync(cmd *cobra.Command, args []string) {
 	// The top-level module must already exist and will never be cloned or downloaded by the tool.
 	rootModule, err := module.OpenModule(workspaceRoot)
 	if err != nil {
-		log.Error(0, "Failed open root module: %s.\n", err)
+		log.Error(0, "Failed open top-level module: %s.\n", err)
 	}
 
 	// Keeps track of the modules whose versions have already been fixed and the
