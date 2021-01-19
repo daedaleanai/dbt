@@ -37,7 +37,7 @@ func OpenModule(modulePath string) Module {
 		log.Debug("Found '.git' directory. Expecting this to be a GitModule.\n")
 		repo, err := git.PlainOpen(modulePath)
 		if err != nil {
-			log.Error("Failed to open repo: %s.\n", modulePath, err)
+			log.Fatal("Failed to open repo: %s.\n", modulePath, err)
 		}
 		return GitModule{modulePath, repo}
 	}
@@ -47,7 +47,7 @@ func OpenModule(modulePath string) Module {
 		return TarModule{modulePath}
 	}
 
-	log.Error("Failed to open module '%s': Could not determine module type. Try to remove the module directory and rerun the command.\n", modulePath)
+	log.Fatal("Failed to open module '%s': Could not determine module type. Try to remove the module directory and rerun the command.\n", modulePath)
 	return nil
 }
 
@@ -70,7 +70,7 @@ func OpenOrCreateModule(modulePath string, url string) Module {
 		return CreateTarModule(modulePath, url)
 	}
 
-	log.Error("Failed to determine module type from dependency url '%s'.\n", url)
+	log.Fatal("Failed to determine module type from dependency url '%s'.\n", url)
 	return nil
 }
 
@@ -100,14 +100,14 @@ func SetupModule(mod Module) {
 	err := cmd.Run()
 	log.Spinner.Stop()
 	if err != nil {
-		log.Error("Running SETUP.go failed:\nSTDOUT:\n%s\nSTDERR:\n%s", string(stdout.Bytes()), string(stderr.Bytes()))
+		log.Fatal("Running SETUP.go failed:\nSTDOUT:\n%s\nSTDERR:\n%s", string(stdout.Bytes()), string(stderr.Bytes()))
 	}
 	log.Success("Module is set up.\n")
 
 	log.Debug("Creating sentinel file.\n", mod.Name())
 	err = ioutil.WriteFile(setupSentinelFilePath, []byte{}, util.FileMode)
 	if err != nil {
-		log.Error("Could not create .setup sentinel file: %s\n.", err)
+		log.Fatal("Could not create .setup sentinel file: %s\n.", err)
 	}
 }
 
@@ -127,7 +127,7 @@ type Dependency struct {
 func (d Dependency) ModuleName() string {
 	match := dependencyURLRegexp.FindStringSubmatch(d.URL)
 	if len(match) < 2 {
-		log.Error("Failed to parse dependency URL '%s': must be a valid URL to a Git repository or .tar.gz archive.\n", d.URL)
+		log.Fatal("Failed to parse dependency URL '%s': must be a valid URL to a Git repository or .tar.gz archive.\n", d.URL)
 	}
 	return match[1]
 }
@@ -142,13 +142,13 @@ func ReadModuleFile(modulePath string) []Dependency {
 
 	data, err := ioutil.ReadFile(moduleFilePath)
 	if err != nil {
-		log.Error("Failed to read '%s' file: %s.\n", util.ModuleFileName, err)
+		log.Fatal("Failed to read '%s' file: %s.\n", util.ModuleFileName, err)
 	}
 
 	var moduleFile moduleFile
 	err = yaml.Unmarshal(data, &moduleFile)
 	if err != nil {
-		log.Error("Failed to read '%s' file: %s.\n", util.ModuleFileName, err)
+		log.Fatal("Failed to read '%s' file: %s.\n", util.ModuleFileName, err)
 	}
 
 	deps := []Dependency{}
@@ -168,10 +168,10 @@ func WriteModuleFile(modulePath string, deps []Dependency) {
 
 	data, err := yaml.Marshal(moduleFile)
 	if err != nil {
-		log.Error("Failed to write '%s' file: %s.\n", util.ModuleFileName, err)
+		log.Fatal("Failed to write '%s' file: %s.\n", util.ModuleFileName, err)
 	}
 	err = ioutil.WriteFile(moduleFilePath, data, util.FileMode)
 	if err != nil {
-		log.Error("Failed to write '%s' file: %s.\n", util.ModuleFileName, err)
+		log.Fatal("Failed to write '%s' file: %s.\n", util.ModuleFileName, err)
 	}
 }

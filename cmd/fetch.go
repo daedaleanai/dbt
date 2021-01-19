@@ -33,7 +33,7 @@ func runFetch(cmd *cobra.Command, args []string) {
 	}
 	files, err := ioutil.ReadDir(depsDir)
 	if err != nil {
-		log.Error("Failed to read content of %s/ directory: %s.\n", util.DepsDirName, err)
+		log.Fatal("Failed to read content of %s/ directory: %s.\n", util.DepsDirName, err)
 	}
 	for _, file := range files {
 		if !file.IsDir() {
