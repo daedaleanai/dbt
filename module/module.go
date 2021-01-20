@@ -134,19 +134,19 @@ func (d Dependency) ModuleName() string {
 func ReadModuleFile(modulePath string) []Dependency {
 	moduleFilePath := path.Join(modulePath, util.ModuleFileName)
 	if !util.FileExists(moduleFilePath) {
-		log.Warning("Module has no MODULE file.\n")
+		log.Warning("Module has no '%s' file.\n", util.ModuleFileName)
 		return []Dependency{}
 	}
 
 	data, err := ioutil.ReadFile(moduleFilePath)
 	if err != nil {
-		log.Error("Failed to read MODULE file: %s.\n", err)
+		log.Error("Failed to read '%s' file: %s.\n", util.ModuleFileName, err)
 	}
 
 	var moduleFile moduleFile
 	err = yaml.Unmarshal(data, &moduleFile)
 	if err != nil {
-		log.Error("Failed to read MODULE file: %s.\n", err)
+		log.Error("Failed to read '%s' file: %s.\n", util.ModuleFileName, err)
 	}
 
 	deps := []Dependency{}
@@ -166,10 +166,10 @@ func WriteModuleFile(modulePath string, deps []Dependency) {
 
 	data, err := yaml.Marshal(moduleFile)
 	if err != nil {
-		log.Error("Failed to write MODULE file: %s.\n", err)
+		log.Error("Failed to write '%s' file: %s.\n", util.ModuleFileName, err)
 	}
 	err = ioutil.WriteFile(moduleFilePath, data, util.FileMode)
 	if err != nil {
-		log.Error("Failed to write MODULE file: %s.\n", err)
+		log.Error("Failed to write '%s' file: %s.\n", util.ModuleFileName, err)
 	}
 }

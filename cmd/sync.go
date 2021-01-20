@@ -24,7 +24,7 @@ declared in the MODULE files of each module, starting from the top-level MODULE 
 var useMasterVersion bool
 
 func init() {
-	// Whether to use 'master' instead of the version specified in the MODULe file.
+	// Whether to use 'master' instead of the version specified in the MODULE file.
 	syncCmd.Flags().BoolVar(&useMasterVersion, "master", false, "Use 'master' version for all dependencies.")
 	rootCmd.AddCommand(syncCmd)
 }
