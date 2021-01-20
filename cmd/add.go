@@ -1,10 +1,9 @@
 package cmd
 
 import (
-	"dwm/log"
-	"dwm/module"
-	"dwm/util"
-	"os"
+	"dbt/log"
+	"dbt/module"
+	"dbt/util"
 
 	"github.com/spf13/cobra"
 )
@@ -44,12 +43,12 @@ func runAdd(cmd *cobra.Command, args []string) {
 		}
 		if dep.Version == newDep.Version {
 			log.Success("Module already depends on module '%s', version '%s'.\n", newDep.ModuleName(), newDep.Version)
-			os.Exit(1)
+			return
 		}
 		deps[idx].Version = newDep.Version
 		module.WriteModuleFile(moduleRoot, deps)
 		log.Success("Updated version of dependency on module '%s' to '%s'.\n", newDep.ModuleName(), newDep.Version)
-		os.Exit(0)
+		return
 	}
 
 	module.WriteModuleFile(moduleRoot, append(deps, newDep))

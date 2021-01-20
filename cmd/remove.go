@@ -1,9 +1,9 @@
 package cmd
 
 import (
-	"dwm/log"
-	"dwm/module"
-	"dwm/util"
+	"dbt/log"
+	"dbt/module"
+	"dbt/util"
 
 	"github.com/spf13/cobra"
 )
