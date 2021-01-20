@@ -95,7 +95,7 @@ func runSync(cmd *cobra.Command, args []string) {
 			// Check that the module fulfilling dependency actually comes from source required
 			// by the dependency. I.e., that the dependency module is not a different module that
 			// just happens to have the same name.
-			if !depMod.HasRemote(dep.URL) {
+			if !depMod.HasOrigin(dep.URL) {
 				log.Warning("Module origin does not match dependency URL '%s'.\n", dep.URL)
 			}
 

@@ -55,16 +55,18 @@ func (m GitModule) IsDirty() bool {
 	return !status.IsClean()
 }
 
-// HasRemote returns whether the underlying repository has a remote matching `url`.
-func (m GitModule) HasRemote(url string) bool {
+// HasOrigin returns whether the underlying repository has a remote called origin that matches `url`.
+func (m GitModule) HasOrigin(url string) bool {
 	remotes, err := m.repo.Remotes()
 	if err != nil {
 		log.Error("Failed to get repo remotes: %s.\n", err)
 	}
 	for _, remote := range remotes {
-		for _, remoteURL := range remote.Config().URLs {
-			if remoteURL == url {
-				return true
+		if remote.Config().Name == "origin" {
+			for _, remoteURL := range remote.Config().URLs {
+				if remoteURL == url {
+					return true
+				}
 			}
 		}
 	}

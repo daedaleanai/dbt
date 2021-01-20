@@ -22,7 +22,7 @@ type Module interface {
 	Path() string
 	Name() string
 	IsDirty() bool
-	HasRemote(string) bool
+	HasOrigin(string) bool
 	HasVersionCheckedOut(version string) bool
 	CheckoutVersion(version string)
 }
@@ -40,8 +40,8 @@ func OpenModule(modulePath string) Module {
 		return GitModule{modulePath, repo}
 	}
 
-	if util.FileExists(path.Join(modulePath, tarOriginFileName)) {
-		log.Debug("Found '%s' file. Expecting this to be a TarModule.\n", tarOriginFileName)
+	if util.FileExists(path.Join(modulePath, tarMetadataFileName)) {
+		log.Debug("Found '%s' file. Expecting this to be a TarModule.\n", tarMetadataFileName)
 		return TarModule{modulePath}
 	}
 

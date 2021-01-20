@@ -10,10 +10,16 @@ import (
 	"net/http"
 	"os"
 	"path"
+
+	"gopkg.in/yaml.v2"
 )
 
-const tarOriginFileName = ".origin"
+const tarMetadataFileName = ".metadata"
 const tarDefaultVersion = "master"
+
+type metadataFile struct {
+	Origin string
+}
 
 // TarModule is a module backed by a tar.gz archive.
 // TarModules only have a single "master" version.
@@ -23,7 +29,7 @@ type TarModule struct {
 
 // CreateTarModule creates a new TarModule in the given `modulePath` by downloading
 // and extracting the TAR archive reference by `url`. The origin of the module
-// (i.e., the download url) is stored in a ".origin" file inside the module directory.
+// (i.e., the download url) is stored in a ".metadata" file inside the module directory.
 func CreateTarModule(modulePath, url string) Module {
 	log.Log("Downloading '%s'.\n", url)
 	log.Spinner.Start()
@@ -98,9 +104,14 @@ func CreateTarModule(modulePath, url string) Module {
 		}
 	}
 
-	err = ioutil.WriteFile(path.Join(modulePath, tarOriginFileName), []byte(url), util.FileMode)
+	metadata := metadataFile{Origin: url}
+	data, err := yaml.Marshal(metadata)
 	if err != nil {
-		log.Error("Failed to write '%s' file: %s.\n", tarOriginFileName, err)
+		log.Error("Failed to marshal metadata: %s.\n", tarMetadataFileName, err)
+	}
+	err = ioutil.WriteFile(path.Join(modulePath, tarMetadataFileName), data, util.FileMode)
+	if err != nil {
+		log.Error("Failed to write '%s' file: %s.\n", tarMetadataFileName, err)
 	}
 
 	return TarModule{modulePath}
@@ -122,16 +133,21 @@ func (m TarModule) IsDirty() bool {
 	return false
 }
 
-// HasRemote returns whether the origin of the module matches `url` by
-// checking the ".origin" file inside the module directory.
-func (m TarModule) HasRemote(url string) bool {
-	data, err := ioutil.ReadFile(path.Join(m.path, tarOriginFileName))
+// HasOrigin returns whether the origin of the module matches `url` by
+// checking the ".metadata" file inside the module directory.
+func (m TarModule) HasOrigin(url string) bool {
+	data, err := ioutil.ReadFile(path.Join(m.path, tarMetadataFileName))
 	if err != nil {
-		log.Error("Failed to open '%s' file: %s.\n", tarOriginFileName, err)
+		log.Error("Failed to read '%s' file: %s.\n", tarMetadataFileName, err)
 	}
-	origin := string(data)
-	log.Debug("Module origin is '%s'.\n", origin)
-	return origin == url
+
+	var metadata metadataFile
+	err = yaml.Unmarshal(data, &metadata)
+	if err != nil {
+		log.Error("Failed to unmarshal metadata: %s.\n", err)
+	}
+	log.Debug("Module origin is '%s'.\n", metadata.Origin)
+	return metadata.Origin == url
 }
 
 // HasVersionCheckedOut returns whether the module's current version matched `version`.
