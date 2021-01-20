@@ -22,10 +22,7 @@ func init() {
 }
 
 func runRemove(cmd *cobra.Command, args []string) {
-	moduleRoot, err := util.GetModuleRoot()
-	if err != nil {
-		log.Error("Could not identify module root directory. Make sure you run this command inside a module: %s.\n", err)
-	}
+	moduleRoot := util.GetModuleRoot()
 	log.Log("Current module is '%s'.\n", moduleRoot)
 
 	deps := module.ReadModuleFile(moduleRoot)
