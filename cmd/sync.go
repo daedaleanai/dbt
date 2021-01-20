@@ -67,7 +67,7 @@ func runSync(cmd *cobra.Command, args []string) {
 		queue = queue[1:]
 
 		log.IndentationLevel = 0
-		log.Log("Processing module '%s'.\n", mod.Name())
+		log.Log("\nProcessing module '%s'.\n", mod.Name())
 		log.IndentationLevel = 1
 
 		deps := module.GetModuleDependencies(mod.Path())
@@ -126,9 +126,9 @@ func runSync(cmd *cobra.Command, args []string) {
 				log.Error("Failed to check out required module version '%s'.\n", dep.Version)
 			}
 		}
-
-		log.Log("\n")
 	}
 
+	log.IndentationLevel = 0
+	log.Log("\n")
 	log.Success("Done.\n")
 }
