@@ -100,7 +100,7 @@ func CreateTarModule(modulePath, url string) Module {
 
 	err = ioutil.WriteFile(path.Join(modulePath, tarOriginFileName), []byte(url), util.FileMode)
 	if err != nil {
-		log.Error("Failed to write .origin file: %s.\n", err)
+		log.Error("Failed to write '%s' file: %s.\n", tarOriginFileName, err)
 	}
 
 	return TarModule{modulePath}
@@ -127,7 +127,7 @@ func (m TarModule) IsDirty() bool {
 func (m TarModule) HasRemote(url string) bool {
 	data, err := ioutil.ReadFile(path.Join(m.path, tarOriginFileName))
 	if err != nil {
-		log.Error("Failed to open .origin file: %s.\n", err)
+		log.Error("Failed to open '%s' file: %s.\n", tarOriginFileName, err)
 	}
 	origin := string(data)
 	log.Debug("Module origin is '%s'.\n", origin)

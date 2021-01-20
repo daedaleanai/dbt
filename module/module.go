@@ -41,7 +41,7 @@ func OpenModule(modulePath string) Module {
 	}
 
 	if util.FileExists(path.Join(modulePath, tarOriginFileName)) {
-		log.Debug("Found '.origin' file. Expecting this to be a TarModule.\n")
+		log.Debug("Found '%s' file. Expecting this to be a TarModule.\n", tarOriginFileName)
 		return TarModule{modulePath}
 	}
 
@@ -113,12 +113,12 @@ func SetupModule(mod Module) {
 func GetModuleDependencies(modulePath string) []Dependency {
 	moduleFilePath := path.Join(modulePath, util.ModuleFileName)
 	if !util.FileExists(moduleFilePath) {
-		log.Warning("Module has no MODULE file.\n")
+		log.Warning("Module has no %s file.\n", util.ModuleFileName)
 		return []Dependency{}
 	}
 	deps, err := ReadModuleFile(moduleFilePath)
 	if err != nil {
-		log.Error("Failed to read MODULE file: %s.\n", err)
+		log.Error("Failed to read %s file: %s.\n", util.ModuleFileName, err)
 	}
 	return deps
 }

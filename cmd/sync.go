@@ -40,14 +40,14 @@ func runSync(cmd *cobra.Command, args []string) {
 	rootModule := module.OpenModule(workspaceRoot)
 	module.SetupModule(rootModule)
 
-	// Create the DEPS subdirectory and create a symlink to the top-level module.
+	// Create the DEPS/ subdirectory and create a symlink to the top-level module.
 	rootModuleSymlink := path.Join(workspaceRoot, util.DepsDirName, rootModule.Name())
 	if !util.DirExists(rootModuleSymlink) {
-		log.Debug("Creating symlink for the top-level module: 'DEPS/%s' -> '%s'.\n", rootModule.Name(), workspaceRoot)
+		log.Debug("Creating symlink for the top-level module: '%s/%s' -> '%s'.\n", util.DepsDirName, rootModule.Name(), workspaceRoot)
 
 		err = os.MkdirAll(path.Dir(rootModuleSymlink), util.DirMode)
 		if err != nil {
-			log.Error("Failed to create DEPS/ directory: %s.\n", err)
+			log.Error("Failed to create %s/ directory: %s.\n", util.DepsDirName, err)
 		}
 		err = os.Symlink("..", rootModuleSymlink)
 		if err != nil {
