@@ -33,8 +33,9 @@ func DirExists(dir string) bool {
 func getModuleRoot(p string) (string, error) {
 	for {
 		moduleFilePath := path.Join(p, ModuleFileName)
+		gitDirPath := path.Join(p, ".git")
 		parentDirName := path.Base(path.Dir(p))
-		if FileExists(moduleFilePath) || parentDirName == DepsDirName {
+		if FileExists(moduleFilePath) || parentDirName == DepsDirName || DirExists(gitDirPath) {
 			return p, nil
 		}
 		if p == "/" {
