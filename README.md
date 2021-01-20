@@ -1,2 +1,1 @@
-# dwm
-Daedalean Workspace Manager
+# Daedalean Build Tool
