@@ -1,4 +1,4 @@
-module dwm
+module dbt
 
 go 1.13
 

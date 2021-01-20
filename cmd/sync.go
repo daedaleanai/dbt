@@ -1,9 +1,9 @@
 package cmd
 
 import (
-	"dwm/log"
-	"dwm/module"
-	"dwm/util"
+	"dbt/log"
+	"dbt/module"
+	"dbt/util"
 	"os"
 	"path"
 
@@ -16,8 +16,7 @@ var syncCmd = &cobra.Command{
 	Use:   "sync",
 	Short: "Recursively clones and updates modules to satisfy all dependencies.",
 	Long: `Recursively clones and updates modules to satisfy the dependencies
-declared in the MODULE files of each module, starting from the top-level MODULE file.
-`,
+declared in the MODULE files of each module, starting from the top-level MODULE file.`,
 	Run: runSync,
 }
 

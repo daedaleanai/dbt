@@ -2,8 +2,8 @@ package module
 
 import (
 	"bytes"
-	"dwm/log"
-	"dwm/util"
+	"dbt/log"
+	"dbt/util"
 	"io/ioutil"
 	"os/exec"
 	"path"

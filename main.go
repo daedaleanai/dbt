@@ -1,6 +1,6 @@
 package main
 
-import "dwm/cmd"
+import "dbt/cmd"
 
 func main() {
 	cmd.Execute()

@@ -1,18 +1,18 @@
 package cmd
 
 import (
-	"dwm/log"
+	"dbt/log"
 	"os"
 
 	"github.com/spf13/cobra"
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "dwm",
-	Short: "The Daedalean Workspace Manager (dwm)",
-	Long: `The Daedalean Workspace Manager (dwm) helps setting up workspaces consisting
-of multiple modules (git repositories) and managing dependencies between modules.
-`,
+	Use:   "dbt",
+	Short: "The Daedalean Build Tool (dbt)",
+	Long: `The Daedalean Build Tool (dbt) helps setting up workspaces consisting
+of multiple modules (git repositories), managing dependencies between modules, and
+building build targets defined in those modules.`,
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.

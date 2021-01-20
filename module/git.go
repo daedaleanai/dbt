@@ -1,7 +1,7 @@
 package module
 
 import (
-	"dwm/log"
+	"dbt/log"
 	"path"
 
 	"github.com/go-git/go-git/v5"

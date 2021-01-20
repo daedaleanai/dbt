@@ -3,8 +3,8 @@ package module
 import (
 	"archive/tar"
 	"compress/gzip"
-	"dwm/log"
-	"dwm/util"
+	"dbt/log"
+	"dbt/util"
 	"io"
 	"io/ioutil"
 	"net/http"
