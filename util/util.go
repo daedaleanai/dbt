@@ -1,7 +1,7 @@
 package util
 
 import (
-	"dwm/log"
+	"dbt/log"
 	"fmt"
 	"os"
 	"path"
