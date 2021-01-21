@@ -165,3 +165,8 @@ func (m TarModule) CheckoutVersion(version string) {
 	}
 	log.Error("Failed to checkout version '%s': cannot change version of TarModule.\n", version)
 }
+
+// Fetch does nothing on TarModules and reports that no changes have been fetched.
+func (m TarModule) Fetch() bool {
+	return false
+}
