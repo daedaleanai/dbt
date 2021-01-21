@@ -18,7 +18,7 @@ If the MODULE file does not have an entry for the dependency a working is printe
 }
 
 func init() {
-	rootCmd.AddCommand(removeCmd)
+	depCmd.AddCommand(removeCmd)
 }
 
 func runRemove(cmd *cobra.Command, args []string) {

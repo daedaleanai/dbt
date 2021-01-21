@@ -18,7 +18,7 @@ If the MODULE file already has an entry for the dependency, the version of the e
 }
 
 func init() {
-	rootCmd.AddCommand(addCmd)
+	depCmd.AddCommand(addCmd)
 }
 
 func runAdd(cmd *cobra.Command, args []string) {
