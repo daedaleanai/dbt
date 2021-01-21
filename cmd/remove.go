@@ -34,6 +34,7 @@ func runRemove(cmd *cobra.Command, args []string) {
 	var found = false
 	for idx, dep := range deps {
 		if dep.ModuleName() == oldDep || dep.URL == oldDep {
+			oldDep = dep.ModuleName()
 			deps = append(deps[:idx], deps[idx+1:]...)
 			found = true
 		}

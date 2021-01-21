@@ -125,7 +125,7 @@ type Dependency struct {
 func (d Dependency) ModuleName() string {
 	match := dependencyURLRegexp.FindStringSubmatch(d.URL)
 	if len(match) < 2 {
-		log.Error("Failed to parse dependency URL '%s': must match regex '%s'\n", d.URL, dependencyURLRegexp.String())
+		log.Error("Failed to parse dependency URL '%s': must be a valid URL to a Git repository or .tar.gz archive.\n", d.URL)
 	}
 	return match[1]
 }
