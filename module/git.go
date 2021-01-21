@@ -19,11 +19,10 @@ type GitModule struct {
 func CreateGitModule(modulePath, url string) Module {
 	log.Log("Cloning '%s'.\n", url)
 	log.Spinner.Start()
-	defer log.Spinner.Stop()
-
 	repo, err := git.PlainClone(modulePath, false, &git.CloneOptions{
 		URL: url,
 	})
+	log.Spinner.Stop()
 	if err != nil {
 		log.Error("Failed to clone GitModule: %s.\n", err)
 	}
@@ -57,20 +56,11 @@ func (m GitModule) IsDirty() bool {
 
 // HasOrigin returns whether the underlying repository has a remote called origin that matches `url`.
 func (m GitModule) HasOrigin(url string) bool {
-	remotes, err := m.repo.Remotes()
-	if err != nil {
-		log.Error("Failed to get repo remotes: %s.\n", err)
-	}
-	for _, remote := range remotes {
-		if remote.Config().Name == "origin" {
-			for _, remoteURL := range remote.Config().URLs {
-				if remoteURL == url {
-					return true
-				}
-			}
+	for _, originURL := range m.origin().Config().URLs {
+		if originURL == url {
+			return true
 		}
 	}
-
 	return false
 }
 
@@ -119,4 +109,43 @@ func (m GitModule) CheckoutVersion(version string) {
 	if err != nil {
 		log.Error("Failed to checkout version '%s': %s.\n", hash.String(), err)
 	}
+}
+
+// Fetch fetches changes from the 'origin' remote and reports whether any updates have bee fetched.
+func (m GitModule) Fetch() bool {
+	if m.IsDirty() {
+		// If the module has uncommited changes, it does not match any version.
+		log.Warning("The module has uncommited changes. Not pulling any changes.\n")
+		return false
+	}
+
+	origin := m.origin()
+	log.Spinner.Start()
+	err := origin.Fetch(&git.FetchOptions{
+		Tags: git.AllTags,
+	})
+	log.Spinner.Stop()
+
+	if err == nil {
+		return true
+	}
+	if err != git.NoErrAlreadyUpToDate {
+		log.Error("Failed to fetch changes: %s.\n", err)
+	}
+	return false
+}
+
+func (m GitModule) origin() *git.Remote {
+	remotes, err := m.repo.Remotes()
+	if err != nil {
+		log.Error("Failed to get repository remotes: %s.\n", err)
+	}
+	for _, remote := range remotes {
+		if remote.Config().Name == "origin" {
+			return remote
+		}
+	}
+
+	log.Error("Failed to get 'origin' remote: repository has no such remote.\n")
+	return nil
 }
