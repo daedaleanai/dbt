@@ -25,7 +25,7 @@ type Module interface {
 	HasOrigin(string) bool
 	HasVersionCheckedOut(version string) bool
 	CheckoutVersion(version string)
-	Fetch()
+	Fetch() bool
 	CheckedOutVersions() []string
 }
 
