@@ -30,10 +30,7 @@ func init() {
 }
 
 func runSync(cmd *cobra.Command, args []string) {
-	workspaceRoot, err := util.GetWorkspaceRoot()
-	if err != nil {
-		log.Error("Could not identify workspace root directory. Make sure you run this command inside a workspace: %s.\n", err)
-	}
+	workspaceRoot := util.GetWorkspaceRoot()
 	log.Log("Current workspace is '%s'.\n", workspaceRoot)
 
 	// The top-level module must already exist and will never be cloned or downloaded by the tool.
@@ -45,7 +42,7 @@ func runSync(cmd *cobra.Command, args []string) {
 	if !util.DirExists(rootModuleSymlink) {
 		log.Debug("Creating symlink for the top-level module: '%s/%s' -> '%s'.\n", util.DepsDirName, rootModule.Name(), workspaceRoot)
 
-		err = os.MkdirAll(path.Dir(rootModuleSymlink), util.DirMode)
+		err := os.MkdirAll(path.Dir(rootModuleSymlink), util.DirMode)
 		if err != nil {
 			log.Error("Failed to create %s/ directory: %s.\n", util.DepsDirName, err)
 		}

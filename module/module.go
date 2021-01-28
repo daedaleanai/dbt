@@ -26,6 +26,7 @@ type Module interface {
 	HasVersionCheckedOut(version string) bool
 	CheckoutVersion(version string)
 	Fetch() bool
+	CheckedOutVersions() []string
 }
 
 // OpenModule opens a module checked out on disk.

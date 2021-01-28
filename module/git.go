@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/go-git/go-git/v5/plumbing/object"
 )
 
 // GitModule is a module backed by a git repository.
@@ -76,7 +77,8 @@ func (m GitModule) HasVersionCheckedOut(version string) bool {
 	// before comparing it to HEAD.
 	hash, err := m.repo.ResolveRevision(plumbing.Revision(version))
 	if err != nil {
-		log.Error("Failed to resolve revision '%s': %s.\n", version, err)
+		log.Debug("Failed to resolve revision '%s': %s.\n", version, err)
+		return false
 	}
 	log.Debug("Version '%s' was resolved to commit hash '%s'.\n", version, hash.String())
 
@@ -148,4 +150,35 @@ func (m GitModule) origin() *git.Remote {
 
 	log.Error("Failed to get 'origin' remote: repository has no such remote.\n")
 	return nil
+}
+
+// CheckedOutVersions returns all currently checked out versions.
+// This includes the HEAD commit hash and all annotated tags that point to HEAD.
+func (m GitModule) CheckedOutVersions() []string {
+	if m.IsDirty() {
+		return []string{}
+	}
+
+	head := m.head().Hash()
+	versions := []string{head.String()}
+
+	tags, err := m.repo.TagObjects()
+	if err != nil {
+		log.Error("Failed to read tags: %s.\n", err)
+	}
+	tags.ForEach(func(tag *object.Tag) error {
+		if tag.Target == head {
+			versions = append(versions, tag.Name)
+		}
+		return nil
+	})
+	return versions
+}
+
+func (m GitModule) head() *plumbing.Reference {
+	head, err := m.repo.Head()
+	if err != nil {
+		log.Error("Failed to get repo HEAD: %s.\n", err)
+	}
+	return head
 }

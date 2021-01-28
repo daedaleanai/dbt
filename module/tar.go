@@ -170,3 +170,9 @@ func (m TarModule) CheckoutVersion(version string) {
 func (m TarModule) Fetch() bool {
 	return false
 }
+
+// CheckedOutVersions returns all currently checked ot versions.
+// For TarModules this is always the default version.
+func (m TarModule) CheckedOutVersions() []string {
+	return []string{tarDefaultVersion}
+}

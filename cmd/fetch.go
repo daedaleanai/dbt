@@ -23,10 +23,7 @@ func init() {
 }
 
 func runFetch(cmd *cobra.Command, args []string) {
-	workspaceRoot, err := util.GetWorkspaceRoot()
-	if err != nil {
-		log.Error("Could not identify workspace root directory. Make sure you run this command inside a workspace: %s.\n", err)
-	}
+	workspaceRoot := util.GetWorkspaceRoot()
 	log.Log("Current workspace is '%s'.\n", workspaceRoot)
 
 	depsDir := path.Join(workspaceRoot, util.DepsDirName)
