@@ -75,8 +75,14 @@ func runStatus(cmd *cobra.Command, args []string) {
 				continue
 			}
 
+			if depMod.IsDirty() {
+				log.Error("Dependency module has uncommited changes.\n")
+				continue
+			}
+
 			if !depMod.HasVersionCheckedOut(dep.Version) {
-				log.Error("Dependency module version does not match the version required by the dependency.\n")
+				versions := depMod.CheckedOutVersions()
+				log.Error("Dependency module version does not match the required version. Current versions are: '%s'.\n", strings.Join(versions, "', '"))
 				continue
 			}
 
