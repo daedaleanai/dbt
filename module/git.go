@@ -57,23 +57,9 @@ func (m GitModule) IsDirty() bool {
 
 // HasOrigin returns whether the underlying repository has a remote called origin that matches `url`.
 func (m GitModule) HasOrigin(url string) bool {
-<<<<<<< HEAD
 	for _, originURL := range m.origin().Config().URLs {
 		if originURL == url {
 			return true
-=======
-	remotes, err := m.repo.Remotes()
-	if err != nil {
-		log.Fatal("Failed to get repo remotes: %s.\n", err)
-	}
-	for _, remote := range remotes {
-		if remote.Config().Name == "origin" {
-			for _, remoteURL := range remote.Config().URLs {
-				if remoteURL == url {
-					return true
-				}
-			}
->>>>>>> added status command
 		}
 	}
 	return false
@@ -181,37 +167,6 @@ func (m GitModule) CheckedOutVersions() []string {
 		log.Fatal("Failed to read tags: %s.\n", err)
 	}
 	tags.ForEach(func(tag *object.Tag) error {
-		if tag.Target == head {
-			versions = append(versions, tag.Name)
-		}
-		return nil
-	})
-	return versions
-}
-
-func (m GitModule) head() *plumbing.Reference {
-	head, err := m.repo.Head()
-	if err != nil {
-		log.Fatal("Failed to get repo HEAD: %s.\n", err)
-	}
-	return head
-}
-
-// CheckedOutVersions returns all currently checked out versions.
-// This includes the HEAD commit hash and all annotated tags the point to HEAD.
-func (m GitModule) CheckedOutVersions() []string {
-	if m.IsDirty() {
-		return []string{}
-	}
-
-	head := m.head().Hash()
-	versions := []string{head.String()}
-
-	tags, err := m.repo.TagObjects()
-	if err != nil {
-
-	}
-	err = tags.ForEach(func(tag *object.Tag) error {
 		if tag.Target == head {
 			versions = append(versions, tag.Name)
 		}
