@@ -153,7 +153,7 @@ func (m GitModule) origin() *git.Remote {
 }
 
 // CheckedOutVersions returns all currently checked out versions.
-// This includes the HEAD commit hash and all annotated tags the point to HEAD.
+// This includes the HEAD commit hash and all annotated tags that point to HEAD.
 func (m GitModule) CheckedOutVersions() []string {
 	if m.IsDirty() {
 		return []string{}
@@ -164,9 +164,9 @@ func (m GitModule) CheckedOutVersions() []string {
 
 	tags, err := m.repo.TagObjects()
 	if err != nil {
-
+		log.Error("Failed to read tags: %s.\n", err)
 	}
-	err = tags.ForEach(func(tag *object.Tag) error {
+	tags.ForEach(func(tag *object.Tag) error {
 		if tag.Target == head {
 			versions = append(versions, tag.Name)
 		}

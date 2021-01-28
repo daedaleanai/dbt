@@ -78,8 +78,10 @@ func runUpdate(cmd *cobra.Command, args []string) {
 		}
 
 		versions := depMod.CheckedOutVersions()
+		// This is save, since depMod.CheckedOutVersions() always returns at least one version.
+		// For GitModules this is the HEAD commit, for TarModules this is 'master'.
 		newVersion := versions[len(versions)-1]
-		if len(versions) > 1 {
+		if len(versions) > 2 {
 			log.Debug("Dependency module has multiple versions: '%s'. Using '%s'.\n", strings.Join(versions, "', '"), newVersion)
 		}
 		log.Success("Changing dependency version from '%s' to '%s'.\n", dep.Version, newVersion)
