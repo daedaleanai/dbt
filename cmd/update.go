@@ -57,7 +57,7 @@ func runUpdate(cmd *cobra.Command, args []string) {
 
 		depModulePath := path.Join(depsDir, dep.ModuleName())
 		if !util.DirExists(depModulePath) {
-			log.Warning("Dependency module does not exist. Run 'dwm sync' to create it. Not updating dependency version.\n")
+			log.Warning("Dependency module does not exist. Run 'dbt sync' to create it. Not updating dependency version.\n")
 			continue
 		}
 

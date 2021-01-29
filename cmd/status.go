@@ -5,7 +5,6 @@ import (
 	"dbt/module"
 	"dbt/util"
 	"io/ioutil"
-	"os"
 	"path"
 	"strings"
 
@@ -66,7 +65,7 @@ func runStatus(cmd *cobra.Command, args []string) {
 
 			depMod, exists := modules[dep.ModuleName()]
 			if !exists {
-				log.Error("Dependency module does not exist. Try running 'dwm sync'.\n")
+				log.Error("Dependency module does not exist. Try running 'dbt sync'.\n")
 				continue
 			}
 
@@ -93,8 +92,7 @@ func runStatus(cmd *cobra.Command, args []string) {
 	log.IndentationLevel = 0
 	log.Log("\n")
 	if log.ErrorOccured() {
-		log.Error("Errors found while checking workspace status.\n")
-		os.Exit(1)
+		log.Fatal("Errors found while checking workspace status.\n")
 	}
 	log.Success("Done.\n")
 }
