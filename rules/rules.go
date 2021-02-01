@@ -15,6 +15,7 @@ import (
 	"_/builtin/core"
 )
 
+// Toolchain represents a C++ toolchain.
 type Toolchain struct {
 	Cc string
 	Ar string
@@ -25,6 +26,7 @@ var defaultToolchain = Toolchain{
 	Ar: "ar",
 }
 
+// Flags or compiling and linking C++ targets.
 type Flags struct {
 	Includes       []string
 	SystemIncludes []string
@@ -32,7 +34,7 @@ type Flags struct {
 	LdFlags        []string
 }
 
-func (flags *Flags) CompileFlags() string {
+func (flags *Flags) compileFlags() string {
 	cflags := []string{"-c"}
 	cflags = append(cflags, flags.CFlags...)
 	for _, include := range flags.Includes {
@@ -44,23 +46,26 @@ func (flags *Flags) CompileFlags() string {
 	return strings.Join(cflags, " ")
 }
 
+// ObjectFile compiles a single C++ source file.
 type ObjectFile struct {
 	Src       core.File
 	Flags     Flags
 	Toolchain *Toolchain
 }
 
+// Out provides the name of the output created by ObjectFile.
 func (obj ObjectFile) Out() core.OutFile {
 	return obj.Src.WithExt("o")
 }
 
-func (obj ObjectFile) BuildSteps(target string) core.BuildSteps {
+// BuildSteps provides the steps to produce an ObjectFile.
+func (obj ObjectFile) BuildSteps() []core.BuildStep {
 	if obj.Toolchain == nil {
 		obj.Toolchain = &defaultToolchain
 	}
 
-	cmd := fmt.Sprintf("%s %s -o %s %s", obj.Toolchain.Cc, obj.Flags.CompileFlags(), obj.Out(), obj.Src)
-	return core.BuildSteps{{
+	cmd := fmt.Sprintf("%s %s -o %s %s", obj.Toolchain.Cc, obj.Flags.compileFlags(), obj.Out(), obj.Src)
+	return []core.BuildStep{{
 		Out:   obj.Out(),
 		In:    obj.Src,
 		Cmd:   cmd,
@@ -69,6 +74,7 @@ func (obj ObjectFile) BuildSteps(target string) core.BuildSteps {
 	}}
 }
 
+// Library builds and links a C++ library.
 type Library struct {
 	Out       core.OutFile
 	Srcs      core.Files
@@ -76,14 +82,15 @@ type Library struct {
 	Toolchain *Toolchain
 }
 
-func (lib Library) BuildSteps(target string) core.BuildSteps {
-	core.Assert(!lib.Out.Empty(), "'Out' is missing, but required", target)
+// BuildSteps provides the steps to build a Library.
+func (lib Library) BuildSteps() []core.BuildStep {
+	core.Assert(!lib.Out.Empty(), "'Out' is missing, but required")
 
 	if lib.Toolchain == nil {
 		lib.Toolchain = &defaultToolchain
 	}
 
-	var steps = core.BuildSteps{}
+	var steps = []core.BuildStep{}
 	var objs = core.Files{}
 
 	for _, src := range lib.Srcs {
@@ -92,7 +99,7 @@ func (lib Library) BuildSteps(target string) core.BuildSteps {
 			Toolchain: lib.Toolchain,
 		}
 		objs = append(objs, obj.Out())
-		steps = append(steps, obj.BuildSteps(target)...)
+		steps = append(steps, obj.BuildSteps()...)
 	}
 
 	cmd := fmt.Sprintf("%s rv %s %s > /dev/null", lib.Toolchain.Ar, lib.Out, objs)
@@ -105,12 +112,6 @@ func (lib Library) BuildSteps(target string) core.BuildSteps {
 	}
 
 	return append(steps, linkStep)
-}
-
-type Binary struct {
-	Out  core.OutFile
-	Srcs core.Files
-	Deps []Library
 }
 `,
 
@@ -132,6 +133,7 @@ func buildDir() string {
 	return os.Args[2]
 }
 
+// File represents an on-disk file that is either an input to or an output from a BuildStep (or both).
 type File interface {
 	Empty() bool
 	Path() string
@@ -140,6 +142,7 @@ type File interface {
 	WithSuffix(suffix string) OutFile
 }
 
+// Files represents a group of Files.
 type Files []File
 
 func (fs Files) String() string {
@@ -154,10 +157,12 @@ type files interface {
 	Files() Files
 }
 
+// Files implements the files interface for a group of files.
 func (fs Files) Files() Files {
 	return fs
 }
 
+// Flatten flattens a list of individual files or groups of files.
 func Flatten(fss ...files) Files {
 	files := Files{}
 	for _, fs := range fss {
@@ -166,26 +171,32 @@ func Flatten(fss ...files) Files {
 	return files
 }
 
+// InFile represents a file relative to the source directory.
 type InFile struct {
 	relPath string
 }
 
+// Empty returns whether the file path is empty.
 func (f InFile) Empty() bool {
 	return f.relPath == ""
 }
 
+// Path returns the file's absolute path.
 func (f InFile) Path() string {
 	return path.Join(sourceDir(), f.relPath)
 }
 
+// RelPath returns the file's path relative to the source directory.
 func (f InFile) RelPath() string {
 	return f.relPath
 }
 
+// WithExt creates an OutFile with the same relative path and the given file extension.
 func (f InFile) WithExt(ext string) OutFile {
 	return OutFile{f.relPath}.WithExt(ext)
 }
 
+// WithSuffix creates an OutFile with the same relative path and the given suffix.
 func (f InFile) WithSuffix(suffix string) OutFile {
 	return OutFile{f.relPath}.WithSuffix(suffix)
 }
@@ -194,28 +205,34 @@ func (f InFile) String() string {
 	return fmt.Sprintf("\"%s\"", f.Path())
 }
 
+// InFile represents a file relative to the build directory.
 type OutFile struct {
 	relPath string
 }
 
+// Empty returns whether the file path is empty.
 func (f OutFile) Empty() bool {
 	return f.relPath == ""
 }
 
+// Path returns the file's absolute path.
 func (f OutFile) Path() string {
 	return path.Join(buildDir(), f.relPath)
 }
 
+// RelPath returns the file's path relative to the build directory.
 func (f OutFile) RelPath() string {
 	return f.relPath
 }
 
+// WithExt creates an OutFile with the same relative path and the given file extension.
 func (f OutFile) WithExt(ext string) OutFile {
 	oldExt := path.Ext(f.relPath)
 	relPath := fmt.Sprintf("%s.%s", strings.TrimSuffix(f.relPath, oldExt), ext)
 	return OutFile{relPath}
 }
 
+// WithSuffix creates an OutFile with the same relative path and the given suffix.
 func (f OutFile) WithSuffix(suffix string) OutFile {
 	return OutFile{f.relPath + suffix}
 }
@@ -224,12 +241,14 @@ func (f OutFile) String() string {
 	return fmt.Sprintf("\"%s\"", f.Path())
 }
 
+// NewInFile creates an InFile for a file relativ to the package directory of "pkg".
 func NewInFile(name string, pkg interface{}) InFile {
 	pkgPath := reflect.TypeOf(pkg).PkgPath()
 	p := path.Join(strings.TrimPrefix(pkgPath, "_/"), name)
 	return InFile{p}
 }
 
+// NewOutFile creates an OutFile for a file relativ to the package directory of "pkg".
 func NewOutFile(name string, pkg interface{}) OutFile {
 	pkgPath := reflect.TypeOf(pkg).PkgPath()
 	p := path.Join(strings.TrimPrefix(pkgPath, "_/"), name)
@@ -244,6 +263,8 @@ import (
 	"strings"
 )
 
+// BuildStep represents one build step (i.e., one build command).
+// Each BuildStep produces "Out" from "Ins" and "In" by running "Cmd".
 type BuildStep struct {
 	Out   OutFile
 	In    File
@@ -253,14 +274,13 @@ type BuildStep struct {
 	Alias string
 }
 
-type BuildSteps []BuildStep
-
 var nextRuleId = 1
 
 func ninjaEscape(s string) string {
 	return strings.ReplaceAll(s, " ", "$ ")
 }
 
+// Print outputs a Ninja build rule for the BuildStep.
 func (step BuildStep) Print() {
 	ins := []string{}
 	for _, in := range step.Ins {
@@ -298,6 +318,10 @@ import (
 	"strings"
 )
 
+// CurrentTarget holds the name of the currently build target.
+var CurrentTarget string
+
+// Flag provides values of build flags.
 func Flag(name string) string {
 	prefix := fmt.Sprintf("--%s=", name)
 	for _, arg := range os.Args[3:] {
@@ -308,9 +332,10 @@ func Flag(name string) string {
 	return ""
 }
 
-func Assert(cond bool, msg string, target string) {
+// Assert can be used in build rules to abort buildfile generation with an error message.
+func Assert(cond bool, msg string) {
 	if !cond {
-		fmt.Fprintf(os.Stderr, "Assertion failed while processing target '%s': %s.\n", target, msg)
+		fmt.Fprintf(os.Stderr, "Assertion failed while processing target '%s': %s.\n", CurrentTarget, msg)
 		os.Exit(1)
 	}
 }

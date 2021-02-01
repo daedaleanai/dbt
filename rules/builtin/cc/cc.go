@@ -56,8 +56,8 @@ func (obj ObjectFile) BuildSteps() []core.BuildStep {
 		obj.Toolchain = &defaultToolchain
 	}
 
-	cmd := fmt.Sprintf("%s %s -o %s %s", obj.Toolchain.Cc, obj.Flags.CompileFlags(), obj.Out(), obj.Src)
-	return core.BuildSteps{{
+	cmd := fmt.Sprintf("%s %s -o %s %s", obj.Toolchain.Cc, obj.Flags.compileFlags(), obj.Out(), obj.Src)
+	return []core.BuildStep{{
 		Out:   obj.Out(),
 		In:    obj.Src,
 		Cmd:   cmd,
@@ -75,14 +75,14 @@ type Library struct {
 }
 
 // BuildSteps provides the steps to build a Library.
-func (lib Library) BuildSteps() core.BuildSteps {
-	core.Assert(!lib.Out.Empty(), "'Out' is missing, but required", target)
+func (lib Library) BuildSteps() []core.BuildStep {
+	core.Assert(!lib.Out.Empty(), "'Out' is missing, but required")
 
 	if lib.Toolchain == nil {
 		lib.Toolchain = &defaultToolchain
 	}
 
-	var steps = core.BuildSteps{}
+	var steps = []core.BuildStep{}
 	var objs = core.Files{}
 
 	for _, src := range lib.Srcs {

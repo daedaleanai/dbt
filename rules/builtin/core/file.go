@@ -124,14 +124,14 @@ func (f OutFile) String() string {
 	return fmt.Sprintf("\"%s\"", f.Path())
 }
 
-// NewInFile creates an InFile for a file relativ to the package directory of `pkg`.
+// NewInFile creates an InFile for a file relativ to the package directory of "pkg".
 func NewInFile(name string, pkg interface{}) InFile {
 	pkgPath := reflect.TypeOf(pkg).PkgPath()
 	p := path.Join(strings.TrimPrefix(pkgPath, "_/"), name)
 	return InFile{p}
 }
 
-// NewOutFile creates an OutFile for a file relativ to the package directory of `pkg`.
+// NewOutFile creates an OutFile for a file relativ to the package directory of "pkg".
 func NewOutFile(name string, pkg interface{}) OutFile {
 	pkgPath := reflect.TypeOf(pkg).PkgPath()
 	p := path.Join(strings.TrimPrefix(pkgPath, "_/"), name)

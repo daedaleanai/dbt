@@ -21,9 +21,9 @@ func Flag(name string) string {
 }
 
 // Assert can be used in build rules to abort buildfile generation with an error message.
-func Assert(cond bool, msg string, target string) {
+func Assert(cond bool, msg string) {
 	if !cond {
-		fmt.Fprintf(os.Stderr, "Assertion failed while processing target '%s': %s.\n", target, msg)
+		fmt.Fprintf(os.Stderr, "Assertion failed while processing target '%s': %s.\n", CurrentTarget, msg)
 		os.Exit(1)
 	}
 }
