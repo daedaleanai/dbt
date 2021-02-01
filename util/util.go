@@ -3,6 +3,7 @@ package util
 import (
 	"dbt/log"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path"
 )
@@ -29,6 +30,38 @@ func FileExists(file string) bool {
 func DirExists(dir string) bool {
 	stat, err := os.Stat(dir)
 	return err == nil && stat.IsDir()
+}
+
+// RemoveDir removes a directory and all of its content.
+func RemoveDir(p string) {
+	err := os.RemoveAll(p)
+	if err != nil {
+		log.Fatal("Failed to remove directory '%s': %s.\n", p, err)
+	}
+}
+
+func ReadFile(filePath string) []byte {
+	data, err := ioutil.ReadFile(filePath)
+	if err != nil {
+		log.Fatal("Failed to read file '%s': %s.\n", filePath, err)
+	}
+	return data
+}
+
+func WriteFile(filePath string, data []byte) {
+	dir := path.Dir(filePath)
+	err := os.MkdirAll(dir, DirMode)
+	if err != nil {
+		log.Fatal("Failed to create directory '%s': %s.\n", dir, err)
+	}
+	err = ioutil.WriteFile(filePath, data, FileMode)
+	if err != nil {
+		log.Fatal("Failed to write file '%s': %s.\n", filePath, err)
+	}
+}
+
+func CopyFile(sourceFile, destFile string) {
+	WriteFile(destFile, ReadFile(sourceFile))
 }
 
 func getModuleRoot(p string) (string, error) {
