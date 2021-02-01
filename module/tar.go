@@ -37,13 +37,13 @@ func CreateTarModule(modulePath, url string) Module {
 
 	response, err := http.Get(url)
 	if err != nil {
-		log.Error("Failed to download archive: %s.\n", err)
+		log.Fatal("Failed to download archive: %s.\n", err)
 	}
 	defer response.Body.Close()
 
 	tarFile, err := gzip.NewReader(response.Body)
 	if err != nil {
-		log.Error("Failed to decompress: %s.\n")
+		log.Fatal("Failed to decompress: %s.\n")
 	}
 
 	tarReader := tar.NewReader(tarFile)
@@ -55,7 +55,7 @@ func CreateTarModule(modulePath, url string) Module {
 		}
 
 		if err != nil {
-			log.Error("Failed to decompress: %s.\n")
+			log.Fatal("Failed to decompress: %s.\n")
 		}
 
 		switch header.Typeflag {
@@ -64,23 +64,23 @@ func CreateTarModule(modulePath, url string) Module {
 			log.Debug("Creating directory '%s'.\n", dirPath)
 			err := os.MkdirAll(dirPath, os.FileMode(header.Mode))
 			if err != nil {
-				log.Error("Failed to create directory while decompressing archive: %s.\n", err)
+				log.Fatal("Failed to create directory while decompressing archive: %s.\n", err)
 			}
 		case tar.TypeReg:
 			filePath := path.Join(modulePath, header.Name)
 			log.Debug("Creating file '%s'.\n", filePath)
 			file, err := os.Create(filePath)
 			if err != nil {
-				log.Error("Failed to create file while decompressing archive: %s.\n", err)
+				log.Fatal("Failed to create file while decompressing archive: %s.\n", err)
 			}
 			_, err = io.Copy(file, tarReader)
 			file.Close()
 			if err != nil {
-				log.Error("Failed to writing file while decompressing archive: %s.\n", err)
+				log.Fatal("Failed to writing file while decompressing archive: %s.\n", err)
 			}
 			err = os.Chmod(filePath, os.FileMode(header.Mode))
 			if err != nil {
-				log.Error("Failed to change filemode while decompressing archive: %s.\n", err)
+				log.Fatal("Failed to change filemode while decompressing archive: %s.\n", err)
 			}
 		case tar.TypeLink:
 			oldname := path.Join(modulePath, header.Linkname)
@@ -88,7 +88,7 @@ func CreateTarModule(modulePath, url string) Module {
 			log.Debug("Creating link from '%s' to '%s'.\n", newname, oldname)
 			err = os.Link(oldname, newname)
 			if err != nil {
-				log.Error("Failed to create link while decompressing archive: %s.\n", err)
+				log.Fatal("Failed to create link while decompressing archive: %s.\n", err)
 			}
 		case tar.TypeSymlink:
 			oldname := path.Join(modulePath, header.Linkname)
@@ -96,22 +96,22 @@ func CreateTarModule(modulePath, url string) Module {
 			log.Debug("Creating symlink from '%s' to '%s'.\n", newname, oldname)
 			err = os.Symlink(oldname, newname)
 			if err != nil {
-				log.Error("Failed to create symlink while decompressing archive: %s.\n", err)
+				log.Fatal("Failed to create symlink while decompressing archive: %s.\n", err)
 			}
 
 		default:
-			log.Error("Failed to decompress archive: unknown tar type flag %d for entry '%s'.\n", header.Typeflag, header.Name)
+			log.Fatal("Failed to decompress archive: unknown tar type flag %d for entry '%s'.\n", header.Typeflag, header.Name)
 		}
 	}
 
 	metadata := metadataFile{Origin: url}
 	data, err := yaml.Marshal(metadata)
 	if err != nil {
-		log.Error("Failed to marshal metadata: %s.\n", tarMetadataFileName, err)
+		log.Fatal("Failed to marshal metadata: %s.\n", tarMetadataFileName, err)
 	}
 	err = ioutil.WriteFile(path.Join(modulePath, tarMetadataFileName), data, util.FileMode)
 	if err != nil {
-		log.Error("Failed to write '%s' file: %s.\n", tarMetadataFileName, err)
+		log.Fatal("Failed to write '%s' file: %s.\n", tarMetadataFileName, err)
 	}
 
 	return TarModule{modulePath}
@@ -138,13 +138,13 @@ func (m TarModule) IsDirty() bool {
 func (m TarModule) HasOrigin(url string) bool {
 	data, err := ioutil.ReadFile(path.Join(m.path, tarMetadataFileName))
 	if err != nil {
-		log.Error("Failed to read '%s' file: %s.\n", tarMetadataFileName, err)
+		log.Fatal("Failed to read '%s' file: %s.\n", tarMetadataFileName, err)
 	}
 
 	var metadata metadataFile
 	err = yaml.Unmarshal(data, &metadata)
 	if err != nil {
-		log.Error("Failed to unmarshal metadata: %s.\n", err)
+		log.Fatal("Failed to unmarshal metadata: %s.\n", err)
 	}
 	log.Debug("Module origin is '%s'.\n", metadata.Origin)
 	return metadata.Origin == url
@@ -163,7 +163,7 @@ func (m TarModule) CheckoutVersion(version string) {
 	if version == tarDefaultVersion {
 		return
 	}
-	log.Error("Failed to checkout version '%s': cannot change version of TarModule.\n", version)
+	log.Fatal("Failed to checkout version '%s': cannot change version of TarModule.\n", version)
 }
 
 // Fetch does nothing on TarModules and reports that no changes have been fetched.

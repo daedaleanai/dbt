@@ -50,11 +50,11 @@ func getModuleRoot(p string) (string, error) {
 func GetModuleRoot() string {
 	workingDir, err := os.Getwd()
 	if err != nil {
-		log.Error("Could not get working directory: %s.\n", err)
+		log.Fatal("Could not get working directory: %s.\n", err)
 	}
 	moduleRoot, err := getModuleRoot(workingDir)
 	if err != nil {
-		log.Error("Could not identify module root directory. Make sure you run this command inside a module: %s.\n", err)
+		log.Fatal("Could not identify module root directory. Make sure you run this command inside a module: %s.\n", err)
 	}
 	return moduleRoot
 }
@@ -63,14 +63,14 @@ func GetModuleRoot() string {
 func GetWorkspaceRoot() string {
 	workingDir, err := os.Getwd()
 	if err != nil {
-		log.Error("Could not get working directory: %s.\n", err)
+		log.Fatal("Could not get working directory: %s.\n", err)
 	}
 
 	p := workingDir
 	for {
 		p, err = getModuleRoot(p)
 		if err != nil {
-			log.Error("Could not identify workspace root directory. Make sure you run this command inside a workspace: %s.\n", err)
+			log.Fatal("Could not identify workspace root directory. Make sure you run this command inside a workspace: %s.\n", err)
 		}
 
 		parentDirName := path.Base(path.Dir(p))

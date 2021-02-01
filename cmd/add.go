@@ -36,7 +36,7 @@ func runAdd(cmd *cobra.Command, args []string) {
 			continue
 		}
 		if dep.URL != newDep.URL {
-			log.Error("Module already has a dependency on a different module named '%s'.\n", newDep.ModuleName())
+			log.Fatal("Module already has a dependency on a different module named '%s'.\n", newDep.ModuleName())
 		}
 		if dep.Version == newDep.Version {
 			log.Success("Module already depends on module '%s', version '%s'.\n", newDep.ModuleName(), newDep.Version)

@@ -44,11 +44,11 @@ func runSync(cmd *cobra.Command, args []string) {
 
 		err := os.MkdirAll(path.Dir(rootModuleSymlink), util.DirMode)
 		if err != nil {
-			log.Error("Failed to create %s/ directory: %s.\n", util.DepsDirName, err)
+			log.Fatal("Failed to create %s/ directory: %s.\n", util.DepsDirName, err)
 		}
 		err = os.Symlink("..", rootModuleSymlink)
 		if err != nil {
-			log.Error("Failed to create symlink to top-level module: %s.\n", err)
+			log.Fatal("Failed to create symlink to top-level module: %s.\n", err)
 		}
 	}
 
@@ -120,7 +120,7 @@ func runSync(cmd *cobra.Command, args []string) {
 
 			// Verify that changing the version has worked.
 			if !depMod.HasVersionCheckedOut(dep.Version) {
-				log.Error("Failed to check out required module version '%s'.\n", dep.Version)
+				log.Fatal("Failed to check out required module version '%s'.\n", dep.Version)
 			}
 		}
 	}

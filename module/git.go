@@ -25,7 +25,7 @@ func CreateGitModule(modulePath, url string) Module {
 	})
 	log.Spinner.Stop()
 	if err != nil {
-		log.Error("Failed to clone GitModule: %s.\n", err)
+		log.Fatal("Failed to clone GitModule: %s.\n", err)
 	}
 	mod := GitModule{modulePath, repo}
 	SetupModule(mod)
@@ -46,11 +46,11 @@ func (m GitModule) Name() string {
 func (m GitModule) IsDirty() bool {
 	worktree, err := m.repo.Worktree()
 	if err != nil {
-		log.Error("Failed to get repo worktree: %s.\n", err)
+		log.Fatal("Failed to get repo worktree: %s.\n", err)
 	}
 	status, err := worktree.Status()
 	if err != nil {
-		log.Error("Failed to get repo status: %s.\n", err)
+		log.Fatal("Failed to get repo status: %s.\n", err)
 	}
 	return !status.IsClean()
 }
@@ -84,7 +84,7 @@ func (m GitModule) HasVersionCheckedOut(version string) bool {
 
 	head, err := m.repo.Head()
 	if err != nil {
-		log.Error("Failed to get repo HEAD: %s.\n", err)
+		log.Fatal("Failed to get repo HEAD: %s.\n", err)
 	}
 	log.Debug("Repo HEAD is '%s'.\n", head.Hash().String())
 
@@ -95,13 +95,13 @@ func (m GitModule) HasVersionCheckedOut(version string) bool {
 func (m GitModule) CheckoutVersion(version string) {
 	worktree, err := m.repo.Worktree()
 	if err != nil {
-		log.Error("Failed to get repo worktree: %s.\n", err)
+		log.Fatal("Failed to get repo worktree: %s.\n", err)
 	}
 
 	// Convert the version (which might be a hash, tag, branch, etc.) to a cannonical commit hash.
 	hash, err := m.repo.ResolveRevision(plumbing.Revision(version))
 	if err != nil {
-		log.Error("Failed to resolve revision '%s': %s.\n", version, err)
+		log.Fatal("Failed to resolve revision '%s': %s.\n", version, err)
 	}
 	log.Debug("Version '%s' was resolved to commit hash '%s'.\n", version, hash.String())
 
@@ -109,7 +109,7 @@ func (m GitModule) CheckoutVersion(version string) {
 		Hash: *hash,
 	})
 	if err != nil {
-		log.Error("Failed to checkout version '%s': %s.\n", hash.String(), err)
+		log.Fatal("Failed to checkout version '%s': %s.\n", hash.String(), err)
 	}
 }
 
@@ -132,7 +132,7 @@ func (m GitModule) Fetch() bool {
 		return true
 	}
 	if err != git.NoErrAlreadyUpToDate {
-		log.Error("Failed to fetch changes: %s.\n", err)
+		log.Fatal("Failed to fetch changes: %s.\n", err)
 	}
 	return false
 }
@@ -140,7 +140,7 @@ func (m GitModule) Fetch() bool {
 func (m GitModule) origin() *git.Remote {
 	remotes, err := m.repo.Remotes()
 	if err != nil {
-		log.Error("Failed to get repository remotes: %s.\n", err)
+		log.Fatal("Failed to get repository remotes: %s.\n", err)
 	}
 	for _, remote := range remotes {
 		if remote.Config().Name == "origin" {
@@ -148,7 +148,7 @@ func (m GitModule) origin() *git.Remote {
 		}
 	}
 
-	log.Error("Failed to get 'origin' remote: repository has no such remote.\n")
+	log.Fatal("Failed to get 'origin' remote: repository has no such remote.\n")
 	return nil
 }
 
@@ -164,7 +164,7 @@ func (m GitModule) CheckedOutVersions() []string {
 
 	tags, err := m.repo.TagObjects()
 	if err != nil {
-		log.Error("Failed to read tags: %s.\n", err)
+		log.Fatal("Failed to read tags: %s.\n", err)
 	}
 	tags.ForEach(func(tag *object.Tag) error {
 		if tag.Target == head {
@@ -178,7 +178,7 @@ func (m GitModule) CheckedOutVersions() []string {
 func (m GitModule) head() *plumbing.Reference {
 	head, err := m.repo.Head()
 	if err != nil {
-		log.Error("Failed to get repo HEAD: %s.\n", err)
+		log.Fatal("Failed to get repo HEAD: %s.\n", err)
 	}
 	return head
 }

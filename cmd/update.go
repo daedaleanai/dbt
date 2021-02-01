@@ -57,7 +57,7 @@ func runUpdate(cmd *cobra.Command, args []string) {
 
 		depModulePath := path.Join(depsDir, dep.ModuleName())
 		if !util.DirExists(depModulePath) {
-			log.Warning("Dependency module does not exist. Run 'dwm sync' to create it. Not updating dependency version.\n")
+			log.Warning("Dependency module does not exist. Run 'dbt sync' to create it. Not updating dependency version.\n")
 			continue
 		}
 
@@ -78,7 +78,8 @@ func runUpdate(cmd *cobra.Command, args []string) {
 		}
 
 		versions := depMod.CheckedOutVersions()
-		// This is save, since depMod.CheckedOutVersions() always returns at least one version.
+		// This is save, since depMod.CheckedOutVersions() returns at least one version
+		// if IsDirty() is false (which is checked above).
 		// For GitModules this is the HEAD commit, for TarModules this is 'master'.
 		newVersion := versions[len(versions)-1]
 		if len(versions) > 2 {

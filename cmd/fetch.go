@@ -28,12 +28,12 @@ func runFetch(cmd *cobra.Command, args []string) {
 
 	depsDir := path.Join(workspaceRoot, util.DepsDirName)
 	if !util.DirExists(depsDir) {
-		log.Warning("There is no %s/ directory in the workspace. Maybe run 'dwm sync' first.\n", util.DepsDirName)
+		log.Warning("There is no %s/ directory in the workspace. Maybe run 'dbt sync' first.\n", util.DepsDirName)
 		return
 	}
 	files, err := ioutil.ReadDir(depsDir)
 	if err != nil {
-		log.Error("Failed to read content of %s/ directory: %s.\n", util.DepsDirName, err)
+		log.Fatal("Failed to read content of %s/ directory: %s.\n", util.DepsDirName, err)
 	}
 	for _, file := range files {
 		if !file.IsDir() {
