@@ -4,8 +4,6 @@ import (
 	"dbt/log"
 	"dbt/module"
 	"dbt/util"
-	"io/ioutil"
-	"path"
 
 	"github.com/spf13/cobra"
 )
@@ -26,24 +24,11 @@ func runFetch(cmd *cobra.Command, args []string) {
 	workspaceRoot := util.GetWorkspaceRoot()
 	log.Log("Current workspace is '%s'.\n", workspaceRoot)
 
-	depsDir := path.Join(workspaceRoot, util.DepsDirName)
-	if !util.DirExists(depsDir) {
-		log.Warning("There is no %s/ directory in the workspace. Maybe run 'dbt sync' first.\n", util.DepsDirName)
-		return
-	}
-	files, err := ioutil.ReadDir(depsDir)
-	if err != nil {
-		log.Fatal("Failed to read content of %s/ directory: %s.\n", util.DepsDirName, err)
-	}
-	for _, file := range files {
-		if !file.IsDir() {
-			continue
-		}
-
+	for modName, modPath := range module.GetAllModulePaths(workspaceRoot) {
 		log.IndentationLevel = 0
-		log.Log("\nProcessing module '%s'.\n", file.Name())
+		log.Log("\nProcessing module '%s'.\n", modName)
 		log.IndentationLevel = 1
-		mod := module.OpenModule(path.Join(depsDir, file.Name()))
+		mod := module.OpenModule(modPath)
 		fetchedUpdates := mod.Fetch()
 		if fetchedUpdates {
 			log.Success("Fetched updates.\n")

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"dbt/cmd"
 	"dbt/log"
 	"dbt/util"
 	"fmt"
@@ -30,7 +31,7 @@ var Rules = map[string]string{
 func main() {
 	rules := []string{}
 
-	err := filepath.Walk("builtin/",
+	err := filepath.Walk(path.Join("..", cmd.RulesDirName),
 		func(filePath string, file os.FileInfo, err error) error {
 			if path.Ext(filePath) != ".go" {
 				return nil

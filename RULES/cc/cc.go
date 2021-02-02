@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"_/builtin/core"
+	"dbt/RULES/core"
 )
 
 // Toolchain represents a C++ toolchain.

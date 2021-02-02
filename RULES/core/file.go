@@ -2,19 +2,9 @@ package core
 
 import (
 	"fmt"
-	"os"
 	"path"
-	"reflect"
 	"strings"
 )
-
-func sourceDir() string {
-	return os.Args[1]
-}
-
-func buildDir() string {
-	return os.Args[2]
-}
 
 // File represents an on-disk file that is either an input to or an output from a BuildStep (or both).
 type File interface {
@@ -54,7 +44,7 @@ func Flatten(fss ...files) Files {
 	return files
 }
 
-// InFile represents a file relative to the source directory.
+// InFile represents a file relative to the workspace source directory.
 type InFile struct {
 	relPath string
 }
@@ -66,7 +56,7 @@ func (f InFile) Empty() bool {
 
 // Path returns the file's absolute path.
 func (f InFile) Path() string {
-	return path.Join(sourceDir(), f.relPath)
+	return path.Join(GetWorkspaceSourceDir(), f.relPath)
 }
 
 // RelPath returns the file's path relative to the source directory.
@@ -88,7 +78,7 @@ func (f InFile) String() string {
 	return fmt.Sprintf("\"%s\"", f.Path())
 }
 
-// InFile represents a file relative to the build directory.
+// OutFile represents a file relative to the workspace build directory.
 type OutFile struct {
 	relPath string
 }
@@ -100,7 +90,7 @@ func (f OutFile) Empty() bool {
 
 // Path returns the file's absolute path.
 func (f OutFile) Path() string {
-	return path.Join(buildDir(), f.relPath)
+	return path.Join(GetWorkspaceBuildDir(), f.relPath)
 }
 
 // RelPath returns the file's path relative to the build directory.
@@ -124,16 +114,12 @@ func (f OutFile) String() string {
 	return fmt.Sprintf("\"%s\"", f.Path())
 }
 
-// NewInFile creates an InFile for a file relativ to the package directory of "pkg".
-func NewInFile(name string, pkg interface{}) InFile {
-	pkgPath := reflect.TypeOf(pkg).PkgPath()
-	p := path.Join(strings.TrimPrefix(pkgPath, "_/"), name)
+// NewInFile creates an InFile for a file relativ to the workspace source directory.
+func NewInFile(p string) InFile {
 	return InFile{p}
 }
 
-// NewOutFile creates an OutFile for a file relativ to the package directory of "pkg".
-func NewOutFile(name string, pkg interface{}) OutFile {
-	pkgPath := reflect.TypeOf(pkg).PkgPath()
-	p := path.Join(strings.TrimPrefix(pkgPath, "_/"), name)
+// NewOutFile creates an OutFile for a file relativ to the workspace build directory.
+func NewOutFile(p string) OutFile {
 	return OutFile{p}
 }

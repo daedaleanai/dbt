@@ -175,3 +175,25 @@ func WriteModuleFile(modulePath string, deps []Dependency) {
 		log.Fatal("Failed to write '%s' file: %s.\n", util.ModuleFileName, err)
 	}
 }
+
+// GetAllModulePaths returns all the names and paths of all modules in the workspace.
+func GetAllModulePaths(workspacePath string) map[string]string {
+	modules := map[string]string{}
+	modules[path.Base(workspacePath)] = workspacePath
+
+	depsDir := path.Join(workspacePath, util.DepsDirName)
+	if !util.DirExists(depsDir) {
+		log.Warning("There is no %s/ directory in the workspace. Maybe run 'dbt sync' first.\n", util.DepsDirName)
+		return nil
+	}
+	files, err := ioutil.ReadDir(depsDir)
+	if err != nil {
+		log.Fatal("Failed to read content of %s/ directory: %s.\n", util.DepsDirName, err)
+	}
+	for _, file := range files {
+		if file.IsDir() {
+			modules[file.Name()] = path.Join(depsDir, file.Name())
+		}
+	}
+	return modules
+}

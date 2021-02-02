@@ -6,13 +6,13 @@ package rules
 //go:generate go run embed/embed.go
 
 var Rules = map[string]string{
-    "builtin/cc/cc.go": `package cc
+    "../RULES/cc/cc.go": `package cc
 
 import (
 	"fmt"
 	"strings"
 
-	"_/builtin/core"
+	"dbt/RULES/core"
 )
 
 // Toolchain represents a C++ toolchain.
@@ -115,23 +115,13 @@ func (lib Library) BuildSteps() []core.BuildStep {
 }
 `,
 
-    "builtin/core/file.go": `package core
+    "../RULES/core/file.go": `package core
 
 import (
 	"fmt"
-	"os"
 	"path"
-	"reflect"
 	"strings"
 )
-
-func sourceDir() string {
-	return os.Args[1]
-}
-
-func buildDir() string {
-	return os.Args[2]
-}
 
 // File represents an on-disk file that is either an input to or an output from a BuildStep (or both).
 type File interface {
@@ -171,7 +161,7 @@ func Flatten(fss ...files) Files {
 	return files
 }
 
-// InFile represents a file relative to the source directory.
+// InFile represents a file relative to the workspace source directory.
 type InFile struct {
 	relPath string
 }
@@ -183,7 +173,7 @@ func (f InFile) Empty() bool {
 
 // Path returns the file's absolute path.
 func (f InFile) Path() string {
-	return path.Join(sourceDir(), f.relPath)
+	return path.Join(GetWorkspaceSourceDir(), f.relPath)
 }
 
 // RelPath returns the file's path relative to the source directory.
@@ -205,7 +195,7 @@ func (f InFile) String() string {
 	return fmt.Sprintf("\"%s\"", f.Path())
 }
 
-// InFile represents a file relative to the build directory.
+// OutFile represents a file relative to the workspace build directory.
 type OutFile struct {
 	relPath string
 }
@@ -217,7 +207,7 @@ func (f OutFile) Empty() bool {
 
 // Path returns the file's absolute path.
 func (f OutFile) Path() string {
-	return path.Join(buildDir(), f.relPath)
+	return path.Join(GetWorkspaceBuildDir(), f.relPath)
 }
 
 // RelPath returns the file's path relative to the build directory.
@@ -241,22 +231,18 @@ func (f OutFile) String() string {
 	return fmt.Sprintf("\"%s\"", f.Path())
 }
 
-// NewInFile creates an InFile for a file relativ to the package directory of "pkg".
-func NewInFile(name string, pkg interface{}) InFile {
-	pkgPath := reflect.TypeOf(pkg).PkgPath()
-	p := path.Join(strings.TrimPrefix(pkgPath, "_/"), name)
+// NewInFile creates an InFile for a file relativ to the workspace source directory.
+func NewInFile(p string) InFile {
 	return InFile{p}
 }
 
-// NewOutFile creates an OutFile for a file relativ to the package directory of "pkg".
-func NewOutFile(name string, pkg interface{}) OutFile {
-	pkgPath := reflect.TypeOf(pkg).PkgPath()
-	p := path.Join(strings.TrimPrefix(pkgPath, "_/"), name)
+// NewOutFile creates an OutFile for a file relativ to the workspace build directory.
+func NewOutFile(p string) OutFile {
 	return OutFile{p}
 }
 `,
 
-    "builtin/core/step.go": `package core
+    "../RULES/core/step.go": `package core
 
 import (
 	"fmt"
@@ -310,16 +296,25 @@ func (step BuildStep) Print() {
 }
 `,
 
-    "builtin/core/util.go": `package core
+    "../RULES/core/util.go": `package core
 
 import (
 	"fmt"
 	"os"
+	"path"
 	"strings"
 )
 
-// CurrentTarget holds the name of the currently build target.
-var CurrentTarget string
+// CurrentModulePath holds the path of the current module relative to the workspace directory.
+var CurrentModulePath string
+
+// CurrentTargetPath holds the path of the current target relative to the workspace directory.
+var CurrentTargetPath string
+
+// CurrentTargetName holds the name of the current target.
+var CurrentTargetName string
+
+const depsDirName = "DEPS"
 
 // Flag provides values of build flags.
 func Flag(name string) string {
@@ -335,9 +330,42 @@ func Flag(name string) string {
 // Assert can be used in build rules to abort buildfile generation with an error message.
 func Assert(cond bool, msg string) {
 	if !cond {
-		fmt.Fprintf(os.Stderr, "Assertion failed while processing target '%s': %s.\n", CurrentTarget, msg)
+		currentTarget := path.Join(CurrentTargetPath, CurrentTargetName)
+		fmt.Fprintf(os.Stderr, "Assertion failed while processing target '%s': %s.\n", currentTarget, msg)
 		os.Exit(1)
 	}
+}
+
+func GetWorkspaceSourceDir() string {
+	return os.Args[1]
+}
+
+func GetWorkspaceBuildDir() string {
+	return os.Args[2]
+}
+
+func GetDepsSourceDir() string {
+	return path.Join(GetWorkspaceSourceDir(), depsDirName)
+}
+
+func GetDepsBuildDir() string {
+	return path.Join(GetWorkspaceBuildDir(), depsDirName)
+}
+
+func GetModuleSourceDir() string {
+	return path.Join(GetWorkspaceSourceDir(), CurrentModulePath)
+}
+
+func GetModuleBuildDir() string {
+	return path.Join(GetWorkspaceBuildDir(), CurrentModulePath)
+}
+
+func GetTargetSourceDir() string {
+	return path.Join(GetWorkspaceSourceDir(), CurrentTargetPath)
+}
+
+func GetTargetBuildDir() string {
+	return path.Join(GetWorkspaceBuildDir(), CurrentTargetPath)
 }
 `,
 
