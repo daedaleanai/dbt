@@ -3,6 +3,7 @@ package core
 import (
 	"fmt"
 	"path"
+	"reflect"
 	"strings"
 )
 
@@ -56,7 +57,7 @@ func (f InFile) Empty() bool {
 
 // Path returns the file's absolute path.
 func (f InFile) Path() string {
-	return path.Join(GetWorkspaceSourceDir(), f.relPath)
+	return path.Join(SourceDir(), f.relPath)
 }
 
 // RelPath returns the file's path relative to the source directory.
@@ -90,7 +91,7 @@ func (f OutFile) Empty() bool {
 
 // Path returns the file's absolute path.
 func (f OutFile) Path() string {
-	return path.Join(GetWorkspaceBuildDir(), f.relPath)
+	return path.Join(BuildDir(), f.relPath)
 }
 
 // RelPath returns the file's path relative to the build directory.
@@ -114,12 +115,36 @@ func (f OutFile) String() string {
 	return fmt.Sprintf("\"%s\"", f.Path())
 }
 
-// NewInFile creates an InFile for a file relativ to the workspace source directory.
-func NewInFile(p string) InFile {
-	return InFile{p}
+// GlobalFile represents a global file.
+type GlobalFile interface {
+	Path() string
 }
 
-// NewOutFile creates an OutFile for a file relativ to the workspace build directory.
-func NewOutFile(p string) OutFile {
-	return OutFile{p}
+type globalFile struct {
+	absPath string
+}
+
+func (f globalFile) Path() string {
+	return f.absPath
+}
+
+func (f globalFile) String() string {
+	return fmt.Sprintf("\"%s\"", f.Path())
+}
+
+// NewInFile creates an InFile for a file relativ to the package directory of "pkg".
+func NewInFile(name string, pkg interface{}) InFile {
+	pkgPath := reflect.TypeOf(pkg).PkgPath()
+	return InFile{path.Join(pkgPath, name)}
+}
+
+// NewOutFile creates an OutFile for a file relativ to the package directory of "pkg".
+func NewOutFile(name string, pkg interface{}) OutFile {
+	pkgPath := reflect.TypeOf(pkg).PkgPath()
+	return OutFile{path.Join(pkgPath, name)}
+}
+
+// NewGlobalFile creates a globalFile.
+func NewGlobalFile(p string) globalFile {
+	return globalFile{p}
 }

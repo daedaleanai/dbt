@@ -17,39 +17,20 @@ import (
 
 // Toolchain represents a C++ toolchain.
 type Toolchain struct {
-	Cc string
-	Ar string
+	Cc     core.GlobalFile
+	Ar     core.GlobalFile
+	CFlags []string
 }
 
 var defaultToolchain = Toolchain{
-	Cc: "gcc",
-	Ar: "ar",
-}
-
-// Flags or compiling and linking C++ targets.
-type Flags struct {
-	Includes       []string
-	SystemIncludes []string
-	CFlags         []string
-	LdFlags        []string
-}
-
-func (flags *Flags) compileFlags() string {
-	cflags := []string{"-c"}
-	cflags = append(cflags, flags.CFlags...)
-	for _, include := range flags.Includes {
-		cflags = append(cflags, fmt.Sprintf("-I%s", include))
-	}
-	for _, include := range flags.SystemIncludes {
-		cflags = append(cflags, fmt.Sprintf("-isystem %s", include))
-	}
-	return strings.Join(cflags, " ")
+	Cc: core.NewGlobalFile("gcc"),
+	Ar: core.NewGlobalFile("ar"),
 }
 
 // ObjectFile compiles a single C++ source file.
 type ObjectFile struct {
 	Src       core.File
-	Flags     Flags
+	Includes  core.Files
 	Toolchain *Toolchain
 }
 
@@ -64,7 +45,12 @@ func (obj ObjectFile) BuildSteps() []core.BuildStep {
 		obj.Toolchain = &defaultToolchain
 	}
 
-	cmd := fmt.Sprintf("%s %s -o %s %s", obj.Toolchain.Cc, obj.Flags.compileFlags(), obj.Out(), obj.Src)
+	includes := strings.Builder{}
+	for _, include := range obj.Includes {
+		includes.WriteString(fmt.Sprintf("-I%s ", include))
+	}
+	flags := strings.Join(obj.Toolchain.CFlags, " ")
+	cmd := fmt.Sprintf("%s -c %s %s -o %s %s", obj.Toolchain.Cc, flags, includes.String(), obj.Out(), obj.Src)
 	return []core.BuildStep{{
 		Out:   obj.Out(),
 		In:    obj.Src,
@@ -78,6 +64,8 @@ func (obj ObjectFile) BuildSteps() []core.BuildStep {
 type Library struct {
 	Out       core.OutFile
 	Srcs      core.Files
+	CFlags    []string
+	Includes  core.Files
 	Deps      []Library
 	Toolchain *Toolchain
 }
@@ -96,13 +84,14 @@ func (lib Library) BuildSteps() []core.BuildStep {
 	for _, src := range lib.Srcs {
 		obj := ObjectFile{
 			Src:       src,
+			Includes:  lib.Includes,
 			Toolchain: lib.Toolchain,
 		}
 		objs = append(objs, obj.Out())
 		steps = append(steps, obj.BuildSteps()...)
 	}
 
-	cmd := fmt.Sprintf("%s rv %s %s > /dev/null", lib.Toolchain.Ar, lib.Out, objs)
+	cmd := fmt.Sprintf("%s rv %s %s > /dev/null 2> /dev/null", lib.Toolchain.Ar, lib.Out, objs)
 	linkStep := core.BuildStep{
 		Out:   lib.Out,
 		Ins:   objs,
@@ -120,6 +109,7 @@ func (lib Library) BuildSteps() []core.BuildStep {
 import (
 	"fmt"
 	"path"
+	"reflect"
 	"strings"
 )
 
@@ -173,7 +163,7 @@ func (f InFile) Empty() bool {
 
 // Path returns the file's absolute path.
 func (f InFile) Path() string {
-	return path.Join(GetWorkspaceSourceDir(), f.relPath)
+	return path.Join(SourceDir(), f.relPath)
 }
 
 // RelPath returns the file's path relative to the source directory.
@@ -207,7 +197,7 @@ func (f OutFile) Empty() bool {
 
 // Path returns the file's absolute path.
 func (f OutFile) Path() string {
-	return path.Join(GetWorkspaceBuildDir(), f.relPath)
+	return path.Join(BuildDir(), f.relPath)
 }
 
 // RelPath returns the file's path relative to the build directory.
@@ -231,14 +221,38 @@ func (f OutFile) String() string {
 	return fmt.Sprintf("\"%s\"", f.Path())
 }
 
-// NewInFile creates an InFile for a file relativ to the workspace source directory.
-func NewInFile(p string) InFile {
-	return InFile{p}
+// GlobalFile represents a global file.
+type GlobalFile interface {
+	Path() string
 }
 
-// NewOutFile creates an OutFile for a file relativ to the workspace build directory.
-func NewOutFile(p string) OutFile {
-	return OutFile{p}
+type globalFile struct {
+	absPath string
+}
+
+func (f globalFile) Path() string {
+	return f.absPath
+}
+
+func (f globalFile) String() string {
+	return fmt.Sprintf("\"%s\"", f.Path())
+}
+
+// NewInFile creates an InFile for a file relativ to the package directory of "pkg".
+func NewInFile(name string, pkg interface{}) InFile {
+	pkgPath := reflect.TypeOf(pkg).PkgPath()
+	return InFile{path.Join(pkgPath, name)}
+}
+
+// NewOutFile creates an OutFile for a file relativ to the package directory of "pkg".
+func NewOutFile(name string, pkg interface{}) OutFile {
+	pkgPath := reflect.TypeOf(pkg).PkgPath()
+	return OutFile{path.Join(pkgPath, name)}
+}
+
+// NewGlobalFile creates a globalFile.
+func NewGlobalFile(p string) globalFile {
+	return globalFile{p}
 }
 `,
 
@@ -301,20 +315,19 @@ func (step BuildStep) Print() {
 import (
 	"fmt"
 	"os"
-	"path"
 	"strings"
 )
 
-// CurrentModulePath holds the path of the current module relative to the workspace directory.
-var CurrentModulePath string
+// CurrentTarget holds the current target relative to the workspace directory.
+var CurrentTarget string
 
-// CurrentTargetPath holds the path of the current target relative to the workspace directory.
-var CurrentTargetPath string
+func SourceDir() string {
+	return os.Args[1]
+}
 
-// CurrentTargetName holds the name of the current target.
-var CurrentTargetName string
-
-const depsDirName = "DEPS"
+func BuildDir() string {
+	return os.Args[2]
+}
 
 // Flag provides values of build flags.
 func Flag(name string) string {
@@ -330,42 +343,9 @@ func Flag(name string) string {
 // Assert can be used in build rules to abort buildfile generation with an error message.
 func Assert(cond bool, msg string) {
 	if !cond {
-		currentTarget := path.Join(CurrentTargetPath, CurrentTargetName)
-		fmt.Fprintf(os.Stderr, "Assertion failed while processing target '%s': %s.\n", currentTarget, msg)
+		fmt.Fprintf(os.Stderr, "Assertion failed while processing target '%s': %s.\n", CurrentTarget, msg)
 		os.Exit(1)
 	}
-}
-
-func GetWorkspaceSourceDir() string {
-	return os.Args[1]
-}
-
-func GetWorkspaceBuildDir() string {
-	return os.Args[2]
-}
-
-func GetDepsSourceDir() string {
-	return path.Join(GetWorkspaceSourceDir(), depsDirName)
-}
-
-func GetDepsBuildDir() string {
-	return path.Join(GetWorkspaceBuildDir(), depsDirName)
-}
-
-func GetModuleSourceDir() string {
-	return path.Join(GetWorkspaceSourceDir(), CurrentModulePath)
-}
-
-func GetModuleBuildDir() string {
-	return path.Join(GetWorkspaceBuildDir(), CurrentModulePath)
-}
-
-func GetTargetSourceDir() string {
-	return path.Join(GetWorkspaceSourceDir(), CurrentTargetPath)
-}
-
-func GetTargetBuildDir() string {
-	return path.Join(GetWorkspaceBuildDir(), CurrentTargetPath)
 }
 `,
 

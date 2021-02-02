@@ -39,20 +39,20 @@ const initFileTemplate = `
 package %s
 
 import (
-	"path"
+	"reflect"
 
 	"dbt/RULES/core"
 )
 
-const moduleDir = "%s"
-const targetDir = "%s"
+type __internal_pkg struct{}
 
 type __internal_buildable interface {
 	BuildSteps() []core.BuildStep
 }
 
 func init() {
-    var steps = []core.BuildStep{}
+    steps := []core.BuildStep{}
+	core.CurrentTarget = reflect.TypeOf(__internal_pkg{}).PkgPath()
 
 %s
 
@@ -61,8 +61,8 @@ func init() {
 	}
 }
 
-func in(name string) core.InFile {
-	return core.NewInFile(path.Join(targetDir, name))
+func in(name string) core.File {
+	return core.NewInFile(name, __internal_pkg{})
 }
 
 func ins(names ...string) core.Files {
@@ -74,7 +74,7 @@ func ins(names ...string) core.Files {
 }
 
 func out(name string) core.OutFile {
-	return core.NewOutFile(path.Join(targetDir, name))
+	return core.NewOutFile(name, __internal_pkg{})
 }
 `
 
@@ -101,7 +101,8 @@ func init() {
 }
 
 func runBuild(cmd *cobra.Command, args []string) {
-	workspaceSourceDir := util.GetWorkspaceRoot()
+	workspaceRoot := util.GetWorkspaceRoot()
+	sourceDir := path.Join(workspaceRoot, util.DepsDirName)
 
 	// Split all args into two categories: If they start with "--" they are considered
 	// a build flag, otherwise a target to be built.
@@ -113,40 +114,40 @@ func runBuild(cmd *cobra.Command, args []string) {
 			buildFlags = append(buildFlags, arg)
 			continue
 		}
-		// Build targets are interpreted as relative to the workspace root when they start with a '/'.
+		// Build targets are interpreted as relative to the workspace root when they start with a '//'.
 		// Otherwise they are interpreted as relative to the current working directory.
-		// E.g.: Running 'dbt build /src/path/to/mylib.a' from anywhere in the workspace is equivallent
+		// E.g.: Running 'dbt build //src/path/to/mylib.a' from anywhere in the workspace is equivallent
 		// to running 'dbt build mylib.a' in '.../src/path/to/' or running 'dbt build path/to/mylib.a' in '.../src/'.
-		if !strings.HasPrefix(arg, string(os.PathSeparator)) {
+		if !strings.HasPrefix(arg, string(os.PathSeparator)+string(os.PathSeparator)) {
 			workingDir, _ := os.Getwd()
-			arg = path.Join(strings.TrimPrefix(workingDir, workspaceSourceDir), arg)
+			arg = path.Join(workingDir, arg)
+			moduleRoot := util.GetModuleRootForPath(arg)
+			arg = strings.TrimPrefix(arg, path.Dir(moduleRoot))
 		}
-		targets = append(targets, strings.TrimPrefix(arg, string(os.PathSeparator)))
+		targets = append(targets, strings.TrimLeft(arg, string(os.PathSeparator)))
 	}
 
 	// Create a hash from all build flags and a unique build directory for this set of flags.
 	buildConfigHash := crc32.ChecksumIEEE([]byte(strings.Join(buildFlags, "#")))
 	buildConfigName := fmt.Sprintf("%s-%08X", buildDirName, buildConfigHash)
-	workspaceBuildDir := path.Join(workspaceSourceDir, buildDirName, buildConfigName, outputDirName)
+	buildDir := path.Join(workspaceRoot, buildDirName, buildConfigName, outputDirName)
 
 	log.Debug("Building targets '%s'.\n", strings.Join(targets, "', '"))
 	log.Debug("Build flags: '%s'.\n", strings.Join(buildFlags, " "))
 	log.Debug("Build config: '%s'.\n", buildConfigName)
-	log.Debug("Source directory: '%s'.\n", workspaceSourceDir)
-	log.Debug("Build directory: '%s'.\n", workspaceBuildDir)
+	log.Debug("Source directory: '%s'.\n", sourceDir)
+	log.Debug("Build directory: '%s'.\n", buildDir)
 
 	// Remove all existing buildfiles.
-	buildfilesDir := path.Join(workspaceSourceDir, buildDirName, buildConfigName, buildfilesDirName)
+	buildfilesDir := path.Join(workspaceRoot, buildDirName, buildConfigName, buildfilesDirName)
 	util.RemoveDir(buildfilesDir)
 
 	// Copy all BUILD.go files and RULES/ files from the source directory.
-	modules := module.GetAllModulePaths(workspaceSourceDir)
+	modules := module.GetAllModulePaths(workspaceRoot)
 	importLines := []string{}
-	for modName, modSourceDir := range modules {
+	for modName, modPath := range modules {
 		modBuildfilesDir := path.Join(buildfilesDir, modName)
-		relativeModSourceDir := strings.TrimPrefix(modSourceDir, workspaceSourceDir)
-		relativeModSourceDir = strings.TrimLeft(relativeModSourceDir, string(os.PathSeparator))
-		moduleImportLines := copyBuildAndRuleFiles(modName, modSourceDir, relativeModSourceDir, modBuildfilesDir, modules)
+		moduleImportLines := copyBuildAndRuleFiles(modName, modPath, modBuildfilesDir, modules)
 		importLines = append(importLines, moduleImportLines...)
 	}
 
@@ -156,13 +157,13 @@ func runBuild(cmd *cobra.Command, args []string) {
 
 	// Compile all build files and run the resulting binary.
 	// This will produce the build.ninja file.
-	generateNinjaFile(workspaceSourceDir, workspaceBuildDir, buildfilesDir, importLines, buildFlags, modules)
+	generateNinjaFile(sourceDir, buildDir, buildfilesDir, importLines, buildFlags, modules)
 
 	// Call Ninja to build the targets.
-	runNinja(workspaceBuildDir, targets)
+	runNinja(buildDir, targets)
 }
 
-func copyBuildAndRuleFiles(moduleName, sourceDir, relativeSourceDir, buildfilesDir string, modules map[string]string) []string {
+func copyBuildAndRuleFiles(moduleName, modulePath, buildfilesDir string, modules map[string]string) []string {
 	importLines := []string{}
 
 	log.Debug("Processing module '%s'.\n", moduleName)
@@ -170,12 +171,12 @@ func copyBuildAndRuleFiles(moduleName, sourceDir, relativeSourceDir, buildfilesD
 	modFileContent := createModFileContent(moduleName, modules, "..")
 	util.WriteFile(path.Join(buildfilesDir, modFileName), modFileContent)
 
-	err := filepath.Walk(sourceDir, func(filePath string, file os.FileInfo, err error) error {
+	err := util.WalkSymlink(modulePath, func(filePath string, file os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
 
-		relativeFilePath := strings.TrimPrefix(filePath, sourceDir+string(os.PathSeparator))
+		relativeFilePath := strings.TrimPrefix(filePath, modulePath+string(os.PathSeparator))
 		relativeDirPath := strings.TrimSuffix(path.Dir(relativeFilePath), string(os.PathSeparator))
 
 		// Ignore the BUILD/, DEPS/ and RULES/ directories.
@@ -188,7 +189,7 @@ func copyBuildAndRuleFiles(moduleName, sourceDir, relativeSourceDir, buildfilesD
 			return nil
 		}
 
-		log.Debug("Found build file '%s'.\n", path.Join(relativeSourceDir, relativeFilePath))
+		log.Debug("Found build file '%s'.\n", path.Join(modulePath, relativeFilePath))
 
 		importLine := fmt.Sprintf("import _ \"%s/%s\"", moduleName, relativeDirPath)
 		importLines = append(importLines, importLine)
@@ -198,17 +199,13 @@ func copyBuildAndRuleFiles(moduleName, sourceDir, relativeSourceDir, buildfilesD
 		for _, targetName := range targets {
 			targetLine := fmt.Sprintf(`
 			if iface, ok := interface{}(%s).(__internal_buildable); ok {
-				core.CurrentModulePath = moduleDir
-				core.CurrentTargetPath = targetDir
-				core.CurrentTargetName = "%s"
+				core.CurrentTarget = reflect.TypeOf(__internal_pkg{}).PkgPath()+"/%s"
 				steps = append(steps, iface.BuildSteps()...)
 			}`, targetName, targetName)
 			targetLines = append(targetLines, targetLine)
 		}
 
-		moduleDir := relativeSourceDir
-		targetDir := path.Join(relativeSourceDir, relativeDirPath)
-		initFileContent := fmt.Sprintf(initFileTemplate, packageName, moduleDir, targetDir, strings.Join(targetLines, "\n"))
+		initFileContent := fmt.Sprintf(initFileTemplate, packageName, strings.Join(targetLines, "\n"))
 		initFilePath := path.Join(buildfilesDir, relativeDirPath, initFileName)
 		util.WriteFile(initFilePath, []byte(initFileContent))
 
@@ -221,7 +218,7 @@ func copyBuildAndRuleFiles(moduleName, sourceDir, relativeSourceDir, buildfilesD
 		log.Fatal("Failed to copy '%s' files for module '%s': %s.\n", buildFileName, moduleName, err)
 	}
 
-	rulesDirPath := path.Join(sourceDir, RulesDirName)
+	rulesDirPath := path.Join(modulePath, RulesDirName)
 	if !util.DirExists(rulesDirPath) {
 		log.Debug("Module '%s' does not specify any build rules.\n", moduleName)
 		return importLines
@@ -236,7 +233,7 @@ func copyBuildAndRuleFiles(moduleName, sourceDir, relativeSourceDir, buildfilesD
 			return nil
 		}
 
-		relativeFilePath := strings.TrimPrefix(filePath, sourceDir+string(os.PathSeparator))
+		relativeFilePath := strings.TrimPrefix(filePath, modulePath+string(os.PathSeparator))
 		copyFilePath := path.Join(buildfilesDir, relativeFilePath)
 		util.CopyFile(filePath, copyFilePath)
 		return nil

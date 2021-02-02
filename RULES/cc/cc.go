@@ -9,39 +9,20 @@ import (
 
 // Toolchain represents a C++ toolchain.
 type Toolchain struct {
-	Cc string
-	Ar string
+	Cc     core.GlobalFile
+	Ar     core.GlobalFile
+	CFlags []string
 }
 
 var defaultToolchain = Toolchain{
-	Cc: "gcc",
-	Ar: "ar",
-}
-
-// Flags or compiling and linking C++ targets.
-type Flags struct {
-	Includes       []string
-	SystemIncludes []string
-	CFlags         []string
-	LdFlags        []string
-}
-
-func (flags *Flags) compileFlags() string {
-	cflags := []string{"-c"}
-	cflags = append(cflags, flags.CFlags...)
-	for _, include := range flags.Includes {
-		cflags = append(cflags, fmt.Sprintf("-I%s", include))
-	}
-	for _, include := range flags.SystemIncludes {
-		cflags = append(cflags, fmt.Sprintf("-isystem %s", include))
-	}
-	return strings.Join(cflags, " ")
+	Cc: core.NewGlobalFile("gcc"),
+	Ar: core.NewGlobalFile("ar"),
 }
 
 // ObjectFile compiles a single C++ source file.
 type ObjectFile struct {
 	Src       core.File
-	Flags     Flags
+	Includes  core.Files
 	Toolchain *Toolchain
 }
 
@@ -56,7 +37,12 @@ func (obj ObjectFile) BuildSteps() []core.BuildStep {
 		obj.Toolchain = &defaultToolchain
 	}
 
-	cmd := fmt.Sprintf("%s %s -o %s %s", obj.Toolchain.Cc, obj.Flags.compileFlags(), obj.Out(), obj.Src)
+	includes := strings.Builder{}
+	for _, include := range obj.Includes {
+		includes.WriteString(fmt.Sprintf("-I%s ", include))
+	}
+	flags := strings.Join(obj.Toolchain.CFlags, " ")
+	cmd := fmt.Sprintf("%s -c %s %s -o %s %s", obj.Toolchain.Cc, flags, includes.String(), obj.Out(), obj.Src)
 	return []core.BuildStep{{
 		Out:   obj.Out(),
 		In:    obj.Src,
@@ -70,6 +56,8 @@ func (obj ObjectFile) BuildSteps() []core.BuildStep {
 type Library struct {
 	Out       core.OutFile
 	Srcs      core.Files
+	CFlags    []string
+	Includes  core.Files
 	Deps      []Library
 	Toolchain *Toolchain
 }
@@ -88,13 +76,14 @@ func (lib Library) BuildSteps() []core.BuildStep {
 	for _, src := range lib.Srcs {
 		obj := ObjectFile{
 			Src:       src,
+			Includes:  lib.Includes,
 			Toolchain: lib.Toolchain,
 		}
 		objs = append(objs, obj.Out())
 		steps = append(steps, obj.BuildSteps()...)
 	}
 
-	cmd := fmt.Sprintf("%s rv %s %s > /dev/null", lib.Toolchain.Ar, lib.Out, objs)
+	cmd := fmt.Sprintf("%s rv %s %s > /dev/null 2> /dev/null", lib.Toolchain.Ar, lib.Out, objs)
 	linkStep := core.BuildStep{
 		Out:   lib.Out,
 		Ins:   objs,

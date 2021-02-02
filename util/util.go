@@ -6,6 +6,8 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"path/filepath"
+	"strings"
 )
 
 // FileMode is the default FileMode used when creating files.
@@ -79,6 +81,14 @@ func getModuleRoot(p string) (string, error) {
 	}
 }
 
+func GetModuleRootForPath(p string) string {
+	moduleRoot, err := getModuleRoot(p)
+	if err != nil {
+		log.Fatal("Could not identify module root directory. Make sure you run this command inside a module: %s.\n", err)
+	}
+	return moduleRoot
+}
+
 // GetModuleRoot returns the root directory of the current module.
 func GetModuleRoot() string {
 	workingDir, err := os.Getwd()
@@ -112,4 +122,28 @@ func GetWorkspaceRoot() string {
 		}
 		p = path.Dir(p)
 	}
+}
+
+func WalkSymlink(root string, walkFn filepath.WalkFunc) error {
+	info, err := os.Lstat(root)
+	if err != nil {
+		return err
+	}
+
+	if (info.Mode() & os.ModeSymlink) != os.ModeSymlink {
+		return filepath.Walk(root, walkFn)
+	}
+
+	link, err := os.Readlink(root)
+	if err != nil {
+		return err
+	}
+	if !filepath.IsAbs(link) {
+		link = path.Join(path.Dir(root), link)
+	}
+
+	return filepath.Walk(link, func(file string, info os.FileInfo, err error) error {
+		file = path.Join(root, strings.TrimPrefix(file, link))
+		return walkFn(file, info, err)
+	})
 }
