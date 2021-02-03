@@ -30,10 +30,11 @@ var defaultToolchain = Toolchain{
 
 // ObjectFile compiles a single C++ source file.
 type ObjectFile struct {
-	Src       core.File
-	Includes  core.Files
-	CFlags    []string
-	Toolchain *Toolchain
+	Src            core.File
+	Includes       core.Files
+	SystemIncludes core.Files
+	Flags          []string
+	Toolchain      *Toolchain
 }
 
 // Out provides the name of the output created by ObjectFile.
@@ -55,8 +56,7 @@ func (obj ObjectFile) BuildSteps() []core.BuildStep {
 		includes.WriteString(fmt.Sprintf("-isystem %s ", include))
 	}
 	depfile := obj.Src.WithExt("d")
-	flags := strings.Join(obj.CFlags, " ")
-	cmd := fmt.Sprintf("%s -c -MD -MF %s %s %s -o %s %s", obj.Toolchain.Cc, depfile, flags, includes.String(), obj.Out(), obj.Src)
+	cmd := fmt.Sprintf("%s -c -MD -MF %s %s %s -o %s %s", obj.Toolchain.Cxx, depfile, strings.Join(obj.Flags, " "), includes.String(), obj.Out(), obj.Src)
 	return []core.BuildStep{{
 		Out:     obj.Out(),
 		Depfile: &depfile,
@@ -67,39 +67,60 @@ func (obj ObjectFile) BuildSteps() []core.BuildStep {
 	}}
 }
 
-// Library builds and links a C++ library.
-type Library struct {
-	Out       core.OutFile
-	Srcs      core.Files
-	Includes  core.Files
-	CFlags    []string
-	Toolchain *Toolchain
+func flattenDeps(deps []Library) []Library {
+	allDeps := append([]Library{}, deps...)
+	for _, dep := range deps {
+		allDeps = append(allDeps, flattenDeps(dep.Deps)...)
+	}
+	return allDeps
 }
 
-// BuildSteps provides the steps to build a Library.
-func (lib Library) BuildSteps() []core.BuildStep {
-	if lib.Toolchain == nil {
-		lib.Toolchain = &defaultToolchain
+func compileSources(srcs core.Files, flags []string, deps []Library, toolchain *Toolchain) ([]core.BuildStep, core.Files) {
+	deps = flattenDeps(deps)
+
+	includes := core.Files{core.NewInFile(".")}
+	for _, dep := range deps {
+		includes = append(includes, dep.Includes...)
 	}
 
-	lib.Includes = append(lib.Includes, core.NewInFile("."))
+	steps := []core.BuildStep{}
+	objs := core.Files{}
 
-	var steps = []core.BuildStep{}
-	var objs = core.Files{}
-
-	for _, src := range lib.Srcs {
+	for _, src := range srcs {
 		obj := ObjectFile{
 			Src:       src,
-			Includes:  lib.Includes,
-			CFlags:    lib.CFlags,
-			Toolchain: lib.Toolchain,
+			Includes:  includes,
+			Flags:     flags,
+			Toolchain: toolchain,
 		}
 		objs = append(objs, obj.Out())
 		steps = append(steps, obj.BuildSteps()...)
 	}
 
-	cmd := fmt.Sprintf("%s rv %s %s > /dev/null 2> /dev/null", lib.Toolchain.Ar, lib.Out, objs)
-	linkStep := core.BuildStep{
+	return steps, objs
+}
+
+// Library builds and links a C++ library.
+type Library struct {
+	Out       core.OutFile
+	Srcs      core.Files
+	Includes  core.Files
+	CxxFlags  []string
+	Deps      []Library
+	Toolchain *Toolchain
+}
+
+// BuildSteps provides the steps to build a Library.
+func (lib Library) BuildSteps() []core.BuildStep {
+	toolchain := lib.Toolchain
+	if toolchain == nil {
+		toolchain = &defaultToolchain
+	}
+
+	steps, objs := compileSources(lib.Srcs, lib.CxxFlags, []Library{lib}, toolchain)
+
+	cmd := fmt.Sprintf("%s rv %s %s > /dev/null 2> /dev/null", toolchain.Ar, lib.Out, objs)
+	arStep := core.BuildStep{
 		Out:   lib.Out,
 		Ins:   objs,
 		Cmd:   cmd,
@@ -107,5 +128,40 @@ func (lib Library) BuildSteps() []core.BuildStep {
 		Alias: lib.Out.RelPath(),
 	}
 
-	return append(steps, linkStep)
+	return append(steps, arStep)
+}
+
+type Binary struct {
+	Out       core.OutFile
+	Srcs      core.Files
+	CxxFlags  []string
+	LdFlags   []string
+	Deps      []Library
+	Script    *core.File
+	Toolchain *Toolchain
+}
+
+// BuildSteps provides the steps to build a Binary.
+func (bin Binary) BuildSteps() []core.BuildStep {
+	toolchain := bin.Toolchain
+	if toolchain == nil {
+		toolchain = &defaultToolchain
+	}
+
+	steps, objs := compileSources(bin.Srcs, bin.CxxFlags, bin.Deps, toolchain)
+
+	flags := bin.LdFlags
+	if bin.Script != nil {
+		flags = append(flags, fmt.Sprintf("-T%s", *bin.Script))
+	}
+	cmd := fmt.Sprintf("%s %s -o %s %s", toolchain.Cxx, strings.Join(flags, " "), bin.Out, objs)
+	ldStep := core.BuildStep{
+		Out:   bin.Out,
+		Ins:   objs,
+		Cmd:   cmd,
+		Descr: fmt.Sprintf("LD %s", bin.Out.RelPath()),
+		Alias: bin.Out.RelPath(),
+	}
+
+	return append(steps, ldStep)
 }
