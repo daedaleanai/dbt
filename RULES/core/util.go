@@ -28,10 +28,18 @@ func Flag(name string) string {
 	return ""
 }
 
+// Fatal can be used in build rules to abort buildfile generation with an error message unconditionally.
+func Fatal(format string, a ...interface{}) {
+	msg := fmt.Sprintf(format, a...)
+	fmt.Fprintf(os.Stderr, "A fatal error occured while processing target '%s': %s", CurrentTarget, msg)
+	os.Exit(1)
+}
+
 // Assert can be used in build rules to abort buildfile generation with an error message.
-func Assert(cond bool, msg string) {
+func Assert(cond bool, format string, a ...interface{}) {
 	if !cond {
-		fmt.Fprintf(os.Stderr, "Assertion failed while processing target '%s': %s.\n", CurrentTarget, msg)
+		msg := fmt.Sprintf(format, a...)
+		fmt.Fprintf(os.Stderr, "Assertion failed while processing target '%s': %s", CurrentTarget, msg)
 		os.Exit(1)
 	}
 }

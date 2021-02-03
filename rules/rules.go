@@ -17,20 +17,30 @@ import (
 
 // Toolchain represents a C++ toolchain.
 type Toolchain struct {
-	Cc     core.GlobalFile
-	Ar     core.GlobalFile
-	CFlags []string
+	Ar      core.GlobalFile
+	As      core.GlobalFile
+	Cc      core.GlobalFile
+	Cpp     core.GlobalFile
+	Cxx     core.GlobalFile
+	Objcopy core.GlobalFile
+
+	Includes core.Files
 }
 
 var defaultToolchain = Toolchain{
-	Cc: core.NewGlobalFile("gcc"),
-	Ar: core.NewGlobalFile("ar"),
+	Ar:      core.NewGlobalFile("ar"),
+	As:      core.NewGlobalFile("as"),
+	Cc:      core.NewGlobalFile("gcc"),
+	Cpp:     core.NewGlobalFile("g++"),
+	Cxx:     core.NewGlobalFile("gcc"),
+	Objcopy: core.NewGlobalFile("objcopy"),
 }
 
 // ObjectFile compiles a single C++ source file.
 type ObjectFile struct {
 	Src       core.File
 	Includes  core.Files
+	CFlags    []string
 	Toolchain *Toolchain
 }
 
@@ -49,14 +59,19 @@ func (obj ObjectFile) BuildSteps() []core.BuildStep {
 	for _, include := range obj.Includes {
 		includes.WriteString(fmt.Sprintf("-I%s ", include))
 	}
-	flags := strings.Join(obj.Toolchain.CFlags, " ")
-	cmd := fmt.Sprintf("%s -c %s %s -o %s %s", obj.Toolchain.Cc, flags, includes.String(), obj.Out(), obj.Src)
+	for _, include := range obj.Toolchain.Includes {
+		includes.WriteString(fmt.Sprintf("-isystem %s ", include))
+	}
+	depfile := obj.Src.WithExt("d")
+	flags := strings.Join(obj.CFlags, " ")
+	cmd := fmt.Sprintf("%s -c -MD -MF %s %s %s -o %s %s", obj.Toolchain.Cc, depfile, flags, includes.String(), obj.Out(), obj.Src)
 	return []core.BuildStep{{
-		Out:   obj.Out(),
-		In:    obj.Src,
-		Cmd:   cmd,
-		Descr: fmt.Sprintf("CC %s", obj.Out().RelPath()),
-		Alias: obj.Out().RelPath(),
+		Out:     obj.Out(),
+		Depfile: &depfile,
+		In:      obj.Src,
+		Cmd:     cmd,
+		Descr:   fmt.Sprintf("CC %s", obj.Out().RelPath()),
+		Alias:   obj.Out().RelPath(),
 	}}
 }
 
@@ -64,19 +79,18 @@ func (obj ObjectFile) BuildSteps() []core.BuildStep {
 type Library struct {
 	Out       core.OutFile
 	Srcs      core.Files
-	CFlags    []string
 	Includes  core.Files
-	Deps      []Library
+	CFlags    []string
 	Toolchain *Toolchain
 }
 
 // BuildSteps provides the steps to build a Library.
 func (lib Library) BuildSteps() []core.BuildStep {
-	core.Assert(!lib.Out.Empty(), "'Out' is missing, but required")
-
 	if lib.Toolchain == nil {
 		lib.Toolchain = &defaultToolchain
 	}
+
+	lib.Includes = append(lib.Includes, core.NewInFile("."))
 
 	var steps = []core.BuildStep{}
 	var objs = core.Files{}
@@ -85,6 +99,7 @@ func (lib Library) BuildSteps() []core.BuildStep {
 		obj := ObjectFile{
 			Src:       src,
 			Includes:  lib.Includes,
+			CFlags:    lib.CFlags,
 			Toolchain: lib.Toolchain,
 		}
 		objs = append(objs, obj.Out())
@@ -109,13 +124,11 @@ func (lib Library) BuildSteps() []core.BuildStep {
 import (
 	"fmt"
 	"path"
-	"reflect"
 	"strings"
 )
 
 // File represents an on-disk file that is either an input to or an output from a BuildStep (or both).
 type File interface {
-	Empty() bool
 	Path() string
 	RelPath() string
 	WithExt(ext string) OutFile
@@ -133,66 +146,38 @@ func (fs Files) String() string {
 	return strings.Join(paths, " ")
 }
 
-type files interface {
-	Files() Files
-}
-
-// Files implements the files interface for a group of files.
-func (fs Files) Files() Files {
-	return fs
-}
-
-// Flatten flattens a list of individual files or groups of files.
-func Flatten(fss ...files) Files {
-	files := Files{}
-	for _, fs := range fss {
-		files = append(files, fs.Files()...)
-	}
-	return files
-}
-
-// InFile represents a file relative to the workspace source directory.
-type InFile struct {
+// inFile represents a file relative to the workspace source directory.
+type inFile struct {
 	relPath string
 }
 
-// Empty returns whether the file path is empty.
-func (f InFile) Empty() bool {
-	return f.relPath == ""
-}
-
 // Path returns the file's absolute path.
-func (f InFile) Path() string {
+func (f inFile) Path() string {
 	return path.Join(SourceDir(), f.relPath)
 }
 
 // RelPath returns the file's path relative to the source directory.
-func (f InFile) RelPath() string {
+func (f inFile) RelPath() string {
 	return f.relPath
 }
 
 // WithExt creates an OutFile with the same relative path and the given file extension.
-func (f InFile) WithExt(ext string) OutFile {
+func (f inFile) WithExt(ext string) OutFile {
 	return OutFile{f.relPath}.WithExt(ext)
 }
 
 // WithSuffix creates an OutFile with the same relative path and the given suffix.
-func (f InFile) WithSuffix(suffix string) OutFile {
+func (f inFile) WithSuffix(suffix string) OutFile {
 	return OutFile{f.relPath}.WithSuffix(suffix)
 }
 
-func (f InFile) String() string {
+func (f inFile) String() string {
 	return fmt.Sprintf("\"%s\"", f.Path())
 }
 
 // OutFile represents a file relative to the workspace build directory.
 type OutFile struct {
 	relPath string
-}
-
-// Empty returns whether the file path is empty.
-func (f OutFile) Empty() bool {
-	return f.relPath == ""
 }
 
 // Path returns the file's absolute path.
@@ -230,28 +215,23 @@ type globalFile struct {
 	absPath string
 }
 
+// Path returns the file's absolute path.
 func (f globalFile) Path() string {
 	return f.absPath
 }
 
-func (f globalFile) String() string {
-	return fmt.Sprintf("\"%s\"", f.Path())
+// NewInFile creates an inFile for a file relativ to the source directory.
+func NewInFile(p string) File {
+	return inFile{p}
 }
 
-// NewInFile creates an InFile for a file relativ to the package directory of "pkg".
-func NewInFile(name string, pkg interface{}) InFile {
-	pkgPath := reflect.TypeOf(pkg).PkgPath()
-	return InFile{path.Join(pkgPath, name)}
-}
-
-// NewOutFile creates an OutFile for a file relativ to the package directory of "pkg".
-func NewOutFile(name string, pkg interface{}) OutFile {
-	pkgPath := reflect.TypeOf(pkg).PkgPath()
-	return OutFile{path.Join(pkgPath, name)}
+// NewOutFile creates an OutFile for a file relativ to the build directory.
+func NewOutFile(p string) OutFile {
+	return OutFile{p}
 }
 
 // NewGlobalFile creates a globalFile.
-func NewGlobalFile(p string) globalFile {
+func NewGlobalFile(p string) GlobalFile {
 	return globalFile{p}
 }
 `,
@@ -266,12 +246,13 @@ import (
 // BuildStep represents one build step (i.e., one build command).
 // Each BuildStep produces "Out" from "Ins" and "In" by running "Cmd".
 type BuildStep struct {
-	Out   OutFile
-	In    File
-	Ins   Files
-	Cmd   string
-	Descr string
-	Alias string
+	Out     OutFile
+	In      File
+	Ins     Files
+	Depfile *OutFile
+	Cmd     string
+	Descr   string
+	Alias   string
 }
 
 var nextRuleId = 1
@@ -294,6 +275,10 @@ func (step BuildStep) Print() {
 	out := ninjaEscape(step.Out.Path())
 
 	fmt.Printf("rule r%d\n", nextRuleId)
+	if step.Depfile != nil {
+		depfile := ninjaEscape(step.Depfile.Path())
+		fmt.Printf("  depfile = %s\n", depfile)
+	}
 	fmt.Printf("  command = %s\n", step.Cmd)
 	if step.Descr != "" {
 		fmt.Printf("  description = %s\n", step.Descr)
@@ -340,10 +325,18 @@ func Flag(name string) string {
 	return ""
 }
 
+// Fatal can be used in build rules to abort buildfile generation with an error message unconditionally.
+func Fatal(format string, a ...interface{}) {
+	msg := fmt.Sprintf(format, a...)
+	fmt.Fprintf(os.Stderr, "A fatal error occured while processing target '%s': %s", CurrentTarget, msg)
+	os.Exit(1)
+}
+
 // Assert can be used in build rules to abort buildfile generation with an error message.
-func Assert(cond bool, msg string) {
+func Assert(cond bool, format string, a ...interface{}) {
 	if !cond {
-		fmt.Fprintf(os.Stderr, "Assertion failed while processing target '%s': %s.\n", CurrentTarget, msg)
+		msg := fmt.Sprintf(format, a...)
+		fmt.Fprintf(os.Stderr, "Assertion failed while processing target '%s': %s", CurrentTarget, msg)
 		os.Exit(1)
 	}
 }

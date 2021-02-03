@@ -39,6 +39,7 @@ const initFileTemplate = `
 package %s
 
 import (
+	"path"
 	"reflect"
 
 	"dbt/RULES/core"
@@ -52,7 +53,6 @@ type __internal_buildable interface {
 
 func init() {
     steps := []core.BuildStep{}
-	core.CurrentTarget = reflect.TypeOf(__internal_pkg{}).PkgPath()
 
 %s
 
@@ -62,7 +62,7 @@ func init() {
 }
 
 func in(name string) core.File {
-	return core.NewInFile(name, __internal_pkg{})
+	return core.NewInFile(path.Join(reflect.TypeOf(__internal_pkg{}).PkgPath(), name))
 }
 
 func ins(names ...string) core.Files {
@@ -74,7 +74,7 @@ func ins(names ...string) core.Files {
 }
 
 func out(name string) core.OutFile {
-	return core.NewOutFile(name, __internal_pkg{})
+	return core.NewOutFile(path.Join(reflect.TypeOf(__internal_pkg{}).PkgPath(), name))
 }
 `
 

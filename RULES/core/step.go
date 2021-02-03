@@ -8,12 +8,13 @@ import (
 // BuildStep represents one build step (i.e., one build command).
 // Each BuildStep produces "Out" from "Ins" and "In" by running "Cmd".
 type BuildStep struct {
-	Out   OutFile
-	In    File
-	Ins   Files
-	Cmd   string
-	Descr string
-	Alias string
+	Out     OutFile
+	In      File
+	Ins     Files
+	Depfile *OutFile
+	Cmd     string
+	Descr   string
+	Alias   string
 }
 
 var nextRuleId = 1
@@ -36,6 +37,10 @@ func (step BuildStep) Print() {
 	out := ninjaEscape(step.Out.Path())
 
 	fmt.Printf("rule r%d\n", nextRuleId)
+	if step.Depfile != nil {
+		depfile := ninjaEscape(step.Depfile.Path())
+		fmt.Printf("  depfile = %s\n", depfile)
+	}
 	fmt.Printf("  command = %s\n", step.Cmd)
 	if step.Descr != "" {
 		fmt.Printf("  description = %s\n", step.Descr)

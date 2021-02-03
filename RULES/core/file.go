@@ -3,13 +3,11 @@ package core
 import (
 	"fmt"
 	"path"
-	"reflect"
 	"strings"
 )
 
 // File represents an on-disk file that is either an input to or an output from a BuildStep (or both).
 type File interface {
-	Empty() bool
 	Path() string
 	RelPath() string
 	WithExt(ext string) OutFile
@@ -27,66 +25,38 @@ func (fs Files) String() string {
 	return strings.Join(paths, " ")
 }
 
-type files interface {
-	Files() Files
-}
-
-// Files implements the files interface for a group of files.
-func (fs Files) Files() Files {
-	return fs
-}
-
-// Flatten flattens a list of individual files or groups of files.
-func Flatten(fss ...files) Files {
-	files := Files{}
-	for _, fs := range fss {
-		files = append(files, fs.Files()...)
-	}
-	return files
-}
-
-// InFile represents a file relative to the workspace source directory.
-type InFile struct {
+// inFile represents a file relative to the workspace source directory.
+type inFile struct {
 	relPath string
 }
 
-// Empty returns whether the file path is empty.
-func (f InFile) Empty() bool {
-	return f.relPath == ""
-}
-
 // Path returns the file's absolute path.
-func (f InFile) Path() string {
+func (f inFile) Path() string {
 	return path.Join(SourceDir(), f.relPath)
 }
 
 // RelPath returns the file's path relative to the source directory.
-func (f InFile) RelPath() string {
+func (f inFile) RelPath() string {
 	return f.relPath
 }
 
 // WithExt creates an OutFile with the same relative path and the given file extension.
-func (f InFile) WithExt(ext string) OutFile {
+func (f inFile) WithExt(ext string) OutFile {
 	return OutFile{f.relPath}.WithExt(ext)
 }
 
 // WithSuffix creates an OutFile with the same relative path and the given suffix.
-func (f InFile) WithSuffix(suffix string) OutFile {
+func (f inFile) WithSuffix(suffix string) OutFile {
 	return OutFile{f.relPath}.WithSuffix(suffix)
 }
 
-func (f InFile) String() string {
+func (f inFile) String() string {
 	return fmt.Sprintf("\"%s\"", f.Path())
 }
 
 // OutFile represents a file relative to the workspace build directory.
 type OutFile struct {
 	relPath string
-}
-
-// Empty returns whether the file path is empty.
-func (f OutFile) Empty() bool {
-	return f.relPath == ""
 }
 
 // Path returns the file's absolute path.
@@ -124,27 +94,22 @@ type globalFile struct {
 	absPath string
 }
 
+// Path returns the file's absolute path.
 func (f globalFile) Path() string {
 	return f.absPath
 }
 
-func (f globalFile) String() string {
-	return fmt.Sprintf("\"%s\"", f.Path())
+// NewInFile creates an inFile for a file relativ to the source directory.
+func NewInFile(p string) File {
+	return inFile{p}
 }
 
-// NewInFile creates an InFile for a file relativ to the package directory of "pkg".
-func NewInFile(name string, pkg interface{}) InFile {
-	pkgPath := reflect.TypeOf(pkg).PkgPath()
-	return InFile{path.Join(pkgPath, name)}
-}
-
-// NewOutFile creates an OutFile for a file relativ to the package directory of "pkg".
-func NewOutFile(name string, pkg interface{}) OutFile {
-	pkgPath := reflect.TypeOf(pkg).PkgPath()
-	return OutFile{path.Join(pkgPath, name)}
+// NewOutFile creates an OutFile for a file relativ to the build directory.
+func NewOutFile(p string) OutFile {
+	return OutFile{p}
 }
 
 // NewGlobalFile creates a globalFile.
-func NewGlobalFile(p string) globalFile {
+func NewGlobalFile(p string) GlobalFile {
 	return globalFile{p}
 }

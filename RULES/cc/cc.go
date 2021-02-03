@@ -9,20 +9,30 @@ import (
 
 // Toolchain represents a C++ toolchain.
 type Toolchain struct {
-	Cc     core.GlobalFile
-	Ar     core.GlobalFile
-	CFlags []string
+	Ar      core.GlobalFile
+	As      core.GlobalFile
+	Cc      core.GlobalFile
+	Cpp     core.GlobalFile
+	Cxx     core.GlobalFile
+	Objcopy core.GlobalFile
+
+	Includes core.Files
 }
 
 var defaultToolchain = Toolchain{
-	Cc: core.NewGlobalFile("gcc"),
-	Ar: core.NewGlobalFile("ar"),
+	Ar:      core.NewGlobalFile("ar"),
+	As:      core.NewGlobalFile("as"),
+	Cc:      core.NewGlobalFile("gcc"),
+	Cpp:     core.NewGlobalFile("g++"),
+	Cxx:     core.NewGlobalFile("gcc"),
+	Objcopy: core.NewGlobalFile("objcopy"),
 }
 
 // ObjectFile compiles a single C++ source file.
 type ObjectFile struct {
 	Src       core.File
 	Includes  core.Files
+	CFlags    []string
 	Toolchain *Toolchain
 }
 
@@ -41,14 +51,19 @@ func (obj ObjectFile) BuildSteps() []core.BuildStep {
 	for _, include := range obj.Includes {
 		includes.WriteString(fmt.Sprintf("-I%s ", include))
 	}
-	flags := strings.Join(obj.Toolchain.CFlags, " ")
-	cmd := fmt.Sprintf("%s -c %s %s -o %s %s", obj.Toolchain.Cc, flags, includes.String(), obj.Out(), obj.Src)
+	for _, include := range obj.Toolchain.Includes {
+		includes.WriteString(fmt.Sprintf("-isystem %s ", include))
+	}
+	depfile := obj.Src.WithExt("d")
+	flags := strings.Join(obj.CFlags, " ")
+	cmd := fmt.Sprintf("%s -c -MD -MF %s %s %s -o %s %s", obj.Toolchain.Cc, depfile, flags, includes.String(), obj.Out(), obj.Src)
 	return []core.BuildStep{{
-		Out:   obj.Out(),
-		In:    obj.Src,
-		Cmd:   cmd,
-		Descr: fmt.Sprintf("CC %s", obj.Out().RelPath()),
-		Alias: obj.Out().RelPath(),
+		Out:     obj.Out(),
+		Depfile: &depfile,
+		In:      obj.Src,
+		Cmd:     cmd,
+		Descr:   fmt.Sprintf("CC %s", obj.Out().RelPath()),
+		Alias:   obj.Out().RelPath(),
 	}}
 }
 
@@ -56,19 +71,18 @@ func (obj ObjectFile) BuildSteps() []core.BuildStep {
 type Library struct {
 	Out       core.OutFile
 	Srcs      core.Files
-	CFlags    []string
 	Includes  core.Files
-	Deps      []Library
+	CFlags    []string
 	Toolchain *Toolchain
 }
 
 // BuildSteps provides the steps to build a Library.
 func (lib Library) BuildSteps() []core.BuildStep {
-	core.Assert(!lib.Out.Empty(), "'Out' is missing, but required")
-
 	if lib.Toolchain == nil {
 		lib.Toolchain = &defaultToolchain
 	}
+
+	lib.Includes = append(lib.Includes, core.NewInFile("."))
 
 	var steps = []core.BuildStep{}
 	var objs = core.Files{}
@@ -77,6 +91,7 @@ func (lib Library) BuildSteps() []core.BuildStep {
 		obj := ObjectFile{
 			Src:       src,
 			Includes:  lib.Includes,
+			CFlags:    lib.CFlags,
 			Toolchain: lib.Toolchain,
 		}
 		objs = append(objs, obj.Out())
