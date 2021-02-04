@@ -10,6 +10,7 @@ import (
 type File interface {
 	Path() string
 	RelPath() string
+	String() string
 	WithExt(ext string) OutFile
 	WithSuffix(suffix string) OutFile
 }
@@ -97,6 +98,10 @@ type globalFile struct {
 // Path returns the file's absolute path.
 func (f globalFile) Path() string {
 	return f.absPath
+}
+
+func (f globalFile) String() string {
+	return fmt.Sprintf("\"%s\"", f.Path())
 }
 
 // NewInFile creates an inFile for a file relativ to the source directory.
