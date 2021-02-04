@@ -15,6 +15,12 @@ import (
 	"dbt/RULES/core"
 )
 
+type Flags []string
+
+func (f Flags) String() string {
+	return strings.Join(f, " ")
+}
+
 // Toolchain represents a C++ toolchain.
 type Toolchain struct {
 	Ar      core.GlobalFile
@@ -25,6 +31,12 @@ type Toolchain struct {
 	Objcopy core.GlobalFile
 
 	Includes core.Files
+
+	CompilerFlags Flags
+	LinkerFlags   Flags
+
+	CrtBegin core.File
+	CrtEnd   core.File
 }
 
 var defaultToolchain = Toolchain{
@@ -34,15 +46,17 @@ var defaultToolchain = Toolchain{
 	Cpp:     core.NewGlobalFile("g++"),
 	Cxx:     core.NewGlobalFile("gcc"),
 	Objcopy: core.NewGlobalFile("objcopy"),
+
+	CompilerFlags: Flags{"-std=c++14", "-O3", "-fdiagnostics-color=always"},
+	LinkerFlags:   Flags{"-fdiagnostics-color=always"},
 }
 
 // ObjectFile compiles a single C++ source file.
 type ObjectFile struct {
-	Src            core.File
-	Includes       core.Files
-	SystemIncludes core.Files
-	Flags          []string
-	Toolchain      *Toolchain
+	Src       core.File
+	Includes  core.Files
+	Flags     Flags
+	Toolchain *Toolchain
 }
 
 // Out provides the name of the output created by ObjectFile.
@@ -52,19 +66,28 @@ func (obj ObjectFile) Out() core.OutFile {
 
 // BuildSteps provides the steps to produce an ObjectFile.
 func (obj ObjectFile) BuildSteps() []core.BuildStep {
-	if obj.Toolchain == nil {
-		obj.Toolchain = &defaultToolchain
+	toolchain := obj.Toolchain
+	if toolchain == nil {
+		toolchain = &defaultToolchain
 	}
 
 	includes := strings.Builder{}
 	for _, include := range obj.Includes {
 		includes.WriteString(fmt.Sprintf("-I%s ", include))
 	}
-	for _, include := range obj.Toolchain.Includes {
+	for _, include := range toolchain.Includes {
 		includes.WriteString(fmt.Sprintf("-isystem %s ", include))
 	}
+	flags := append(toolchain.CompilerFlags, obj.Flags...)
 	depfile := obj.Src.WithExt("d")
-	cmd := fmt.Sprintf("%s -c -MD -MF %s %s %s -o %s %s", obj.Toolchain.Cxx, depfile, strings.Join(obj.Flags, " "), includes.String(), obj.Out(), obj.Src)
+	cmd := fmt.Sprintf(
+		"%s -c -o %s -MD -MF %s %s %s %s",
+		obj.Toolchain.Cxx,
+		obj.Out(),
+		depfile,
+		flags,
+		includes.String(),
+		obj.Src)
 	return []core.BuildStep{{
 		Out:     obj.Out(),
 		Depfile: &depfile,
@@ -83,9 +106,7 @@ func flattenDeps(deps []Library) []Library {
 	return allDeps
 }
 
-func compileSources(srcs core.Files, flags []string, deps []Library, toolchain *Toolchain) ([]core.BuildStep, core.Files) {
-	deps = flattenDeps(deps)
-
+func compileSources(srcs core.Files, flags Flags, deps []Library, toolchain *Toolchain) ([]core.BuildStep, core.Files) {
 	includes := core.Files{core.NewInFile(".")}
 	for _, dep := range deps {
 		includes = append(includes, dep.Includes...)
@@ -110,12 +131,14 @@ func compileSources(srcs core.Files, flags []string, deps []Library, toolchain *
 
 // Library builds and links a C++ library.
 type Library struct {
-	Out       core.OutFile
-	Srcs      core.Files
-	Includes  core.Files
-	CxxFlags  []string
-	Deps      []Library
-	Toolchain *Toolchain
+	Out           core.OutFile
+	Srcs          core.Files
+	Objs          core.Files
+	Includes      core.Files
+	CompilerFlags Flags
+	Deps          []Library
+	AlwaysLink    bool
+	Toolchain     *Toolchain
 }
 
 // BuildSteps provides the steps to build a Library.
@@ -125,9 +148,10 @@ func (lib Library) BuildSteps() []core.BuildStep {
 		toolchain = &defaultToolchain
 	}
 
-	steps, objs := compileSources(lib.Srcs, lib.CxxFlags, []Library{lib}, toolchain)
+	steps, objs := compileSources(lib.Srcs, lib.CompilerFlags, flattenDeps([]Library{lib}), toolchain)
+	objs = append(objs, lib.Objs...)
 
-	cmd := fmt.Sprintf("%s rv %s %s > /dev/null 2> /dev/null", toolchain.Ar, lib.Out, objs)
+	cmd := fmt.Sprintf("%s rv %s %s >/dev/null 2>/dev/null", toolchain.Ar, lib.Out, objs)
 	arStep := core.BuildStep{
 		Out:   lib.Out,
 		Ins:   objs,
@@ -140,13 +164,13 @@ func (lib Library) BuildSteps() []core.BuildStep {
 }
 
 type Binary struct {
-	Out       core.OutFile
-	Srcs      core.Files
-	CxxFlags  []string
-	LdFlags   []string
-	Deps      []Library
-	Script    *core.File
-	Toolchain *Toolchain
+	Out           core.OutFile
+	Srcs          core.Files
+	CompilerFlags Flags
+	LinkerFlags   Flags
+	Deps          []Library
+	Script        *core.File
+	Toolchain     *Toolchain
 }
 
 // BuildSteps provides the steps to build a Binary.
@@ -156,22 +180,67 @@ func (bin Binary) BuildSteps() []core.BuildStep {
 		toolchain = &defaultToolchain
 	}
 
-	steps, objs := compileSources(bin.Srcs, bin.CxxFlags, bin.Deps, toolchain)
+	deps := flattenDeps(bin.Deps)
+	steps, objs := compileSources(bin.Srcs, bin.CompilerFlags, deps, toolchain)
 
-	flags := bin.LdFlags
-	if bin.Script != nil {
-		flags = append(flags, fmt.Sprintf("-T%s", *bin.Script))
+	ins := objs
+	seenLibs := map[string]struct{}{}
+	alwaysLinkLibs := core.Files{}
+	otherLibs := core.Files{}
+	for _, dep := range deps {
+		if _, exists := seenLibs[dep.Out.Path()]; !exists {
+			ins = append(ins, dep.Out)
+			seenLibs[dep.Out.Path()] = struct{}{}
+			if dep.AlwaysLink {
+				alwaysLinkLibs = append(alwaysLinkLibs, dep.Out)
+			} else {
+				otherLibs = append(otherLibs, dep.Out)
+			}
+		}
 	}
-	cmd := fmt.Sprintf("%s %s -o %s %s", toolchain.Cxx, strings.Join(flags, " "), bin.Out, objs)
+
+	flags := append(toolchain.LinkerFlags, bin.LinkerFlags...)
+	if bin.Script != nil {
+		flags = append(flags, "-T", (*bin.Script).String())
+		ins = append(ins, *bin.Script)
+	}
+	cmd := fmt.Sprintf(
+		"%s -o %s %s -Wl,-whole-archive %s -Wl,-no-whole-archive %s %s",
+		toolchain.Cxx,
+		bin.Out,
+		objs,
+		alwaysLinkLibs,
+		otherLibs,
+		flags)
 	ldStep := core.BuildStep{
 		Out:   bin.Out,
-		Ins:   objs,
+		Ins:   ins,
 		Cmd:   cmd,
 		Descr: fmt.Sprintf("LD %s", bin.Out.RelPath()),
 		Alias: bin.Out.RelPath(),
 	}
 
 	return append(steps, ldStep)
+}
+`,
+
+    "../RULES/core/copy.go": `package core
+
+import "fmt"
+
+type CopyFile struct {
+	From File
+	To   OutFile
+}
+
+func (copy CopyFile) BuildSteps() []BuildStep {
+	return []BuildStep{{
+		Out:   copy.To,
+		In:    copy.From,
+		Cmd:   fmt.Sprintf("cp %s %s", copy.From, copy.To),
+		Descr: fmt.Sprintf("CP %s", copy.To.RelPath()),
+		Alias: copy.To.RelPath(),
+	}}
 }
 `,
 
@@ -187,6 +256,7 @@ import (
 type File interface {
 	Path() string
 	RelPath() string
+	String() string
 	WithExt(ext string) OutFile
 	WithSuffix(suffix string) OutFile
 }
@@ -274,6 +344,10 @@ type globalFile struct {
 // Path returns the file's absolute path.
 func (f globalFile) Path() string {
 	return f.absPath
+}
+
+func (f globalFile) String() string {
+	return fmt.Sprintf("\"%s\"", f.Path())
 }
 
 // NewInFile creates an inFile for a file relativ to the source directory.
