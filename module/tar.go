@@ -43,7 +43,7 @@ func CreateTarModule(modulePath, url string) Module {
 
 	tarFile, err := gzip.NewReader(response.Body)
 	if err != nil {
-		log.Fatal("Failed to decompress: %s.\n")
+		log.Fatal("Failed to decompress: %s.\n", err)
 	}
 
 	tarReader := tar.NewReader(tarFile)
@@ -55,7 +55,7 @@ func CreateTarModule(modulePath, url string) Module {
 		}
 
 		if err != nil {
-			log.Fatal("Failed to decompress: %s.\n")
+			log.Fatal("Failed to decompress: %s.\n", err)
 		}
 
 		switch header.Typeflag {
@@ -91,10 +91,9 @@ func CreateTarModule(modulePath, url string) Module {
 				log.Fatal("Failed to create link while decompressing archive: %s.\n", err)
 			}
 		case tar.TypeSymlink:
-			oldname := path.Join(modulePath, header.Linkname)
 			newname := path.Join(modulePath, header.Name)
-			log.Debug("Creating symlink from '%s' to '%s'.\n", newname, oldname)
-			err = os.Symlink(oldname, newname)
+			log.Debug("Creating symlink from '%s' to '%s'.\n", newname, header.Linkname)
+			err = os.Symlink(header.Linkname, newname)
 			if err != nil {
 				log.Fatal("Failed to create symlink while decompressing archive: %s.\n", err)
 			}
