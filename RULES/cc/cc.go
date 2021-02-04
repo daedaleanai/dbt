@@ -7,12 +7,6 @@ import (
 	"dbt/RULES/core"
 )
 
-type Flags []string
-
-func (f Flags) String() string {
-	return strings.Join(f, " ")
-}
-
 // Toolchain represents a C++ toolchain.
 type Toolchain struct {
 	Ar      core.GlobalFile
@@ -24,8 +18,8 @@ type Toolchain struct {
 
 	Includes core.Files
 
-	CompilerFlags Flags
-	LinkerFlags   Flags
+	CompilerFlags core.Flags
+	LinkerFlags   core.Flags
 
 	CrtBegin core.File
 	CrtEnd   core.File
@@ -39,15 +33,15 @@ var defaultToolchain = Toolchain{
 	Cxx:     core.NewGlobalFile("g++"),
 	Objcopy: core.NewGlobalFile("objcopy"),
 
-	CompilerFlags: Flags{"-std=c++14", "-O3", "-fdiagnostics-color=always"},
-	LinkerFlags:   Flags{"-fdiagnostics-color=always"},
+	CompilerFlags: core.Flags{"-std=c++14", "-O3", "-fdiagnostics-color=always"},
+	LinkerFlags:   core.Flags{"-fdiagnostics-color=always"},
 }
 
 // ObjectFile compiles a single C++ source file.
 type ObjectFile struct {
 	Src       core.File
 	Includes  core.Files
-	Flags     Flags
+	Flags     core.Flags
 	Toolchain *Toolchain
 }
 
@@ -98,7 +92,7 @@ func flattenDeps(deps []Library) []Library {
 	return allDeps
 }
 
-func compileSources(srcs core.Files, flags Flags, deps []Library, toolchain *Toolchain) ([]core.BuildStep, core.Files) {
+func compileSources(srcs core.Files, flags core.Flags, deps []Library, toolchain *Toolchain) ([]core.BuildStep, core.Files) {
 	includes := core.Files{core.NewInFile(".")}
 	for _, dep := range deps {
 		includes = append(includes, dep.Includes...)
@@ -127,7 +121,7 @@ type Library struct {
 	Srcs          core.Files
 	Objs          core.Files
 	Includes      core.Files
-	CompilerFlags Flags
+	CompilerFlags core.Flags
 	Deps          []Library
 	AlwaysLink    bool
 	Toolchain     *Toolchain
@@ -158,8 +152,8 @@ func (lib Library) BuildSteps() []core.BuildStep {
 type Binary struct {
 	Out           core.OutFile
 	Srcs          core.Files
-	CompilerFlags Flags
-	LinkerFlags   Flags
+	CompilerFlags core.Flags
+	LinkerFlags   core.Flags
 	Deps          []Library
 	Script        core.File
 	Toolchain     *Toolchain
