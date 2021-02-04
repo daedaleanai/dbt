@@ -43,8 +43,8 @@ var defaultToolchain = Toolchain{
 	Ar:      core.NewGlobalFile("ar"),
 	As:      core.NewGlobalFile("as"),
 	Cc:      core.NewGlobalFile("gcc"),
-	Cpp:     core.NewGlobalFile("g++"),
-	Cxx:     core.NewGlobalFile("gcc"),
+	Cpp:     core.NewGlobalFile("gcc -E"),
+	Cxx:     core.NewGlobalFile("g++"),
 	Objcopy: core.NewGlobalFile("objcopy"),
 
 	CompilerFlags: Flags{"-std=c++14", "-O3", "-fdiagnostics-color=always"},
@@ -169,7 +169,7 @@ type Binary struct {
 	CompilerFlags Flags
 	LinkerFlags   Flags
 	Deps          []Library
-	Script        *core.File
+	Script        core.File
 	Toolchain     *Toolchain
 }
 
@@ -201,8 +201,8 @@ func (bin Binary) BuildSteps() []core.BuildStep {
 
 	flags := append(toolchain.LinkerFlags, bin.LinkerFlags...)
 	if bin.Script != nil {
-		flags = append(flags, "-T", (*bin.Script).String())
-		ins = append(ins, *bin.Script)
+		flags = append(flags, "-T", bin.Script.String())
+		ins = append(ins, bin.Script)
 	}
 	cmd := fmt.Sprintf(
 		"%s -o %s %s -Wl,-whole-archive %s -Wl,-no-whole-archive %s %s",
@@ -422,6 +422,35 @@ func (step BuildStep) Print() {
 	fmt.Print("\n\n")
 
 	nextRuleId++
+}
+`,
+
+    "../RULES/core/template.go": `package core
+
+import (
+	"fmt"
+	"strings"
+)
+
+type ExpandTemplate struct {
+	Out           OutFile
+	Template      File
+	Substitutions map[string]string
+}
+
+func (tmpl ExpandTemplate) BuildSteps() []BuildStep {
+	substitutions := []string{}
+	for old, new := range tmpl.Substitutions {
+		substitutions = append(substitutions, fmt.Sprintf("-e 's/%s/%s/g'", old, new))
+	}
+	cmd := fmt.Sprintf("sed %s %s > %s", strings.Join(substitutions, " "), tmpl.Template, tmpl.Out)
+	return []BuildStep{{
+		Out:   tmpl.Out,
+		In:    tmpl.Template,
+		Cmd:   cmd,
+		Descr: fmt.Sprintf("TEMPLATE %s", tmpl.Out.RelPath()),
+		Alias: tmpl.Out.RelPath(),
+	}}
 }
 `,
 

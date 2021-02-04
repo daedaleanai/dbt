@@ -35,8 +35,8 @@ var defaultToolchain = Toolchain{
 	Ar:      core.NewGlobalFile("ar"),
 	As:      core.NewGlobalFile("as"),
 	Cc:      core.NewGlobalFile("gcc"),
-	Cpp:     core.NewGlobalFile("g++"),
-	Cxx:     core.NewGlobalFile("gcc"),
+	Cpp:     core.NewGlobalFile("gcc -E"),
+	Cxx:     core.NewGlobalFile("g++"),
 	Objcopy: core.NewGlobalFile("objcopy"),
 
 	CompilerFlags: Flags{"-std=c++14", "-O3", "-fdiagnostics-color=always"},
@@ -161,7 +161,7 @@ type Binary struct {
 	CompilerFlags Flags
 	LinkerFlags   Flags
 	Deps          []Library
-	Script        *core.File
+	Script        core.File
 	Toolchain     *Toolchain
 }
 
@@ -193,8 +193,8 @@ func (bin Binary) BuildSteps() []core.BuildStep {
 
 	flags := append(toolchain.LinkerFlags, bin.LinkerFlags...)
 	if bin.Script != nil {
-		flags = append(flags, "-T", (*bin.Script).String())
-		ins = append(ins, *bin.Script)
+		flags = append(flags, "-T", bin.Script.String())
+		ins = append(ins, bin.Script)
 	}
 	cmd := fmt.Sprintf(
 		"%s -o %s %s -Wl,-whole-archive %s -Wl,-no-whole-archive %s %s",
