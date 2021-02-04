@@ -192,6 +192,9 @@ func copyBuildAndRuleFiles(moduleName, modulePath, buildfilesDir string, modules
 		log.Debug("Found build file '%s'.\n", path.Join(modulePath, relativeFilePath))
 
 		importLine := fmt.Sprintf("import _ \"%s/%s\"", moduleName, relativeDirPath)
+		if relativeDirPath == "." {
+			importLine = fmt.Sprintf("import _ \"%s\"", moduleName)
+		}
 		importLines = append(importLines, importLine)
 
 		packageName, targets := parseBuildFile(filePath)
