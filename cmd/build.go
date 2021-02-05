@@ -62,20 +62,20 @@ func init() {
 	}
 }
 
-func in(name string) core.File {
-	return core.NewInFile(path.Join(reflect.TypeOf(__internal_pkg{}).PkgPath(), name))
+func in(name string) core.Path {
+	return core.NewInPath(path.Join(reflect.TypeOf(__internal_pkg{}).PkgPath(), name))
 }
 
-func ins(names ...string) core.Files {
-	var files core.Files
+func ins(names ...string) core.Paths {
+	var paths core.Paths
 	for _, name := range names {
-		files = append(files, in(name))
+		paths = append(paths, in(name))
 	}
-	return files
+	return paths
 }
 
-func out(name string) core.OutFile {
-	return core.NewOutFile(path.Join(reflect.TypeOf(__internal_pkg{}).PkgPath(), name))
+func out(name string) core.OutPath {
+	return core.NewOutPath(path.Join(reflect.TypeOf(__internal_pkg{}).PkgPath(), name))
 }
 `
 
