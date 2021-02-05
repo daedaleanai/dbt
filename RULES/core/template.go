@@ -5,12 +5,14 @@ import (
 	"strings"
 )
 
+// ExpandTemplate expands `Template` by performing `Substitutions` and storing the result in `Out`.
 type ExpandTemplate struct {
-	Out           OutFile
-	Template      File
+	Out           OutPath
+	Template      Path
 	Substitutions map[string]string
 }
 
+// BuildSteps for ExpandTemplate.
 func (tmpl ExpandTemplate) BuildSteps() []BuildStep {
 	substitutions := []string{}
 	for old, new := range tmpl.Substitutions {
@@ -21,7 +23,7 @@ func (tmpl ExpandTemplate) BuildSteps() []BuildStep {
 		Out:   tmpl.Out,
 		In:    tmpl.Template,
 		Cmd:   cmd,
-		Descr: fmt.Sprintf("TEMPLATE %s", tmpl.Out.RelPath()),
-		Alias: tmpl.Out.RelPath(),
+		Descr: fmt.Sprintf("TEMPLATE %s", tmpl.Out.Relative()),
+		Alias: tmpl.Out.Relative(),
 	}}
 }

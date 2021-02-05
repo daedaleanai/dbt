@@ -6,115 +6,118 @@ import (
 	"strings"
 )
 
-// File represents an on-disk file that is either an input to or an output from a BuildStep (or both).
-type File interface {
-	Path() string
-	RelPath() string
+// Path represents an on-disk path that is either an input to or an output from a BuildStep (or both).
+type Path interface {
+	Absolute() string
+	Relative() string
 	String() string
-	WithExt(ext string) OutFile
-	WithSuffix(suffix string) OutFile
+	WithExt(ext string) OutPath
+	WithSuffix(suffix string) OutPath
 }
 
-// Files represents a group of Files.
-type Files []File
+// Paths represents a list of Paths.
+type Paths []Path
 
-func (fs Files) String() string {
+func (ps Paths) String() string {
 	paths := []string{}
-	for _, f := range fs {
-		paths = append(paths, fmt.Sprint(f))
+	for _, p := range ps {
+		paths = append(paths, fmt.Sprint(p))
 	}
 	return strings.Join(paths, " ")
 }
 
-// inFile represents a file relative to the workspace source directory.
-type inFile struct {
-	relPath string
+// inPath is a path relative to the workspace source directory.
+type inPath struct {
+	rel string
 }
 
-// Path returns the file's absolute path.
-func (f inFile) Path() string {
-	return path.Join(SourceDir(), f.relPath)
+// Absolute returns the absolute path.
+func (p inPath) Absolute() string {
+	return path.Join(SourceDir(), p.rel)
 }
 
-// RelPath returns the file's path relative to the source directory.
-func (f inFile) RelPath() string {
-	return f.relPath
+// Relative returns the path relative to the workspace source directory.
+func (p inPath) Relative() string {
+	return p.rel
 }
 
-// WithExt creates an OutFile with the same relative path and the given file extension.
-func (f inFile) WithExt(ext string) OutFile {
-	return OutFile{f.relPath}.WithExt(ext)
+// WithExt creates an OutPath with the same relative path and the given extension.
+func (p inPath) WithExt(ext string) OutPath {
+	return OutPath{p.rel}.WithExt(ext)
 }
 
-// WithSuffix creates an OutFile with the same relative path and the given suffix.
-func (f inFile) WithSuffix(suffix string) OutFile {
-	return OutFile{f.relPath}.WithSuffix(suffix)
+// WithSuffix creates an OutPath with the same relative path and the given suffix.
+func (p inPath) WithSuffix(suffix string) OutPath {
+	return OutPath{p.rel}.WithSuffix(suffix)
 }
 
-func (f inFile) String() string {
-	return fmt.Sprintf("\"%s\"", f.Path())
+// String representation of an inPath is its quoted absolute path.
+func (p inPath) String() string {
+	return fmt.Sprintf("\"%s\"", p.Absolute())
 }
 
-// OutFile represents a file relative to the workspace build directory.
-type OutFile struct {
-	relPath string
+// OutPath is a path relative to the workspace build directory.
+type OutPath struct {
+	rel string
 }
 
-// Path returns the file's absolute path.
-func (f OutFile) Path() string {
-	return path.Join(BuildDir(), f.relPath)
+// Absolute returns the absolute path.
+func (p OutPath) Absolute() string {
+	return path.Join(BuildDir(), p.rel)
 }
 
-// RelPath returns the file's path relative to the build directory.
-func (f OutFile) RelPath() string {
-	return f.relPath
+// Relative returns the path relative to the workspace build directory.
+func (p OutPath) Relative() string {
+	return p.rel
 }
 
-// WithExt creates an OutFile with the same relative path and the given file extension.
-func (f OutFile) WithExt(ext string) OutFile {
-	oldExt := path.Ext(f.relPath)
-	relPath := fmt.Sprintf("%s.%s", strings.TrimSuffix(f.relPath, oldExt), ext)
-	return OutFile{relPath}
+// WithExt creates an OutPath with the same relative path and the given extension.
+func (p OutPath) WithExt(ext string) OutPath {
+	oldExt := path.Ext(p.rel)
+	newRel := fmt.Sprintf("%s.%s", strings.TrimSuffix(p.rel, oldExt), ext)
+	return OutPath{newRel}
 }
 
-// WithSuffix creates an OutFile with the same relative path and the given suffix.
-func (f OutFile) WithSuffix(suffix string) OutFile {
-	return OutFile{f.relPath + suffix}
+// WithSuffix creates an OutPath with the same relative path and the given suffix.
+func (p OutPath) WithSuffix(suffix string) OutPath {
+	return OutPath{p.rel + suffix}
 }
 
-func (f OutFile) String() string {
-	return fmt.Sprintf("\"%s\"", f.Path())
+// String representation of an OutPath is its quoted absolute path.
+func (p OutPath) String() string {
+	return fmt.Sprintf("\"%s\"", p.Absolute())
 }
 
-// GlobalFile represents a global file.
-type GlobalFile interface {
-	Path() string
+// GlobalPath is a global path.
+type GlobalPath interface {
+	Absolute() string
 }
 
-type globalFile struct {
-	absPath string
+type globalPath struct {
+	abs string
 }
 
-// Path returns the file's absolute path.
-func (f globalFile) Path() string {
-	return f.absPath
+// Absolute returns absolute path.
+func (p globalPath) Absolute() string {
+	return p.abs
 }
 
-func (f globalFile) String() string {
-	return fmt.Sprintf("\"%s\"", f.Path())
+// String representation of a globalPath is its quoted absolute path.
+func (p globalPath) String() string {
+	return fmt.Sprintf("\"%s\"", p.Absolute())
 }
 
-// NewInFile creates an inFile for a file relativ to the source directory.
-func NewInFile(p string) File {
-	return inFile{p}
+// NewInPath creates an inPath for a path relativ to the source directory.
+func NewInPath(p string) Path {
+	return inPath{p}
 }
 
-// NewOutFile creates an OutFile for a file relativ to the build directory.
-func NewOutFile(p string) OutFile {
-	return OutFile{p}
+// NewOutPath creates an OutPath for a path relativ to the build directory.
+func NewOutPath(p string) OutPath {
+	return OutPath{p}
 }
 
-// NewGlobalFile creates a globalFile.
-func NewGlobalFile(p string) GlobalFile {
-	return globalFile{p}
+// NewGlobalPath creates a globalPath.
+func NewGlobalPath(p string) GlobalPath {
+	return globalPath{p}
 }

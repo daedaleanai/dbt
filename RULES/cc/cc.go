@@ -9,29 +9,29 @@ import (
 
 // Toolchain represents a C++ toolchain.
 type Toolchain struct {
-	Ar      core.GlobalFile
-	As      core.GlobalFile
-	Cc      core.GlobalFile
-	Cpp     core.GlobalFile
-	Cxx     core.GlobalFile
-	Objcopy core.GlobalFile
+	Ar      core.GlobalPath
+	As      core.GlobalPath
+	Cc      core.GlobalPath
+	Cpp     core.GlobalPath
+	Cxx     core.GlobalPath
+	Objcopy core.GlobalPath
 
-	Includes core.Files
+	Includes core.Paths
 
 	CompilerFlags core.Flags
 	LinkerFlags   core.Flags
 
-	CrtBegin core.File
-	CrtEnd   core.File
+	CrtBegin core.Path
+	CrtEnd   core.Path
 }
 
 var defaultToolchain = Toolchain{
-	Ar:      core.NewGlobalFile("ar"),
-	As:      core.NewGlobalFile("as"),
-	Cc:      core.NewGlobalFile("gcc"),
-	Cpp:     core.NewGlobalFile("gcc -E"),
-	Cxx:     core.NewGlobalFile("g++"),
-	Objcopy: core.NewGlobalFile("objcopy"),
+	Ar:      core.NewGlobalPath("ar"),
+	As:      core.NewGlobalPath("as"),
+	Cc:      core.NewGlobalPath("gcc"),
+	Cpp:     core.NewGlobalPath("gcc -E"),
+	Cxx:     core.NewGlobalPath("g++"),
+	Objcopy: core.NewGlobalPath("objcopy"),
 
 	CompilerFlags: core.Flags{"-std=c++14", "-O3", "-fdiagnostics-color=always"},
 	LinkerFlags:   core.Flags{"-fdiagnostics-color=always"},
@@ -39,18 +39,18 @@ var defaultToolchain = Toolchain{
 
 // ObjectFile compiles a single C++ source file.
 type ObjectFile struct {
-	Src       core.File
-	Includes  core.Files
+	Src       core.Path
+	Includes  core.Paths
 	Flags     core.Flags
 	Toolchain *Toolchain
 }
 
 // Out provides the name of the output created by ObjectFile.
-func (obj ObjectFile) Out() core.OutFile {
+func (obj ObjectFile) Out() core.OutPath {
 	return obj.Src.WithExt("o")
 }
 
-// BuildSteps provides the steps to produce an ObjectFile.
+// BuildSteps for ObjectFile.
 func (obj ObjectFile) BuildSteps() []core.BuildStep {
 	toolchain := obj.Toolchain
 	if toolchain == nil {
@@ -79,8 +79,8 @@ func (obj ObjectFile) BuildSteps() []core.BuildStep {
 		Depfile: &depfile,
 		In:      obj.Src,
 		Cmd:     cmd,
-		Descr:   fmt.Sprintf("CC %s", obj.Out().RelPath()),
-		Alias:   obj.Out().RelPath(),
+		Descr:   fmt.Sprintf("CC %s", obj.Out().Relative()),
+		Alias:   obj.Out().Relative(),
 	}}
 }
 
@@ -92,14 +92,14 @@ func flattenDeps(deps []Library) []Library {
 	return allDeps
 }
 
-func compileSources(srcs core.Files, flags core.Flags, deps []Library, toolchain *Toolchain) ([]core.BuildStep, core.Files) {
-	includes := core.Files{core.NewInFile(".")}
+func compileSources(srcs core.Paths, flags core.Flags, deps []Library, toolchain *Toolchain) ([]core.BuildStep, core.Paths) {
+	includes := core.Paths{core.NewInPath(".")}
 	for _, dep := range deps {
 		includes = append(includes, dep.Includes...)
 	}
 
 	steps := []core.BuildStep{}
-	objs := core.Files{}
+	objs := core.Paths{}
 
 	for _, src := range srcs {
 		obj := ObjectFile{
@@ -115,19 +115,19 @@ func compileSources(srcs core.Files, flags core.Flags, deps []Library, toolchain
 	return steps, objs
 }
 
-// Library builds and links a C++ library.
+// Library builds and links a static C++ library.
 type Library struct {
-	Out           core.OutFile
-	Srcs          core.Files
-	Objs          core.Files
-	Includes      core.Files
+	Out           core.OutPath
+	Srcs          core.Paths
+	Objs          core.Paths
+	Includes      core.Paths
 	CompilerFlags core.Flags
 	Deps          []Library
 	AlwaysLink    bool
 	Toolchain     *Toolchain
 }
 
-// BuildSteps provides the steps to build a Library.
+// BuildSteps for Library.
 func (lib Library) BuildSteps() []core.BuildStep {
 	toolchain := lib.Toolchain
 	if toolchain == nil {
@@ -142,24 +142,25 @@ func (lib Library) BuildSteps() []core.BuildStep {
 		Out:   lib.Out,
 		Ins:   objs,
 		Cmd:   cmd,
-		Descr: fmt.Sprintf("AR %s", lib.Out.RelPath()),
-		Alias: lib.Out.RelPath(),
+		Descr: fmt.Sprintf("AR %s", lib.Out.Relative()),
+		Alias: lib.Out.Relative(),
 	}
 
 	return append(steps, arStep)
 }
 
+// Binary builds and links an executable.
 type Binary struct {
-	Out           core.OutFile
-	Srcs          core.Files
+	Out           core.OutPath
+	Srcs          core.Paths
 	CompilerFlags core.Flags
 	LinkerFlags   core.Flags
 	Deps          []Library
-	Script        core.File
+	Script        core.Path
 	Toolchain     *Toolchain
 }
 
-// BuildSteps provides the steps to build a Binary.
+// BuildSteps for Binary.
 func (bin Binary) BuildSteps() []core.BuildStep {
 	toolchain := bin.Toolchain
 	if toolchain == nil {
@@ -171,12 +172,12 @@ func (bin Binary) BuildSteps() []core.BuildStep {
 
 	ins := objs
 	seenLibs := map[string]struct{}{}
-	alwaysLinkLibs := core.Files{}
-	otherLibs := core.Files{}
+	alwaysLinkLibs := core.Paths{}
+	otherLibs := core.Paths{}
 	for _, dep := range deps {
-		if _, exists := seenLibs[dep.Out.Path()]; !exists {
+		if _, exists := seenLibs[dep.Out.Absolute()]; !exists {
 			ins = append(ins, dep.Out)
-			seenLibs[dep.Out.Path()] = struct{}{}
+			seenLibs[dep.Out.Absolute()] = struct{}{}
 			if dep.AlwaysLink {
 				alwaysLinkLibs = append(alwaysLinkLibs, dep.Out)
 			} else {
@@ -202,8 +203,8 @@ func (bin Binary) BuildSteps() []core.BuildStep {
 		Out:   bin.Out,
 		Ins:   ins,
 		Cmd:   cmd,
-		Descr: fmt.Sprintf("LD %s", bin.Out.RelPath()),
-		Alias: bin.Out.RelPath(),
+		Descr: fmt.Sprintf("LD %s", bin.Out.Relative()),
+		Alias: bin.Out.Relative(),
 	}
 
 	return append(steps, ldStep)
