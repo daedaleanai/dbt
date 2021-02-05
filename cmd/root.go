@@ -1,8 +1,9 @@
 package cmd
 
 import (
-	"dbt/log"
 	"os"
+
+	"github.com/daedaleanai/dbt/log"
 
 	"github.com/spf13/cobra"
 )

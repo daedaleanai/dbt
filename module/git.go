@@ -1,8 +1,9 @@
 package module
 
 import (
-	"dbt/log"
 	"path"
+
+	"github.com/daedaleanai/dbt/log"
 
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"

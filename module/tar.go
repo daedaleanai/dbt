@@ -3,13 +3,14 @@ package module
 import (
 	"archive/tar"
 	"compress/gzip"
-	"dbt/log"
-	"dbt/util"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
 	"path"
+
+	"github.com/daedaleanai/dbt/log"
+	"github.com/daedaleanai/dbt/util"
 
 	"gopkg.in/yaml.v2"
 )
