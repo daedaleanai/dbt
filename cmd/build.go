@@ -169,13 +169,13 @@ func copyBuildAndRuleFiles(moduleName, modulePath, buildFilesDir string, modules
 	modFileContent := createModFileContent(moduleName, modules, "..")
 	util.WriteFile(path.Join(buildFilesDir, modFileName), modFileContent)
 
+	buildFiles := []string{}
 	err := util.WalkSymlink(modulePath, func(filePath string, file os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
 
 		relativeFilePath := strings.TrimPrefix(filePath, modulePath+string(os.PathSeparator))
-		relativeDirPath := strings.TrimSuffix(path.Dir(relativeFilePath), string(os.PathSeparator))
 
 		// Ignore the BUILD/, DEPS/ and RULES/ directories.
 		if file.IsDir() && (relativeFilePath == buildDirName || relativeFilePath == util.DepsDirName || relativeFilePath == RulesDirName) {
@@ -188,6 +188,17 @@ func copyBuildAndRuleFiles(moduleName, modulePath, buildFilesDir string, modules
 		}
 
 		log.Debug("Found build file '%s'.\n", path.Join(modulePath, relativeFilePath))
+		buildFiles = append(buildFiles, filePath)
+		return nil
+	})
+
+	if err != nil {
+		log.Fatal("Failed to search module '%s' for '%s' files: %s.\n", moduleName, buildFileName, err)
+	}
+
+	for _, buildFile := range buildFiles {
+		relativeFilePath := strings.TrimPrefix(buildFile, modulePath+string(os.PathSeparator))
+		relativeDirPath := strings.TrimSuffix(path.Dir(relativeFilePath), string(os.PathSeparator))
 
 		importLine := fmt.Sprintf("import _ \"%s/%s\"", moduleName, relativeDirPath)
 		if relativeDirPath == "." {
@@ -195,7 +206,7 @@ func copyBuildAndRuleFiles(moduleName, modulePath, buildFilesDir string, modules
 		}
 		importLines = append(importLines, importLine)
 
-		packageName, targets := parseBuildFile(filePath)
+		packageName, targets := parseBuildFile(buildFile)
 		targetLines := []string{}
 		for _, targetName := range targets {
 			targetLine := fmt.Sprintf(`
@@ -211,12 +222,7 @@ func copyBuildAndRuleFiles(moduleName, modulePath, buildFilesDir string, modules
 		util.WriteFile(initFilePath, []byte(initFileContent))
 
 		copyFilePath := path.Join(buildFilesDir, relativeFilePath)
-		util.CopyFile(filePath, copyFilePath)
-		return nil
-	})
-
-	if err != nil {
-		log.Fatal("Failed to copy '%s' files for module '%s': %s.\n", buildFileName, moduleName, err)
+		util.CopyFile(buildFile, copyFilePath)
 	}
 
 	rulesDirPath := path.Join(modulePath, RulesDirName)
@@ -276,24 +282,24 @@ func parseBuildFile(buildFilePath string) (string, []string) {
 	for _, decl := range fileAst.Decls {
 		decl, ok := decl.(*ast.GenDecl)
 		if !ok {
-			log.Fatal("'%s' contains invalid declarations. Only import statements and var declarations are allowed.\n", buildFilePath)
+			log.Fatal("'%s' contains invalid declarations. Only import statements and 'var' declarations are allowed.\n", buildFilePath)
 		}
 
 		for _, spec := range decl.Specs {
 			switch spec := spec.(type) {
 			case *ast.ImportSpec:
 			case *ast.ValueSpec:
+				if decl.Tok.String() != "var" {
+					log.Fatal("'%s' contains invalid declarations. Only import statements and 'var' declarations are allowed.\n", buildFilePath)
+				}
 				for _, id := range spec.Names {
-					if decl.Tok.String() != "var" {
-						log.Fatal("'%s' contains invalid target declarations: only import statements and var declarations are allowed.\n", buildFilePath)
-					}
 					if id.Name == "_" {
-						log.Fatal("'%s' contains anonymous target declarations. All targets must be given a name.\n", buildFilePath)
+						log.Fatal("'%s' contains anonymous target declarations. All targets must have a name.\n", buildFilePath)
 					}
 					targets = append(targets, id.Name)
 				}
 			default:
-				log.Fatal("'%s' contains invalid declarations. Only import statements and var declarations are allowed.\n", buildFilePath)
+				log.Fatal("'%s' contains invalid declarations. Only import statements and 'var' declarations are allowed.\n", buildFilePath)
 			}
 		}
 	}

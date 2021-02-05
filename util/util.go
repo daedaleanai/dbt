@@ -125,6 +125,7 @@ func GetWorkspaceRoot() string {
 	}
 }
 
+// WalkSymlink works like filepath.Walk but also accepts symbolic links as `root`.
 func WalkSymlink(root string, walkFn filepath.WalkFunc) error {
 	info, err := os.Lstat(root)
 	if err != nil {
