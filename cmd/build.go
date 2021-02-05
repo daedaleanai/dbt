@@ -327,6 +327,9 @@ func generateNinjaFile(sourceDir, buildDir, buildFilesDir string, importLines []
 }
 
 func runNinja(buildDir string, targets []string) {
+	if log.Verbose {
+		targets = append([]string{"-v"}, targets...)
+	}
 	cmd := exec.Command("ninja", targets...)
 	cmd.Dir = buildDir
 	cmd.Stderr = os.Stderr
