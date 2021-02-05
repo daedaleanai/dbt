@@ -22,7 +22,7 @@ import (
 
 const buildDirName = "BUILD"
 const buildFileName = "BUILD.go"
-const buildfilesDirName = "buildfiles"
+const buildFilesDirName = "buildfiles"
 const dbtModulePath = "github.com/daedaleanai/dbt v1.0.0"
 const initFileName = "init.go"
 const mainFileName = "main.go"
@@ -139,33 +139,33 @@ func runBuild(cmd *cobra.Command, args []string) {
 	log.Debug("Build directory: '%s'.\n", buildDir)
 
 	// Remove all existing buildfiles.
-	buildfilesDir := path.Join(workspaceRoot, buildDirName, buildConfigName, buildfilesDirName)
-	util.RemoveDir(buildfilesDir)
+	buildFilesDir := path.Join(workspaceRoot, buildDirName, buildConfigName, buildFilesDirName)
+	util.RemoveDir(buildFilesDir)
 
 	// Copy all BUILD.go files and RULES/ files from the source directory.
 	modules := module.GetAllModulePaths(workspaceRoot)
 	importLines := []string{}
 	for modName, modPath := range modules {
-		modBuildfilesDir := path.Join(buildfilesDir, modName)
+		modBuildfilesDir := path.Join(buildFilesDir, modName)
 		moduleImportLines := copyBuildAndRuleFiles(modName, modPath, modBuildfilesDir, modules)
 		importLines = append(importLines, moduleImportLines...)
 	}
 
 	// Compile all build files and run the resulting binary.
 	// This will produce the build.ninja file.
-	generateNinjaFile(sourceDir, buildDir, buildfilesDir, importLines, buildFlags, modules)
+	generateNinjaFile(sourceDir, buildDir, buildFilesDir, importLines, buildFlags, modules)
 
 	// Call Ninja to build the targets.
 	runNinja(buildDir, targets)
 }
 
-func copyBuildAndRuleFiles(moduleName, modulePath, buildfilesDir string, modules map[string]string) []string {
+func copyBuildAndRuleFiles(moduleName, modulePath, buildFilesDir string, modules map[string]string) []string {
 	importLines := []string{}
 
 	log.Debug("Processing module '%s'.\n", moduleName)
 
 	modFileContent := createModFileContent(moduleName, modules, "..")
-	util.WriteFile(path.Join(buildfilesDir, modFileName), modFileContent)
+	util.WriteFile(path.Join(buildFilesDir, modFileName), modFileContent)
 
 	err := util.WalkSymlink(modulePath, func(filePath string, file os.FileInfo, err error) error {
 		if err != nil {
@@ -205,10 +205,10 @@ func copyBuildAndRuleFiles(moduleName, modulePath, buildfilesDir string, modules
 		}
 
 		initFileContent := fmt.Sprintf(initFileTemplate, packageName, strings.Join(targetLines, "\n"))
-		initFilePath := path.Join(buildfilesDir, relativeDirPath, initFileName)
+		initFilePath := path.Join(buildFilesDir, relativeDirPath, initFileName)
 		util.WriteFile(initFilePath, []byte(initFileContent))
 
-		copyFilePath := path.Join(buildfilesDir, relativeFilePath)
+		copyFilePath := path.Join(buildFilesDir, relativeFilePath)
 		util.CopyFile(filePath, copyFilePath)
 		return nil
 	})
@@ -233,7 +233,7 @@ func copyBuildAndRuleFiles(moduleName, modulePath, buildfilesDir string, modules
 		}
 
 		relativeFilePath := strings.TrimPrefix(filePath, modulePath+string(os.PathSeparator))
-		copyFilePath := path.Join(buildfilesDir, relativeFilePath)
+		copyFilePath := path.Join(buildFilesDir, relativeFilePath)
 		util.CopyFile(filePath, copyFilePath)
 		return nil
 	})
@@ -299,19 +299,19 @@ func parseBuildFile(buildFilePath string) (string, []string) {
 	return fileAst.Name.String(), targets
 }
 
-func generateNinjaFile(sourceDir, buildDir, buildfilesDir string, importLines []string, buildFlags []string, modules map[string]string) {
-	mainFilePath := path.Join(buildfilesDir, mainFileName)
+func generateNinjaFile(sourceDir, buildDir, buildFilesDir string, importLines []string, buildFlags []string, modules map[string]string) {
+	mainFilePath := path.Join(buildFilesDir, mainFileName)
 	mainFileContent := fmt.Sprintf(mainFileTemplate, strings.Join(importLines, "\n"))
 	util.WriteFile(mainFilePath, []byte(mainFileContent))
 
-	modFilePath := path.Join(buildfilesDir, modFileName)
+	modFilePath := path.Join(buildFilesDir, modFileName)
 	modFileContent := createModFileContent("root", modules, ".")
 	util.WriteFile(modFilePath, modFileContent)
 
 	var stdout, stderr bytes.Buffer
 	args := append([]string{"run", mainFileName, sourceDir, buildDir}, buildFlags...)
 	cmd := exec.Command("go", args...)
-	cmd.Dir = buildfilesDir
+	cmd.Dir = buildFilesDir
 	cmd.Stderr = &stderr
 	cmd.Stdout = &stdout
 	err := cmd.Run()
