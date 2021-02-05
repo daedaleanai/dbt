@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"dbt/log"
 	"dbt/module"
-	"dbt/rules"
 	"dbt/util"
 	"fmt"
 	"go/ast"
@@ -150,10 +149,6 @@ func runBuild(cmd *cobra.Command, args []string) {
 		moduleImportLines := copyBuildAndRuleFiles(modName, modPath, modBuildfilesDir, modules)
 		importLines = append(importLines, moduleImportLines...)
 	}
-
-	// Extract all built-in build rules.
-	dbtBuildfilesDir := path.Join(buildfilesDir, dbtDirName)
-	extractBuiltinRules(dbtBuildfilesDir, modules)
 
 	// Compile all build files and run the resulting binary.
 	// This will produce the build.ninja file.
@@ -301,18 +296,6 @@ func parseBuildFile(buildFilePath string) (string, []string) {
 	}
 
 	return fileAst.Name.String(), targets
-}
-
-func extractBuiltinRules(buildfilesDir string, modules map[string]string) {
-	modFilePath := path.Join(buildfilesDir, modFileName)
-	modFileContent := createModFileContent(dbtDirName, modules, "..")
-	util.WriteFile(modFilePath, modFileContent)
-
-	for relativeFilePath, ruleFileContent := range rules.Rules {
-		log.Debug("Extracting built-in rule file '%s'.\n", relativeFilePath)
-		ruleFilePath := path.Join(buildfilesDir, RulesDirName, relativeFilePath)
-		util.WriteFile(ruleFilePath, []byte(ruleFileContent))
-	}
 }
 
 func generateNinjaFile(sourceDir, buildDir, buildfilesDir string, importLines []string, buildFlags []string, modules map[string]string) {
