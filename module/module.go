@@ -2,13 +2,14 @@ package module
 
 import (
 	"bytes"
-	"dbt/log"
-	"dbt/util"
 	"io/ioutil"
 	"os/exec"
 	"path"
 	"regexp"
 	"strings"
+
+	"github.com/daedaleanai/dbt/log"
+	"github.com/daedaleanai/dbt/util"
 
 	"github.com/go-git/go-git/v5"
 	"gopkg.in/yaml.v2"

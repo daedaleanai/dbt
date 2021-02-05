@@ -1,10 +1,11 @@
 package util
 
 import (
-	"dbt/log"
 	"fmt"
 	"os"
 	"path"
+
+	"github.com/daedaleanai/dbt/log"
 )
 
 // FileMode is the default FileMode used when creating files.
