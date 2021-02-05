@@ -1,8 +1,6 @@
 package cmd
 
 import (
-	"io/ioutil"
-	"path"
 	"strings"
 
 	"github.com/daedaleanai/dbt/log"
@@ -28,21 +26,9 @@ func runStatus(cmd *cobra.Command, args []string) {
 	workspaceRoot := util.GetWorkspaceRoot()
 	log.Log("Workspace: '%s'\n", workspaceRoot)
 
-	depsDir := path.Join(workspaceRoot, util.DepsDirName)
-	files, err := ioutil.ReadDir(depsDir)
-	if err != nil {
-		log.Error("Failed to read content of %s/ directory: %s.\n", util.DepsDirName, err)
-	}
-
-	rootModule := module.OpenModule(workspaceRoot)
-	modules := map[string]module.Module{rootModule.Name(): rootModule}
-	for _, file := range files {
-		if !file.IsDir() {
-			continue
-		}
-
-		modulePath := path.Join(depsDir, file.Name())
-		mod := module.OpenModule(modulePath)
+	modules := map[string]module.Module{}
+	for _, modPath := range module.GetAllModulePaths(workspaceRoot) {
+		mod := module.OpenModule(modPath)
 		modules[mod.Name()] = mod
 	}
 

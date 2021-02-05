@@ -3,6 +3,7 @@ package module
 import (
 	"bytes"
 	"io/ioutil"
+	"os"
 	"os/exec"
 	"path"
 	"regexp"
@@ -175,4 +176,24 @@ func WriteModuleFile(modulePath string, deps []Dependency) {
 	if err != nil {
 		log.Fatal("Failed to write '%s' file: %s.\n", util.ModuleFileName, err)
 	}
+}
+
+// GetAllModulePaths returns all the names and paths of all modules in the workspace.
+func GetAllModulePaths(workspaceRoot string) map[string]string {
+	depsDir := path.Join(workspaceRoot, util.DepsDirName)
+	if !util.DirExists(depsDir) {
+		log.Warning("There is no %s/ directory in the workspace. Maybe run 'dbt sync' first.\n", util.DepsDirName)
+		return nil
+	}
+	files, err := ioutil.ReadDir(depsDir)
+	if err != nil {
+		log.Fatal("Failed to read content of %s/ directory: %s.\n", util.DepsDirName, err)
+	}
+	modules := map[string]string{}
+	for _, file := range files {
+		if file.IsDir() || (file.Mode()&os.ModeSymlink) == os.ModeSymlink {
+			modules[file.Name()] = path.Join(depsDir, file.Name())
+		}
+	}
+	return modules
 }

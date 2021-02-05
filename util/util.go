@@ -2,8 +2,11 @@ package util
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path"
+	"path/filepath"
+	"strings"
 
 	"github.com/daedaleanai/dbt/log"
 )
@@ -32,6 +35,38 @@ func DirExists(dir string) bool {
 	return err == nil && stat.IsDir()
 }
 
+// RemoveDir removes a directory and all of its content.
+func RemoveDir(p string) {
+	err := os.RemoveAll(p)
+	if err != nil {
+		log.Fatal("Failed to remove directory '%s': %s.\n", p, err)
+	}
+}
+
+func ReadFile(filePath string) []byte {
+	data, err := ioutil.ReadFile(filePath)
+	if err != nil {
+		log.Fatal("Failed to read file '%s': %s.\n", filePath, err)
+	}
+	return data
+}
+
+func WriteFile(filePath string, data []byte) {
+	dir := path.Dir(filePath)
+	err := os.MkdirAll(dir, DirMode)
+	if err != nil {
+		log.Fatal("Failed to create directory '%s': %s.\n", dir, err)
+	}
+	err = ioutil.WriteFile(filePath, data, FileMode)
+	if err != nil {
+		log.Fatal("Failed to write file '%s': %s.\n", filePath, err)
+	}
+}
+
+func CopyFile(sourceFile, destFile string) {
+	WriteFile(destFile, ReadFile(sourceFile))
+}
+
 func getModuleRoot(p string) (string, error) {
 	for {
 		moduleFilePath := path.Join(p, ModuleFileName)
@@ -45,6 +80,14 @@ func getModuleRoot(p string) (string, error) {
 		}
 		p = path.Dir(p)
 	}
+}
+
+func GetModuleRootForPath(p string) string {
+	moduleRoot, err := getModuleRoot(p)
+	if err != nil {
+		log.Fatal("Could not identify module root directory. Make sure you run this command inside a module: %s.\n", err)
+	}
+	return moduleRoot
 }
 
 // GetModuleRoot returns the root directory of the current module.
@@ -80,4 +123,29 @@ func GetWorkspaceRoot() string {
 		}
 		p = path.Dir(p)
 	}
+}
+
+// WalkSymlink works like filepath.Walk but also accepts symbolic links as `root`.
+func WalkSymlink(root string, walkFn filepath.WalkFunc) error {
+	info, err := os.Lstat(root)
+	if err != nil {
+		return err
+	}
+
+	if (info.Mode() & os.ModeSymlink) != os.ModeSymlink {
+		return filepath.Walk(root, walkFn)
+	}
+
+	link, err := os.Readlink(root)
+	if err != nil {
+		return err
+	}
+	if !filepath.IsAbs(link) {
+		link = path.Join(path.Dir(root), link)
+	}
+
+	return filepath.Walk(link, func(file string, info os.FileInfo, err error) error {
+		file = path.Join(root, strings.TrimPrefix(file, link))
+		return walkFn(file, info, err)
+	})
 }
