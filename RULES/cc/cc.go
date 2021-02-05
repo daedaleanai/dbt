@@ -38,12 +38,20 @@ func (obj ObjectFile) BuildSteps() []core.BuildStep {
 	}}
 }
 
-func flattenDeps(deps []Library) []Library {
-	allDeps := append([]Library{}, deps...)
+func flattenDepsRec(deps []Library, visited map[string]bool) []Library {
+	flatDeps := []Library{}
 	for _, dep := range deps {
-		allDeps = append(allDeps, flattenDeps(dep.Deps)...)
+		libPath := dep.Out.Absolute()
+		if _, exists := visited[libPath]; !exists {
+			visited[libPath] = true
+			flatDeps = append([]Library{dep}, append(flattenDepsRec(dep.Deps, visited), flatDeps...)...)
+		}
 	}
-	return allDeps
+	return flatDeps
+}
+
+func flattenDeps(deps []Library) []Library {
+	return flattenDepsRec(deps, map[string]bool{})
 }
 
 func compileSources(srcs core.Paths, flags core.Flags, deps []Library, toolchain Toolchain) ([]core.BuildStep, core.Paths) {
@@ -125,18 +133,14 @@ func (bin Binary) BuildSteps() []core.BuildStep {
 	steps, objs := compileSources(bin.Srcs, bin.CompilerFlags, deps, toolchain)
 
 	ins := objs
-	seenLibs := map[string]struct{}{}
 	alwaysLinkLibs := core.Paths{}
 	otherLibs := core.Paths{}
 	for _, dep := range deps {
-		if _, exists := seenLibs[dep.Out.Absolute()]; !exists {
-			ins = append(ins, dep.Out)
-			seenLibs[dep.Out.Absolute()] = struct{}{}
-			if dep.AlwaysLink {
-				alwaysLinkLibs = append(alwaysLinkLibs, dep.Out)
-			} else {
-				otherLibs = append(otherLibs, dep.Out)
-			}
+		ins = append(ins, dep.Out)
+		if dep.AlwaysLink {
+			alwaysLinkLibs = append(alwaysLinkLibs, dep.Out)
+		} else {
+			otherLibs = append(otherLibs, dep.Out)
 		}
 	}
 
