@@ -24,7 +24,7 @@ import (
 const buildDirName = "BUILD"
 const buildFileName = "BUILD.go"
 const buildFilesDirName = "buildfiles"
-const dbtModulePath = "github.com/daedaleanai/dbt v1.0.0"
+const dbtModulePath = "github.com/daedaleanai/dbt v0.1.0"
 const initFileName = "init.go"
 const mainFileName = "main.go"
 const modFileName = "go.mod"

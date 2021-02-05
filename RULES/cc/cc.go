@@ -2,47 +2,16 @@ package cc
 
 import (
 	"fmt"
-	"strings"
 
 	"dbt/RULES/core"
 )
-
-// Toolchain represents a C++ toolchain.
-type Toolchain struct {
-	Ar      core.GlobalPath
-	As      core.GlobalPath
-	Cc      core.GlobalPath
-	Cpp     core.GlobalPath
-	Cxx     core.GlobalPath
-	Objcopy core.GlobalPath
-
-	Includes core.Paths
-
-	CompilerFlags core.Flags
-	LinkerFlags   core.Flags
-
-	CrtBegin core.Path
-	CrtEnd   core.Path
-}
-
-var defaultToolchain = Toolchain{
-	Ar:      core.NewGlobalPath("ar"),
-	As:      core.NewGlobalPath("as"),
-	Cc:      core.NewGlobalPath("gcc"),
-	Cpp:     core.NewGlobalPath("gcc -E"),
-	Cxx:     core.NewGlobalPath("g++"),
-	Objcopy: core.NewGlobalPath("objcopy"),
-
-	CompilerFlags: core.Flags{"-std=c++14", "-O3", "-fdiagnostics-color=always"},
-	LinkerFlags:   core.Flags{"-fdiagnostics-color=always"},
-}
 
 // ObjectFile compiles a single C++ source file.
 type ObjectFile struct {
 	Src       core.Path
 	Includes  core.Paths
 	Flags     core.Flags
-	Toolchain *Toolchain
+	Toolchain Toolchain
 }
 
 // Out provides the name of the output created by ObjectFile.
@@ -57,23 +26,8 @@ func (obj ObjectFile) BuildSteps() []core.BuildStep {
 		toolchain = &defaultToolchain
 	}
 
-	includes := strings.Builder{}
-	for _, include := range obj.Includes {
-		includes.WriteString(fmt.Sprintf("-I%s ", include))
-	}
-	for _, include := range toolchain.Includes {
-		includes.WriteString(fmt.Sprintf("-isystem %s ", include))
-	}
-	flags := append(toolchain.CompilerFlags, obj.Flags...)
 	depfile := obj.Src.WithExt("d")
-	cmd := fmt.Sprintf(
-		"%s -c -o %s -MD -MF %s %s %s %s",
-		obj.Toolchain.Cxx,
-		obj.Out(),
-		depfile,
-		flags,
-		includes.String(),
-		obj.Src)
+	cmd := toolchain.ObjectFile(obj.Out(), depfile, obj.Flags, obj.Includes, obj.Src)
 	return []core.BuildStep{{
 		Out:     obj.Out(),
 		Depfile: &depfile,
@@ -92,7 +46,7 @@ func flattenDeps(deps []Library) []Library {
 	return allDeps
 }
 
-func compileSources(srcs core.Paths, flags core.Flags, deps []Library, toolchain *Toolchain) ([]core.BuildStep, core.Paths) {
+func compileSources(srcs core.Paths, flags core.Flags, deps []Library, toolchain Toolchain) ([]core.BuildStep, core.Paths) {
 	includes := core.Paths{core.NewInPath(".")}
 	for _, dep := range deps {
 		includes = append(includes, dep.Includes...)
@@ -124,7 +78,7 @@ type Library struct {
 	CompilerFlags core.Flags
 	Deps          []Library
 	AlwaysLink    bool
-	Toolchain     *Toolchain
+	Toolchain     Toolchain
 }
 
 // BuildSteps for Library.
@@ -137,7 +91,7 @@ func (lib Library) BuildSteps() []core.BuildStep {
 	steps, objs := compileSources(lib.Srcs, lib.CompilerFlags, flattenDeps([]Library{lib}), toolchain)
 	objs = append(objs, lib.Objs...)
 
-	cmd := fmt.Sprintf("%s rv %s %s >/dev/null 2>/dev/null", toolchain.Ar, lib.Out, objs)
+	cmd := toolchain.Library(lib.Out, objs)
 	arStep := core.BuildStep{
 		Out:   lib.Out,
 		Ins:   objs,
@@ -157,14 +111,14 @@ type Binary struct {
 	LinkerFlags   core.Flags
 	Deps          []Library
 	Script        core.Path
-	Toolchain     *Toolchain
+	Toolchain     Toolchain
 }
 
 // BuildSteps for Binary.
 func (bin Binary) BuildSteps() []core.BuildStep {
 	toolchain := bin.Toolchain
 	if toolchain == nil {
-		toolchain = &defaultToolchain
+		toolchain = defaultToolchain
 	}
 
 	deps := flattenDeps(bin.Deps)
@@ -186,19 +140,11 @@ func (bin Binary) BuildSteps() []core.BuildStep {
 		}
 	}
 
-	flags := append(toolchain.LinkerFlags, bin.LinkerFlags...)
 	if bin.Script != nil {
-		flags = append(flags, "-T", bin.Script.String())
 		ins = append(ins, bin.Script)
 	}
-	cmd := fmt.Sprintf(
-		"%s -o %s %s -Wl,-whole-archive %s -Wl,-no-whole-archive %s %s",
-		toolchain.Cxx,
-		bin.Out,
-		objs,
-		alwaysLinkLibs,
-		otherLibs,
-		flags)
+
+	cmd := toolchain.Binary(bin.Out, objs, alwaysLinkLibs, otherLibs, bin.LinkerFlags, bin.Script)
 	ldStep := core.BuildStep{
 		Out:   bin.Out,
 		Ins:   ins,
