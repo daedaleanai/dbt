@@ -2,9 +2,6 @@ package cmd
 
 import (
 	"bytes"
-	"dbt/log"
-	"dbt/module"
-	"dbt/util"
 	"fmt"
 	"go/ast"
 	"go/parser"
@@ -15,6 +12,10 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+
+	"github.com/daedaleanai/dbt/log"
+	"github.com/daedaleanai/dbt/module"
+	"github.com/daedaleanai/dbt/util"
 
 	"github.com/spf13/cobra"
 )
