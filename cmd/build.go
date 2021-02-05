@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/daedaleanai/dbt/log"
@@ -127,7 +128,8 @@ func runBuild(cmd *cobra.Command, args []string) {
 		targets = append(targets, strings.TrimLeft(arg, string(os.PathSeparator)))
 	}
 
-	// Create a hash from all build flags and a unique build directory for this set of flags.
+	// Create a hash from all sorted build flags and a unique build directory for this set of flags.
+	sort.Strings(buildFlags)
 	buildConfigHash := crc32.ChecksumIEEE([]byte(strings.Join(buildFlags, "#")))
 	buildConfigName := fmt.Sprintf("%s-%08X", buildDirName, buildConfigHash)
 	buildDir := path.Join(workspaceRoot, buildDirName, buildConfigName, outputDirName)
