@@ -12,6 +12,7 @@ type Path interface {
 	Relative() string
 	String() string
 	WithExt(ext string) OutPath
+	WithPrefix(prefix string) OutPath
 	WithSuffix(suffix string) OutPath
 }
 
@@ -46,6 +47,11 @@ func (p inPath) WithExt(ext string) OutPath {
 	return OutPath{p.rel}.WithExt(ext)
 }
 
+// WithPrefix creates an OutPath with the same relative path and the given prefix.
+func (p inPath) WithPrefix(prefix string) OutPath {
+	return OutPath{p.rel}.WithPrefix(prefix)
+}
+
 // WithSuffix creates an OutPath with the same relative path and the given suffix.
 func (p inPath) WithSuffix(suffix string) OutPath {
 	return OutPath{p.rel}.WithSuffix(suffix)
@@ -76,6 +82,11 @@ func (p OutPath) WithExt(ext string) OutPath {
 	oldExt := path.Ext(p.rel)
 	newRel := fmt.Sprintf("%s.%s", strings.TrimSuffix(p.rel, oldExt), ext)
 	return OutPath{newRel}
+}
+
+// WithPrefix creates an OutPath with the same relative path and the given prefix.
+func (p OutPath) WithPrefix(prefix string) OutPath {
+	return OutPath{path.Join(path.Dir(p.rel), prefix+path.Base(p.rel))}
 }
 
 // WithSuffix creates an OutPath with the same relative path and the given suffix.
