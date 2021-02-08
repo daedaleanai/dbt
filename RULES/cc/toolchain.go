@@ -11,6 +11,7 @@ type Toolchain interface {
 	ObjectFile(out core.OutPath, depfile core.OutPath, flags core.Flags, includes core.Paths, src core.Path) string
 	Library(out core.Path, objs core.Paths) string
 	Binary(out core.Path, objs core.Paths, alwaysLinkLibs core.Paths, libs core.Paths, flags core.Flags, script core.Path) string
+	EmbeddedBlob(out core.OutPath, src core.Path) string
 }
 
 // Toolchain represents a C++ toolchain.
@@ -26,6 +27,9 @@ type GccToolchain struct {
 
 	CompilerFlags core.Flags
 	LinkerFlags   core.Flags
+
+	ArchName   string
+	TargetName string
 }
 
 // ObjectFile generates a compile command.
@@ -72,6 +76,16 @@ func (gcc GccToolchain) Binary(out core.Path, objs core.Paths, alwaysLinkLibs co
 		alwaysLinkLibs,
 		libs,
 		flags)
+}
+
+func (gcc GccToolchain) EmbeddedBlob(out core.OutPath, src core.Path) string {
+	return fmt.Sprintf(
+		"%s -I binary -O %s -B %s %s %s",
+		gcc.Objcopy,
+		gcc.TargetName,
+		gcc.ArchName,
+		src,
+		out)
 }
 
 var defaultToolchain = GccToolchain{
