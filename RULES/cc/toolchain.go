@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/daedaleanai/dbt/RULES/core"
+	"dbt/RULES/core"
 )
 
 type Toolchain interface {
