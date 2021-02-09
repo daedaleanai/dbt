@@ -7,7 +7,7 @@ import (
 	"github.com/daedaleanai/dbt/log"
 	"github.com/daedaleanai/dbt/util"
 
-	"github.com/spf13/cobra"
+	"github.com/daedaleanai/cobra"
 )
 
 var cleanCmd = &cobra.Command{

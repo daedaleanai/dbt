@@ -7,7 +7,7 @@ import (
 	"github.com/daedaleanai/dbt/module"
 	"github.com/daedaleanai/dbt/util"
 
-	"github.com/spf13/cobra"
+	"github.com/daedaleanai/cobra"
 )
 
 var statusCmd = &cobra.Command{
