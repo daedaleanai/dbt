@@ -6,23 +6,37 @@ import (
 	"strings"
 )
 
-// CurrentTarget holds the current target relative to the workspace directory.
-var CurrentTarget string
+var currentTarget string
 
 // SourceDir returns the workspace source directory.
 func SourceDir() string {
-	return os.Args[1]
+	return os.Args[2]
 }
 
 // BuildDir returns the workspace build directory.
 func BuildDir() string {
-	return os.Args[2]
+	return os.Args[3]
 }
+
+// WorkingDir returns the directory the build command was executed in.
+func WorkingDir() string {
+	return os.Args[4]
+}
+
+var reportedFlags = map[string]struct{}{}
 
 // Flag provides the value of a build config flags.
 func Flag(name string) string {
+	if os.Args[1] == "flags" {
+		_, exists := reportedFlags[name]
+		if !exists {
+			reportedFlags[name] = struct{}{}
+			fmt.Printf("--%s\n", name)
+		}
+	}
+
 	prefix := fmt.Sprintf("--%s=", name)
-	for _, arg := range os.Args[3:] {
+	for _, arg := range os.Args[4:] {
 		if strings.HasPrefix(arg, prefix) {
 			return strings.TrimPrefix(arg, prefix)
 		}
@@ -33,7 +47,7 @@ func Flag(name string) string {
 // Fatal can be used in build rules to abort build file generation with an error message unconditionally.
 func Fatal(format string, a ...interface{}) {
 	msg := fmt.Sprintf(format, a...)
-	fmt.Fprintf(os.Stderr, "A fatal error occured while processing target '%s': %s", CurrentTarget, msg)
+	fmt.Fprintf(os.Stderr, "A fatal error occured while processing target '%s': %s", currentTarget, msg)
 	os.Exit(1)
 }
 
@@ -41,7 +55,7 @@ func Fatal(format string, a ...interface{}) {
 func Assert(cond bool, format string, a ...interface{}) {
 	if !cond {
 		msg := fmt.Sprintf(format, a...)
-		fmt.Fprintf(os.Stderr, "Assertion failed while processing target '%s': %s", CurrentTarget, msg)
+		fmt.Fprintf(os.Stderr, "Assertion failed while processing target '%s': %s", currentTarget, msg)
 		os.Exit(1)
 	}
 }
