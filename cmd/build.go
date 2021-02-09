@@ -342,6 +342,6 @@ func runNinja(buildDir string, targets []string) {
 	cmd.Stdout = os.Stdout
 	err := cmd.Run()
 	if err != nil {
-		log.Fatal("Build failed.\n")
+		log.Fatal("Build failed: %s\n", err)
 	}
 }
