@@ -38,19 +38,20 @@ func (obj ObjectFile) BuildSteps() []core.BuildStep {
 	}}
 }
 
-func flattenDepsRec(deps []Library, visited map[string]bool) []Library {
+func flattenDepsRec(deps []Dep, visited map[string]bool) []Library {
 	flatDeps := []Library{}
 	for _, dep := range deps {
-		libPath := dep.Out.Absolute()
+		lib := dep.CcLibrary()
+		libPath := lib.Out.Absolute()
 		if _, exists := visited[libPath]; !exists {
 			visited[libPath] = true
-			flatDeps = append([]Library{dep}, append(flattenDepsRec(dep.Deps, visited), flatDeps...)...)
+			flatDeps = append([]Library{lib}, append(flattenDepsRec(lib.Deps, visited), flatDeps...)...)
 		}
 	}
 	return flatDeps
 }
 
-func flattenDeps(deps []Library) []Library {
+func flattenDeps(deps []Dep) []Library {
 	return flattenDepsRec(deps, map[string]bool{})
 }
 
@@ -77,6 +78,11 @@ func compileSources(srcs core.Paths, flags core.Flags, deps []Library, toolchain
 	return steps, objs
 }
 
+// Dep is an interface implemented by dependencies that can be linked into a library.
+type Dep interface {
+	CcLibrary() Library
+}
+
 // Library builds and links a static C++ library.
 type Library struct {
 	Out           core.OutPath
@@ -84,7 +90,7 @@ type Library struct {
 	Objs          core.Paths
 	Includes      core.Paths
 	CompilerFlags core.Flags
-	Deps          []Library
+	Deps          []Dep
 	AlwaysLink    bool
 	Toolchain     Toolchain
 }
@@ -96,7 +102,7 @@ func (lib Library) BuildSteps() []core.BuildStep {
 		toolchain = &defaultToolchain
 	}
 
-	steps, objs := compileSources(lib.Srcs, lib.CompilerFlags, flattenDeps([]Library{lib}), toolchain)
+	steps, objs := compileSources(lib.Srcs, lib.CompilerFlags, flattenDeps([]Dep{lib}), toolchain)
 	objs = append(objs, lib.Objs...)
 
 	cmd := toolchain.Library(lib.Out, objs)
@@ -111,13 +117,18 @@ func (lib Library) BuildSteps() []core.BuildStep {
 	return append(steps, arStep)
 }
 
+// CcLibrary for Library is just the identity.
+func (lib Library) CcLibrary() Library {
+	return lib
+}
+
 // Binary builds and links an executable.
 type Binary struct {
 	Out           core.OutPath
 	Srcs          core.Paths
 	CompilerFlags core.Flags
 	LinkerFlags   core.Flags
-	Deps          []Library
+	Deps          []Dep
 	Script        core.Path
 	Toolchain     Toolchain
 }
