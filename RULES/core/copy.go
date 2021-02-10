@@ -8,13 +8,13 @@ type CopyFile struct {
 	To   OutPath
 }
 
-// BuildSteps for CopyFile.
-func (copy CopyFile) BuildSteps() []BuildStep {
-	return []BuildStep{{
+// Build for CopyFile.
+func (copy CopyFile) Build(ctx Context) OutPath {
+	ctx.AddBuildStep(BuildStep{
 		Out:   copy.To,
 		In:    copy.From,
 		Cmd:   fmt.Sprintf("cp %s %s", copy.From, copy.To),
 		Descr: fmt.Sprintf("CP %s", copy.To.Relative()),
-		Alias: copy.To.Relative(),
-	}}
+	})
+	return copy.To
 }

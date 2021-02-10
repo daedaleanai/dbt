@@ -18,13 +18,13 @@ import (
 	"github.com/daedaleanai/dbt/module"
 	"github.com/daedaleanai/dbt/util"
 
-	"github.com/spf13/cobra"
+	"github.com/daedaleanai/cobra"
 )
 
 const buildDirName = "BUILD"
 const buildFileName = "BUILD.go"
 const buildFilesDirName = "buildfiles"
-const dbtModulePath = "github.com/daedaleanai/dbt v0.1.2"
+const dbtModulePath = "github.com/daedaleanai/dbt v0.1.3"
 const initFileName = "init.go"
 const mainFileName = "main.go"
 const modFileName = "go.mod"
@@ -48,18 +48,8 @@ import (
 
 type __internal_pkg struct{}
 
-type __internal_buildable interface {
-	BuildSteps() []core.BuildStep
-}
-
-func init() {
-    steps := []core.BuildStep{}
-
+func DbtMain(ctx core.Context) {
 %s
-
-	for _, step := range steps {
-		step.Print()
-	}
 }
 
 func in(name string) core.Path {
@@ -84,14 +74,37 @@ const mainFileTemplate = `
 
 package main
 
+import (
+	"fmt"
+	"os"
+)
+
+import "dbt/RULES/core"
+
 %s
 
-func main() {}
+func main() {
+	var ctx core.Context
+
+	switch os.Args[1] {
+	case "ninja":
+		ctx = &core.NinjaContext{}
+	case "targets":
+		ctx = &core.ListTargetsContext{}
+	case "flags":
+		for flag := range core.BuildFlags {
+			fmt.Println(flag)
+		}
+		return
+	}
+
+	core.LockBuildFlags()
+%s
+}
 `
 
 var buildCmd = &cobra.Command{
 	Use:   "build <targets> -- <build flags>",
-	Args:  cobra.MinimumNArgs(1),
 	Short: "Builds the targets",
 	Long:  `Builds the targets.`,
 	Run:   runBuild,
@@ -119,7 +132,7 @@ func runBuild(cmd *cobra.Command, args []string) {
 		// Otherwise they are interpreted as relative to the current working directory.
 		// E.g.: Running 'dbt build //src/path/to/mylib.a' from anywhere in the workspace is equivallent
 		// to running 'dbt build mylib.a' in '.../src/path/to/' or running 'dbt build path/to/mylib.a' in '.../src/'.
-		if !strings.HasPrefix(arg, string(os.PathSeparator)+string(os.PathSeparator)) {
+		if !strings.HasPrefix(arg, string(os.PathSeparator)) {
 			workingDir, _ := os.Getwd()
 			arg = path.Join(workingDir, arg)
 			moduleRoot := util.GetModuleRootForPath(arg)
@@ -134,7 +147,6 @@ func runBuild(cmd *cobra.Command, args []string) {
 	buildConfigName := fmt.Sprintf("%s-%08X", buildDirName, buildConfigHash)
 	buildDir := path.Join(workspaceRoot, buildDirName, buildConfigName, outputDirName)
 
-	log.Debug("Building targets '%s'.\n", strings.Join(targets, "', '"))
 	log.Debug("Build flags: '%s'.\n", strings.Join(buildFlags, " "))
 	log.Debug("Build config: '%s'.\n", buildConfigName)
 	log.Debug("Source directory: '%s'.\n", sourceDir)
@@ -146,23 +158,74 @@ func runBuild(cmd *cobra.Command, args []string) {
 
 	// Copy all BUILD.go files and RULES/ files from the source directory.
 	modules := module.GetAllModulePaths(workspaceRoot)
-	importLines := []string{}
+	packages := []string{}
 	for modName, modPath := range modules {
 		modBuildfilesDir := path.Join(buildFilesDir, modName)
-		moduleImportLines := copyBuildAndRuleFiles(modName, modPath, modBuildfilesDir, modules)
-		importLines = append(importLines, moduleImportLines...)
+		modulePackages := copyBuildAndRuleFiles(modName, modPath, modBuildfilesDir, modules)
+		packages = append(packages, modulePackages...)
 	}
 
-	// Compile all build files and run the resulting binary.
-	// This will produce the build.ninja file.
-	generateNinjaFile(sourceDir, buildDir, buildFilesDir, importLines, buildFlags, modules)
+	createGeneratorMainFile(sourceDir, buildDir, buildFilesDir, packages, buildFlags, modules)
+
+	// Get a list of available targets.
+	availableTargetsBuffer := runGenerator(sourceDir, buildDir, buildFilesDir, "targets", buildFlags)
+	availableTargets := strings.Split(strings.TrimSuffix(string(availableTargetsBuffer.Bytes()), "\n"), "\n")
+
+	if len(targets) == 0 {
+		log.Debug("No targets specified.\n")
+
+		fmt.Println("\nAvailable targets:")
+		for _, target := range availableTargets {
+			fmt.Printf("//%s\n", target)
+		}
+
+		// Get a list of all available build flags.
+		availableFlagsBuffer := runGenerator(sourceDir, buildDir, buildFilesDir, "flags", buildFlags)
+		availableFlags := strings.Split(strings.TrimSuffix(string(availableFlagsBuffer.Bytes()), "\n"), "\n")
+		fmt.Println("\nAvailable flags:")
+		for _, flag := range availableFlags {
+			fmt.Printf("--%s\n", flag)
+		}
+		return
+	}
+
+	log.Debug("Normalized targets: '%s'.\n", strings.Join(targets, "', '"))
+
+	uniqueNinjaTargets := map[string]struct{}{}
+	for _, target := range targets {
+		if strings.HasSuffix(target, "...") {
+			targetPrefix := strings.TrimSuffix(target, "...")
+			for _, availableTarget := range availableTargets {
+				if strings.HasPrefix(availableTarget, targetPrefix) {
+					uniqueNinjaTargets[availableTarget] = struct{}{}
+				}
+			}
+		} else {
+			uniqueNinjaTargets[target] = struct{}{}
+		}
+	}
+
+	ninjaTargets := []string{}
+	for target := range uniqueNinjaTargets {
+		ninjaTargets = append(ninjaTargets, target)
+	}
+	log.Debug("Expanded targets: '%s'.\n", strings.Join(ninjaTargets, "', '"))
+
+	if len(ninjaTargets) == 0 {
+		log.Fatal("No matching targets found.\n")
+	}
+
+	// Produce the ninja.build file.
+	ninjaFileContent := runGenerator(sourceDir, buildDir, buildFilesDir, "ninja", buildFlags)
+	ninjaFilePath := path.Join(buildDir, ninjaFileName)
+	util.WriteFile(ninjaFilePath, ninjaFileContent.Bytes())
 
 	// Call Ninja to build the targets.
-	runNinja(buildDir, targets)
+	runNinja(buildDir, ninjaTargets)
 }
 
 func copyBuildAndRuleFiles(moduleName, modulePath, buildFilesDir string, modules map[string]string) []string {
-	importLines := []string{}
+	packages := []string{}
 
 	log.Debug("Processing module '%s'.\n", moduleName)
 
@@ -200,21 +263,11 @@ func copyBuildAndRuleFiles(moduleName, modulePath, buildFilesDir string, modules
 		relativeFilePath := strings.TrimPrefix(buildFile, modulePath+string(os.PathSeparator))
 		relativeDirPath := strings.TrimSuffix(path.Dir(relativeFilePath), string(os.PathSeparator))
 
-		importLine := fmt.Sprintf("import _ \"%s/%s\"", moduleName, relativeDirPath)
-		if relativeDirPath == "." {
-			importLine = fmt.Sprintf("import _ \"%s\"", moduleName)
-		}
-		importLines = append(importLines, importLine)
-
+		packages = append(packages, path.Join(moduleName, relativeDirPath))
 		packageName, targets := parseBuildFile(buildFile)
 		targetLines := []string{}
 		for _, targetName := range targets {
-			targetLine := fmt.Sprintf(`
-			if iface, ok := interface{}(%s).(__internal_buildable); ok {
-				core.CurrentTarget = reflect.TypeOf(__internal_pkg{}).PkgPath()+"/%s"
-				steps = append(steps, iface.BuildSteps()...)
-			}`, targetName, targetName)
-			targetLines = append(targetLines, targetLine)
+			targetLines = append(targetLines, fmt.Sprintf("    ctx.AddTarget(reflect.TypeOf(__internal_pkg{}).PkgPath()+\"/%s\", %s)", targetName, targetName))
 		}
 
 		initFileContent := fmt.Sprintf(initFileTemplate, packageName, strings.Join(targetLines, "\n"))
@@ -228,7 +281,7 @@ func copyBuildAndRuleFiles(moduleName, modulePath, buildFilesDir string, modules
 	rulesDirPath := path.Join(modulePath, RulesDirName)
 	if !util.DirExists(rulesDirPath) {
 		log.Debug("Module '%s' does not specify any build rules.\n", moduleName)
-		return importLines
+		return packages
 	}
 
 	err = filepath.Walk(rulesDirPath, func(filePath string, file os.FileInfo, err error) error {
@@ -250,7 +303,7 @@ func copyBuildAndRuleFiles(moduleName, modulePath, buildFilesDir string, modules
 		log.Fatal("Failed to copy rule files for module '%s': %s.\n", moduleName, err)
 	}
 
-	return importLines
+	return packages
 }
 
 func createModFileContent(moduleName string, modules map[string]string, pathPrefix string) []byte {
@@ -307,29 +360,37 @@ func parseBuildFile(buildFilePath string) (string, []string) {
 	return fileAst.Name.String(), targets
 }
 
-func generateNinjaFile(sourceDir, buildDir, buildFilesDir string, importLines []string, buildFlags []string, modules map[string]string) {
+func createGeneratorMainFile(sourceDir, buildDir, buildFilesDir string, packages []string, buildFlags []string, modules map[string]string) {
+	importLines := []string{}
+	dbtMainLines := []string{}
+	for idx, pkg := range packages {
+		importLines = append(importLines, fmt.Sprintf("import p%d \"%s\"", idx, pkg))
+		dbtMainLines = append(dbtMainLines, fmt.Sprintf("    p%d.DbtMain(ctx)", idx))
+	}
+
 	mainFilePath := path.Join(buildFilesDir, mainFileName)
-	mainFileContent := fmt.Sprintf(mainFileTemplate, strings.Join(importLines, "\n"))
+	mainFileContent := fmt.Sprintf(mainFileTemplate, strings.Join(importLines, "\n"), strings.Join(dbtMainLines, "\n"))
 	util.WriteFile(mainFilePath, []byte(mainFileContent))
 
 	modFilePath := path.Join(buildFilesDir, modFileName)
 	modFileContent := createModFileContent("root", modules, ".")
 	util.WriteFile(modFilePath, modFileContent)
+}
 
+func runGenerator(sourceDir, buildDir, buildFilesDir, mode string, buildFlags []string) bytes.Buffer {
+	workingDir, _ := os.Getwd()
 	var stdout, stderr bytes.Buffer
-	args := append([]string{"run", mainFileName, sourceDir, buildDir}, buildFlags...)
+	args := append([]string{"run", mainFileName, mode, sourceDir, buildDir, workingDir}, buildFlags...)
 	cmd := exec.Command("go", args...)
 	cmd.Dir = buildFilesDir
 	cmd.Stderr = &stderr
 	cmd.Stdout = &stdout
 	err := cmd.Run()
-	fmt.Println(string(stderr.Bytes()))
+	fmt.Print(string(stderr.Bytes()))
 	if err != nil {
-		log.Fatal("Failed to generate ninja file.\n")
+		log.Fatal("Failed to run generator in mode '%s': %s.\n", mode, err)
 	}
-
-	ninjaFilePath := path.Join(buildDir, ninjaFileName)
-	util.WriteFile(ninjaFilePath, stdout.Bytes())
+	return stdout
 }
 
 func runNinja(buildDir string, targets []string) {
@@ -342,6 +403,6 @@ func runNinja(buildDir string, targets []string) {
 	cmd.Stdout = os.Stdout
 	err := cmd.Run()
 	if err != nil {
-		log.Fatal("Build failed.\n")
+		log.Fatal("Build failed: %s\n", err)
 	}
 }

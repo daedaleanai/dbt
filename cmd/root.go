@@ -5,7 +5,7 @@ import (
 
 	"github.com/daedaleanai/dbt/log"
 
-	"github.com/spf13/cobra"
+	"github.com/daedaleanai/cobra"
 )
 
 var rootCmd = &cobra.Command{

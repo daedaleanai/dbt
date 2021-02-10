@@ -14,28 +14,24 @@ type ObjectFile struct {
 	Toolchain Toolchain
 }
 
-// Out provides the name of the output created by ObjectFile.
-func (obj ObjectFile) Out() core.OutPath {
-	return obj.Src.WithExt("o")
-}
-
-// BuildSteps for ObjectFile.
-func (obj ObjectFile) BuildSteps() []core.BuildStep {
+// Build an ObjectFile.
+func (obj ObjectFile) Build(ctx core.Context) core.OutPath {
 	toolchain := obj.Toolchain
 	if toolchain == nil {
 		toolchain = &defaultToolchain
 	}
 
+	out := obj.Src.WithExt("o")
 	depfile := obj.Src.WithExt("d")
-	cmd := toolchain.ObjectFile(obj.Out(), depfile, obj.Flags, obj.Includes, obj.Src)
-	return []core.BuildStep{{
-		Out:     obj.Out(),
+	cmd := toolchain.ObjectFile(out, depfile, obj.Flags, obj.Includes, obj.Src)
+	ctx.AddBuildStep(core.BuildStep{
+		Out:     out,
 		Depfile: &depfile,
 		In:      obj.Src,
 		Cmd:     cmd,
-		Descr:   fmt.Sprintf("CC %s", obj.Out().Relative()),
-		Alias:   obj.Out().Relative(),
-	}}
+		Descr:   fmt.Sprintf("CC %s", out.Relative()),
+	})
+	return out
 }
 
 func flattenDepsRec(deps []Dep, visited map[string]bool) []Library {
@@ -55,13 +51,12 @@ func flattenDeps(deps []Dep) []Library {
 	return flattenDepsRec(deps, map[string]bool{})
 }
 
-func compileSources(srcs core.Paths, flags core.Flags, deps []Library, toolchain Toolchain) ([]core.BuildStep, core.Paths) {
+func compileSources(ctx core.Context, srcs core.Paths, flags core.Flags, deps []Library, toolchain Toolchain) core.Paths {
 	includes := core.Paths{core.NewInPath(".")}
 	for _, dep := range deps {
 		includes = append(includes, dep.Includes...)
 	}
 
-	steps := []core.BuildStep{}
 	objs := core.Paths{}
 
 	for _, src := range srcs {
@@ -71,11 +66,10 @@ func compileSources(srcs core.Paths, flags core.Flags, deps []Library, toolchain
 			Flags:     flags,
 			Toolchain: toolchain,
 		}
-		objs = append(objs, obj.Out())
-		steps = append(steps, obj.BuildSteps()...)
+		objs = append(objs, obj.Build(ctx))
 	}
 
-	return steps, objs
+	return objs
 }
 
 // Dep is an interface implemented by dependencies that can be linked into a library.
@@ -91,30 +85,38 @@ type Library struct {
 	Includes      core.Paths
 	CompilerFlags core.Flags
 	Deps          []Dep
+	Shared        bool
 	AlwaysLink    bool
 	Toolchain     Toolchain
 }
 
-// BuildSteps for Library.
-func (lib Library) BuildSteps() []core.BuildStep {
+// Build a Library.
+func (lib Library) Build(ctx core.Context) core.OutPath {
 	toolchain := lib.Toolchain
 	if toolchain == nil {
 		toolchain = &defaultToolchain
 	}
 
-	steps, objs := compileSources(lib.Srcs, lib.CompilerFlags, flattenDeps([]Dep{lib}), toolchain)
+	objs := compileSources(ctx, lib.Srcs, lib.CompilerFlags, flattenDeps([]Dep{lib}), toolchain)
 	objs = append(objs, lib.Objs...)
 
-	cmd := toolchain.Library(lib.Out, objs)
-	arStep := core.BuildStep{
+	var cmd, descr string
+	if lib.Shared {
+		cmd = toolchain.SharedLibrary(lib.Out, objs)
+		descr = fmt.Sprintf("LD %s", lib.Out.Relative())
+	} else {
+		cmd = toolchain.StaticLibrary(lib.Out, objs)
+		descr = fmt.Sprintf("AR %s", lib.Out.Relative())
+	}
+
+	ctx.AddBuildStep(core.BuildStep{
 		Out:   lib.Out,
 		Ins:   objs,
 		Cmd:   cmd,
-		Descr: fmt.Sprintf("AR %s", lib.Out.Relative()),
-		Alias: lib.Out.Relative(),
-	}
+		Descr: descr,
+	})
 
-	return append(steps, arStep)
+	return lib.Out
 }
 
 // CcLibrary for Library is just the identity.
@@ -133,15 +135,15 @@ type Binary struct {
 	Toolchain     Toolchain
 }
 
-// BuildSteps for Binary.
-func (bin Binary) BuildSteps() []core.BuildStep {
+// Build a Binary.
+func (bin Binary) Build(ctx core.Context) core.OutPath {
 	toolchain := bin.Toolchain
 	if toolchain == nil {
 		toolchain = defaultToolchain
 	}
 
 	deps := flattenDeps(bin.Deps)
-	steps, objs := compileSources(bin.Srcs, bin.CompilerFlags, deps, toolchain)
+	objs := compileSources(ctx, bin.Srcs, bin.CompilerFlags, deps, toolchain)
 
 	ins := objs
 	alwaysLinkLibs := core.Paths{}
@@ -160,13 +162,12 @@ func (bin Binary) BuildSteps() []core.BuildStep {
 	}
 
 	cmd := toolchain.Binary(bin.Out, objs, alwaysLinkLibs, otherLibs, bin.LinkerFlags, bin.Script)
-	ldStep := core.BuildStep{
+	ctx.AddBuildStep(core.BuildStep{
 		Out:   bin.Out,
 		Ins:   ins,
 		Cmd:   cmd,
 		Descr: fmt.Sprintf("LD %s", bin.Out.Relative()),
-		Alias: bin.Out.Relative(),
-	}
+	})
 
-	return append(steps, ldStep)
+	return bin.Out
 }

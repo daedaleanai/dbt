@@ -13,17 +13,17 @@ type ExpandTemplate struct {
 }
 
 // BuildSteps for ExpandTemplate.
-func (tmpl ExpandTemplate) BuildSteps() []BuildStep {
+func (tmpl ExpandTemplate) Build(ctx Context) OutPath {
 	substitutions := []string{}
 	for old, new := range tmpl.Substitutions {
 		substitutions = append(substitutions, fmt.Sprintf("-e 's/%s/%s/g'", old, new))
 	}
 	cmd := fmt.Sprintf("sed %s %s > %s", strings.Join(substitutions, " "), tmpl.Template, tmpl.Out)
-	return []BuildStep{{
+	ctx.AddBuildStep(BuildStep{
 		Out:   tmpl.Out,
 		In:    tmpl.Template,
 		Cmd:   cmd,
 		Descr: fmt.Sprintf("TEMPLATE %s", tmpl.Out.Relative()),
-		Alias: tmpl.Out.Relative(),
-	}}
+	})
+	return tmpl.Out
 }
