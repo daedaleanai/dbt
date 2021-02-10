@@ -85,6 +85,7 @@ type Library struct {
 	Includes      core.Paths
 	CompilerFlags core.Flags
 	Deps          []Dep
+	Shared        bool
 	AlwaysLink    bool
 	Toolchain     Toolchain
 }
@@ -99,12 +100,20 @@ func (lib Library) Build(ctx core.Context) core.OutPath {
 	objs := compileSources(ctx, lib.Srcs, lib.CompilerFlags, flattenDeps([]Dep{lib}), toolchain)
 	objs = append(objs, lib.Objs...)
 
-	cmd := toolchain.Library(lib.Out, objs)
+	var cmd, descr string
+	if lib.Shared {
+		cmd = toolchain.SharedLibrary(lib.Out, objs)
+		descr = fmt.Sprintf("LD %s", lib.Out.Relative())
+	} else {
+		cmd = toolchain.StaticLibrary(lib.Out, objs)
+		descr = fmt.Sprintf("AR %s", lib.Out.Relative())
+	}
+
 	ctx.AddBuildStep(core.BuildStep{
 		Out:   lib.Out,
 		Ins:   objs,
 		Cmd:   cmd,
-		Descr: fmt.Sprintf("AR %s", lib.Out.Relative()),
+		Descr: descr,
 	})
 
 	return lib.Out

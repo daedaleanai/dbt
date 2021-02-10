@@ -9,7 +9,8 @@ import (
 
 type Toolchain interface {
 	ObjectFile(out core.OutPath, depfile core.OutPath, flags core.Flags, includes core.Paths, src core.Path) string
-	Library(out core.Path, objs core.Paths) string
+	StaticLibrary(out core.Path, objs core.Paths) string
+	SharedLibrary(out core.Path, objs core.Paths) string
 	Binary(out core.Path, objs core.Paths, alwaysLinkLibs core.Paths, libs core.Paths, flags core.Flags, script core.Path) string
 	EmbeddedBlob(out core.OutPath, src core.Path) string
 }
@@ -52,11 +53,20 @@ func (gcc GccToolchain) ObjectFile(out core.OutPath, depfile core.OutPath, flags
 		src)
 }
 
-// Library generates the command to build a static library.
-func (gcc GccToolchain) Library(out core.Path, objs core.Paths) string {
+// StaticLibrary generates the command to build a static library.
+func (gcc GccToolchain) StaticLibrary(out core.Path, objs core.Paths) string {
 	return fmt.Sprintf(
 		"%s rv %s %s >/dev/null 2>/dev/null",
 		gcc.Ar,
+		out,
+		objs)
+}
+
+// SharedLibrary generates the command to build a shared library.
+func (gcc GccToolchain) SharedLibrary(out core.Path, objs core.Paths) string {
+	return fmt.Sprintf(
+		"%s -shared -o %s %s",
+		gcc.Cxx,
 		out,
 		objs)
 }
