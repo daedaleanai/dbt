@@ -92,10 +92,7 @@ func GetModuleRootForPath(p string) string {
 
 // GetModuleRoot returns the root directory of the current module.
 func GetModuleRoot() string {
-	workingDir, err := os.Getwd()
-	if err != nil {
-		log.Fatal("Could not get working directory: %s.\n", err)
-	}
+	workingDir := GetWorkingDir()
 	moduleRoot, err := getModuleRoot(workingDir)
 	if err != nil {
 		log.Fatal("Could not identify module root directory. Make sure you run this command inside a module: %s.\n", err)
@@ -105,12 +102,8 @@ func GetModuleRoot() string {
 
 // GetWorkspaceRoot returns the root directory of the current workspace (i.e., top-level module).
 func GetWorkspaceRoot() string {
-	workingDir, err := os.Getwd()
-	if err != nil {
-		log.Fatal("Could not get working directory: %s.\n", err)
-	}
-
-	p := workingDir
+	var err error
+	p := GetWorkingDir()
 	for {
 		p, err = getModuleRoot(p)
 		if err != nil {
@@ -123,6 +116,15 @@ func GetWorkspaceRoot() string {
 		}
 		p = path.Dir(p)
 	}
+}
+
+// GetWorkingDir returns the current working directory.
+func GetWorkingDir() string {
+	workingDir, err := os.Getwd()
+	if err != nil {
+		log.Fatal("Could not get working directory: %s.\n", err)
+	}
+	return workingDir
 }
 
 // WalkSymlink works like filepath.Walk but also accepts symbolic links as `root`.
