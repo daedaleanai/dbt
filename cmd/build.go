@@ -92,7 +92,6 @@ func main() {}
 
 var buildCmd = &cobra.Command{
 	Use:   "build <targets> -- <build flags>",
-	Args:  cobra.MinimumNArgs(1),
 	Short: "Builds the targets",
 	Long:  `Builds the targets.`,
 	Run:   runBuild,
@@ -120,7 +119,7 @@ func runBuild(cmd *cobra.Command, args []string) {
 		// Otherwise they are interpreted as relative to the current working directory.
 		// E.g.: Running 'dbt build //src/path/to/mylib.a' from anywhere in the workspace is equivallent
 		// to running 'dbt build mylib.a' in '.../src/path/to/' or running 'dbt build path/to/mylib.a' in '.../src/'.
-		if !strings.HasPrefix(arg, string(os.PathSeparator)+string(os.PathSeparator)) {
+		if !strings.HasPrefix(arg, string(os.PathSeparator)) {
 			workingDir, _ := os.Getwd()
 			arg = path.Join(workingDir, arg)
 			moduleRoot := util.GetModuleRootForPath(arg)
@@ -352,10 +351,10 @@ func createGeneratorMainFile(sourceDir, buildDir, buildFilesDir string, importLi
 	util.WriteFile(modFilePath, modFileContent)
 }
 
-func runGenerator(sourceDir, buildDir, buildFilesDir, command string, buildFlags []string) bytes.Buffer {
+func runGenerator(sourceDir, buildDir, buildFilesDir, mode string, buildFlags []string) bytes.Buffer {
 	workingDir, _ := os.Getwd()
 	var stdout, stderr bytes.Buffer
-	args := append([]string{"run", mainFileName, command, sourceDir, buildDir, workingDir}, buildFlags...)
+	args := append([]string{"run", mainFileName, mode, sourceDir, buildDir, workingDir}, buildFlags...)
 	cmd := exec.Command("go", args...)
 	cmd.Dir = buildFilesDir
 	cmd.Stderr = &stderr
@@ -363,7 +362,7 @@ func runGenerator(sourceDir, buildDir, buildFilesDir, command string, buildFlags
 	err := cmd.Run()
 	fmt.Println(string(stderr.Bytes()))
 	if err != nil {
-		log.Fatal("Failed to run generator command '%s': %s.\n", command, err)
+		log.Fatal("Failed to run generator in mode '%s': %s.\n", mode, err)
 	}
 	return stdout
 }

@@ -76,7 +76,7 @@ type ListTargetsContext struct{}
 func (ctx ListTargetsContext) AddTarget(name string, target interface{}) {
 	_, ok := target.(buildable)
 	if ok {
-		fmt.Println(name)
+		fmt.Printf("//%s\n", name)
 	}
 }
 
