@@ -135,11 +135,11 @@ _dbt()
         if [ -n "$subdir" ]; then
             popd >/dev/null 2>&1
         fi
-    elif [ $((directive & shellCompDirectiveNoSpace)) -ne 0 ] && [ ${compCount} -eq 1 ]; then
+    elif [ $((directive & shellCompDirectiveNoSpace)) -ne 0 ]; then
         __dbt_debug "Activating nospace."
-        # We can use compadd here as there is no description when
-        # there is only one completion.
-        compadd -S '' "${lastComp}"
+        for comp in ${completions[@]}; do
+          compadd -S '' "${comp}"
+        done
     elif [ ${compCount} -eq 0 ]; then
         if [ $((directive & shellCompDirectiveNoFileComp)) -ne 0 ]; then
             __dbt_debug "deactivating file completion"
