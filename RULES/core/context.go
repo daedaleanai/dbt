@@ -11,7 +11,9 @@ type Context interface {
 	AddBuildStep(BuildStep)
 }
 
-type NinjaContext struct{}
+type NinjaContext struct {
+	nextRuleID int
+}
 
 func ninjaEscape(s string) string {
 	return strings.ReplaceAll(s, " ", "$ ")
@@ -21,9 +23,7 @@ type buildable interface {
 	Build(ctx Context) OutPath
 }
 
-var nextRuleID = 1
-
-func (ctx NinjaContext) AddTarget(name string, target interface{}) {
+func (ctx *NinjaContext) AddTarget(name string, target interface{}) {
 	iface, ok := target.(buildable)
 	if !ok {
 		return
@@ -32,19 +32,19 @@ func (ctx NinjaContext) AddTarget(name string, target interface{}) {
 	currentTarget = name
 	out := iface.Build(ctx)
 
-	fmt.Printf("rule r%d\n", nextRuleID)
+	fmt.Printf("rule r%d\n", ctx.nextRuleID)
 	relativePath, _ := filepath.Rel(WorkingDir(), out.Absolute())
 	fmt.Printf("  command = echo \"%s\"\n", relativePath)
 	fmt.Printf("  description = Created %s:", name)
 	fmt.Printf("\n")
-	fmt.Printf("build %s: r%d %s\n", name, nextRuleID, ninjaEscape(out.Absolute()))
+	fmt.Printf("build %s: r%d %s\n", name, ctx.nextRuleID, ninjaEscape(out.Absolute()))
 	fmt.Printf("\n")
 	fmt.Printf("\n")
 
-	nextRuleID++
+	ctx.nextRuleID++
 }
 
-func (ctx NinjaContext) AddBuildStep(step BuildStep) {
+func (ctx *NinjaContext) AddBuildStep(step BuildStep) {
 	ins := []string{}
 	for _, in := range step.Ins {
 		ins = append(ins, ninjaEscape(in.Absolute()))
@@ -55,7 +55,7 @@ func (ctx NinjaContext) AddBuildStep(step BuildStep) {
 
 	out := ninjaEscape(step.Out.Absolute())
 
-	fmt.Printf("rule r%d\n", nextRuleID)
+	fmt.Printf("rule r%d\n", ctx.nextRuleID)
 	if step.Depfile != nil {
 		depfile := ninjaEscape(step.Depfile.Absolute())
 		fmt.Printf("  depfile = %s\n", depfile)
@@ -65,25 +65,19 @@ func (ctx NinjaContext) AddBuildStep(step BuildStep) {
 		fmt.Printf("  description = %s\n", step.Descr)
 	}
 	fmt.Print("\n")
-	fmt.Printf("build %s: r%d %s\n", out, nextRuleID, strings.Join(ins, " "))
+	fmt.Printf("build %s: r%d %s\n", out, ctx.nextRuleID, strings.Join(ins, " "))
 	fmt.Print("\n\n")
 
-	nextRuleID++
+	ctx.nextRuleID++
 }
 
 type ListTargetsContext struct{}
 
-func (ctx ListTargetsContext) AddTarget(name string, target interface{}) {
+func (ctx *ListTargetsContext) AddTarget(name string, target interface{}) {
 	_, ok := target.(buildable)
 	if ok {
-		fmt.Printf("//%s\n", name)
+		fmt.Println(name)
 	}
 }
 
-func (ctx ListTargetsContext) AddBuildStep(step BuildStep) {}
-
-type NopContext struct{}
-
-func (ctx NopContext) AddTarget(name string, target interface{}) {}
-
-func (ctx NopContext) AddBuildStep(step BuildStep) {}
+func (ctx *ListTargetsContext) AddBuildStep(step BuildStep) {}

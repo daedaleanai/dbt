@@ -27,24 +27,39 @@ func WorkingDir() string {
 	return os.Args[4]
 }
 
-var reportedFlags = map[string]struct{}{}
+var allowNewFlags = true
+var BuildFlags = map[string]string{}
 
-// Flag provides the value of a build config flags.
-func Flag(name string) string {
-	if mode() == "flags" {
-		_, exists := reportedFlags[name]
-		if !exists {
-			reportedFlags[name] = struct{}{}
-			fmt.Printf("--%s\n", name)
-		}
-	}
-
+func flagValue(name string) string {
 	prefix := fmt.Sprintf("--%s=", name)
+	trueFlag := fmt.Sprintf("--%s", name)
 	for _, arg := range os.Args[4:] {
+		if arg == trueFlag {
+			return "true"
+		}
 		if strings.HasPrefix(arg, prefix) {
 			return strings.TrimPrefix(arg, prefix)
 		}
 	}
+	return ""
+}
+
+// LockBuildFlags prevents new flags from being used.
+func LockBuildFlags() {
+	allowNewFlags = false
+}
+
+// Flag provides the value of a build config flags.
+func Flag(name string) string {
+	if allowNewFlags {
+		BuildFlags[name] = flagValue(name)
+	}
+
+	if value, exists := BuildFlags[name]; exists {
+		return value
+	}
+
+	Fatal("Tried to use flag '%s' after flags were locked. Flags must be accessed outside of build rule definitions.", name)
 	return ""
 }
 

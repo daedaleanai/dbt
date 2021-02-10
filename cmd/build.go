@@ -40,7 +40,6 @@ const initFileTemplate = `
 package %s
 
 import (
-	"os"
 	"path"
 	"reflect"
 
@@ -49,17 +48,7 @@ import (
 
 type __internal_pkg struct{}
 
-func init() {
-	var ctx core.Context
-	switch os.Args[1] {
-	case "ninja":
-		ctx = core.NinjaContext{}
-	case "targets":
-		ctx = core.ListTargetsContext{}
-	case "flags":
-		ctx = core.NopContext{}
-	}
-
+func DbtMain(ctx core.Context) {
 %s
 }
 
@@ -85,9 +74,33 @@ const mainFileTemplate = `
 
 package main
 
+import (
+	"fmt"
+	"os"
+)
+
+import "dbt/RULES/core"
+
 %s
 
-func main() {}
+func main() {
+	var ctx core.Context
+
+	switch os.Args[1] {
+	case "ninja":
+		ctx = &core.NinjaContext{}
+	case "targets":
+		ctx = &core.ListTargetsContext{}
+	case "flags":
+		for flag := range core.BuildFlags {
+			fmt.Println(flag)
+		}
+		return
+	}
+
+	core.LockBuildFlags()
+%s
+}
 `
 
 var buildCmd = &cobra.Command{
@@ -145,31 +158,38 @@ func runBuild(cmd *cobra.Command, args []string) {
 
 	// Copy all BUILD.go files and RULES/ files from the source directory.
 	modules := module.GetAllModulePaths(workspaceRoot)
-	importLines := []string{}
+	packages := []string{}
 	for modName, modPath := range modules {
 		modBuildfilesDir := path.Join(buildFilesDir, modName)
-		moduleImportLines := copyBuildAndRuleFiles(modName, modPath, modBuildfilesDir, modules)
-		importLines = append(importLines, moduleImportLines...)
+		modulePackages := copyBuildAndRuleFiles(modName, modPath, modBuildfilesDir, modules)
+		packages = append(packages, modulePackages...)
 	}
 
-	createGeneratorMainFile(sourceDir, buildDir, buildFilesDir, importLines, buildFlags, modules)
+	createGeneratorMainFile(sourceDir, buildDir, buildFilesDir, packages, buildFlags, modules)
 
 	// Get a list of available targets.
 	availableTargetsBuffer := runGenerator(sourceDir, buildDir, buildFilesDir, "targets", buildFlags)
-	availableTargets := strings.Split(string(availableTargetsBuffer.Bytes()), "\n")
+	availableTargets := strings.Split(strings.TrimSuffix(string(availableTargetsBuffer.Bytes()), "\n"), "\n")
 
 	if len(targets) == 0 {
 		log.Debug("No targets specified.\n")
 
-		fmt.Println("Available targets:")
-		fmt.Print(strings.Join(availableTargets, "\n"))
+		fmt.Println("\nAvailable targets:")
+		for _, target := range availableTargets {
+			fmt.Printf("//%s\n", target)
+		}
 
 		// Get a list of all available build flags.
-		availableFlags := runGenerator(sourceDir, buildDir, buildFilesDir, "flags", buildFlags)
-		fmt.Println("Available flags:")
-		fmt.Println(string(availableFlags.Bytes()))
+		availableFlagsBuffer := runGenerator(sourceDir, buildDir, buildFilesDir, "flags", buildFlags)
+		availableFlags := strings.Split(strings.TrimSuffix(string(availableFlagsBuffer.Bytes()), "\n"), "\n")
+		fmt.Println("\nAvailable flags:")
+		for _, flag := range availableFlags {
+			fmt.Printf("--%s\n", flag)
+		}
 		return
 	}
+
+	log.Debug("Normalized targets: '%s'.\n", strings.Join(targets, "', '"))
 
 	uniqueNinjaTargets := map[string]struct{}{}
 	for _, target := range targets {
@@ -189,7 +209,11 @@ func runBuild(cmd *cobra.Command, args []string) {
 	for target := range uniqueNinjaTargets {
 		ninjaTargets = append(ninjaTargets, target)
 	}
-	log.Debug("Building targets '%s'.\n", strings.Join(ninjaTargets, "', '"))
+	log.Debug("Expanded targets: '%s'.\n", strings.Join(ninjaTargets, "', '"))
+
+	if len(ninjaTargets) == 0 {
+		log.Fatal("No matching targets found.\n")
+	}
 
 	// Produce the ninja.build file.
 	ninjaFileContent := runGenerator(sourceDir, buildDir, buildFilesDir, "ninja", buildFlags)
@@ -201,7 +225,7 @@ func runBuild(cmd *cobra.Command, args []string) {
 }
 
 func copyBuildAndRuleFiles(moduleName, modulePath, buildFilesDir string, modules map[string]string) []string {
-	importLines := []string{}
+	packages := []string{}
 
 	log.Debug("Processing module '%s'.\n", moduleName)
 
@@ -239,12 +263,7 @@ func copyBuildAndRuleFiles(moduleName, modulePath, buildFilesDir string, modules
 		relativeFilePath := strings.TrimPrefix(buildFile, modulePath+string(os.PathSeparator))
 		relativeDirPath := strings.TrimSuffix(path.Dir(relativeFilePath), string(os.PathSeparator))
 
-		importLine := fmt.Sprintf("import _ \"%s/%s\"", moduleName, relativeDirPath)
-		if relativeDirPath == "." {
-			importLine = fmt.Sprintf("import _ \"%s\"", moduleName)
-		}
-		importLines = append(importLines, importLine)
-
+		packages = append(packages, path.Join(moduleName, relativeDirPath))
 		packageName, targets := parseBuildFile(buildFile)
 		targetLines := []string{}
 		for _, targetName := range targets {
@@ -262,7 +281,7 @@ func copyBuildAndRuleFiles(moduleName, modulePath, buildFilesDir string, modules
 	rulesDirPath := path.Join(modulePath, RulesDirName)
 	if !util.DirExists(rulesDirPath) {
 		log.Debug("Module '%s' does not specify any build rules.\n", moduleName)
-		return importLines
+		return packages
 	}
 
 	err = filepath.Walk(rulesDirPath, func(filePath string, file os.FileInfo, err error) error {
@@ -284,7 +303,7 @@ func copyBuildAndRuleFiles(moduleName, modulePath, buildFilesDir string, modules
 		log.Fatal("Failed to copy rule files for module '%s': %s.\n", moduleName, err)
 	}
 
-	return importLines
+	return packages
 }
 
 func createModFileContent(moduleName string, modules map[string]string, pathPrefix string) []byte {
@@ -341,9 +360,16 @@ func parseBuildFile(buildFilePath string) (string, []string) {
 	return fileAst.Name.String(), targets
 }
 
-func createGeneratorMainFile(sourceDir, buildDir, buildFilesDir string, importLines []string, buildFlags []string, modules map[string]string) {
+func createGeneratorMainFile(sourceDir, buildDir, buildFilesDir string, packages []string, buildFlags []string, modules map[string]string) {
+	importLines := []string{}
+	dbtMainLines := []string{}
+	for idx, pkg := range packages {
+		importLines = append(importLines, fmt.Sprintf("import p%d \"%s\"", idx, pkg))
+		dbtMainLines = append(dbtMainLines, fmt.Sprintf("    p%d.DbtMain(ctx)", idx))
+	}
+
 	mainFilePath := path.Join(buildFilesDir, mainFileName)
-	mainFileContent := fmt.Sprintf(mainFileTemplate, strings.Join(importLines, "\n"))
+	mainFileContent := fmt.Sprintf(mainFileTemplate, strings.Join(importLines, "\n"), strings.Join(dbtMainLines, "\n"))
 	util.WriteFile(mainFilePath, []byte(mainFileContent))
 
 	modFilePath := path.Join(buildFilesDir, modFileName)
