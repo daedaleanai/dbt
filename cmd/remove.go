@@ -9,7 +9,7 @@ import (
 )
 
 var removeCmd = &cobra.Command{
-	Use:   "remove <repository|module>",
+	Use:   "remove [repository|module]",
 	Args:  cobra.ExactArgs(1),
 	Short: "Removes a dependency from the MODULE file of the current module",
 	Long: `Removes a dependency from the MODULE file of the current module.

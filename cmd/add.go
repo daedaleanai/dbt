@@ -9,7 +9,7 @@ import (
 )
 
 var addCmd = &cobra.Command{
-	Use:   "add <repository> <version>",
+	Use:   "add [repository] [version]",
 	Args:  cobra.ExactArgs(2),
 	Short: "Adds a dependency to the MODULE file of the current module",
 	Long: `Adds a dependency to the MODULE file of the current module.
