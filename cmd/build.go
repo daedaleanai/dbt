@@ -360,7 +360,7 @@ func runGenerator(sourceDir, buildDir, buildFilesDir, mode string, buildFlags []
 	cmd.Stderr = &stderr
 	cmd.Stdout = &stdout
 	err := cmd.Run()
-	fmt.Println(string(stderr.Bytes()))
+	fmt.Print(string(stderr.Bytes()))
 	if err != nil {
 		log.Fatal("Failed to run generator in mode '%s': %s.\n", mode, err)
 	}
