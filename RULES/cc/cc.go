@@ -3,7 +3,7 @@ package cc
 import (
 	"fmt"
 
-	"github.com/daedaleanai/dbt/RULES/core"
+	"dbt/RULES/core"
 )
 
 // ObjectFile compiles a single C++ source file.
