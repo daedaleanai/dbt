@@ -5,7 +5,8 @@ import (
 )
 
 var depCmd = &cobra.Command{
-	Use: "dep",
+	Use:   "dep",
+	Short: "Manages module dependencies",
 }
 
 func init() {

@@ -31,12 +31,8 @@ var allowNewFlags = true
 var BuildFlags = map[string]string{}
 
 func flagValue(name string) string {
-	prefix := fmt.Sprintf("--%s=", name)
-	trueFlag := fmt.Sprintf("--%s", name)
+	prefix := fmt.Sprintf("%s=", name)
 	for _, arg := range os.Args[4:] {
-		if arg == trueFlag {
-			return "true"
-		}
 		if strings.HasPrefix(arg, prefix) {
 			return strings.TrimPrefix(arg, prefix)
 		}
@@ -71,7 +67,11 @@ func Fatal(format string, a ...interface{}) {
 		return
 	}
 	msg := fmt.Sprintf(format, a...)
-	fmt.Fprintf(os.Stderr, "A fatal error occured while processing target '%s': %s", currentTarget, msg)
+	if currentTarget == "" {
+		fmt.Fprintf(os.Stderr, "A fatal error occured: %s", msg)
+	} else {
+		fmt.Fprintf(os.Stderr, "A fatal error occured while processing target '%s': %s", currentTarget, msg)
+	}
 	os.Exit(1)
 }
 
@@ -79,12 +79,14 @@ func Fatal(format string, a ...interface{}) {
 func Assert(cond bool, format string, a ...interface{}) {
 	// Ignore all asserts when not generating the ninja build file. This allows listing all targets in a workspace
 	// without specifying required build flags.
-	if mode() != "ninja" {
+	if cond || mode() != "ninja" {
 		return
 	}
-	if !cond {
-		msg := fmt.Sprintf(format, a...)
+	msg := fmt.Sprintf(format, a...)
+	if currentTarget == "" {
+		fmt.Fprintf(os.Stderr, "Assertion failed: %s", msg)
+	} else {
 		fmt.Fprintf(os.Stderr, "Assertion failed while processing target '%s': %s", currentTarget, msg)
-		os.Exit(1)
 	}
+	os.Exit(1)
 }

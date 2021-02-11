@@ -12,7 +12,7 @@ import (
 )
 
 var updateCmd = &cobra.Command{
-	Use:   "update [<modules>]",
+	Use:   "update [modules]",
 	Short: "Updates dependency versions in MODULE file of the current module",
 	Long: `Updates dependency versions in MODULE file of the current module.
 By default all modules in each MODULE file will be updated.
