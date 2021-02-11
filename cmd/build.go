@@ -24,7 +24,7 @@ import (
 const buildDirName = "BUILD"
 const buildFileName = "BUILD.go"
 const buildFilesDirName = "buildfiles"
-const dbtModulePath = "github.com/daedaleanai/dbt v0.1.4"
+const dbtModulePath = "github.com/daedaleanai/dbt v0.1.5"
 const initFileName = "init.go"
 const mainFileName = "main.go"
 const modFileName = "go.mod"
@@ -197,10 +197,6 @@ func completeArgs(cmd *cobra.Command, args []string, toComplete string) ([]strin
 		suggestions = append(suggestions, fmt.Sprintf("%s=", flag))
 	}
 
-	if toComplete == "" {
-		return suggestions, cobra.ShellCompDirectiveNoSpace
-	}
-
 	targetToComplete := normalizeTarget(toComplete)
 	numParts := len(strings.Split(targetToComplete, "/"))
 	for target := range getAvailableTargets(info) {
@@ -212,15 +208,7 @@ func completeArgs(cmd *cobra.Command, args []string, toComplete string) ([]strin
 		suggestions = append(suggestions, suggestion)
 	}
 
-	/*	targets := []string{}
-		for target := range getAvailableTargets(info) {
-			targets = append(targets, target)
-		}
-
-		return targets, cobra.ShellCompDirectiveNoFileComp
-	*/
-	//fmt.Println(args)
-	//fmt.Println(os.Args)
+	return suggestions, cobra.ShellCompDirectiveNoSpace
 }
 
 func normalizeTarget(target string) string {
@@ -231,7 +219,7 @@ func normalizeTarget(target string) string {
 	if strings.HasPrefix(target, "//") {
 		return strings.TrimLeft(target, "/")
 	}
-	endsWithSlash := strings.HasSuffix(target, "/")
+	endsWithSlash := strings.HasSuffix(target, "/") || target == ""
 	target = path.Join(util.GetWorkingDir(), target)
 	moduleRoot := util.GetModuleRootForPath(target)
 	target = strings.TrimPrefix(target, path.Dir(moduleRoot))
