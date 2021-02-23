@@ -24,7 +24,7 @@ import (
 const buildDirName = "BUILD"
 const buildFileName = "BUILD.go"
 const buildFilesDirName = "buildfiles"
-const dbtModulePath = "github.com/daedaleanai/dbt v0.1.9"
+const dbtModulePath = "github.com/daedaleanai/dbt"
 const initFileName = "init.go"
 const mainFileName = "main.go"
 const modFileName = "go.mod"
@@ -274,6 +274,8 @@ func prepareGenerator(args []string) buildInfo {
 	}
 
 	createGeneratorMainFile(info.buildFilesDir, packages, modules)
+	createSumGoFile(info.buildFilesDir)
+
 	return info
 }
 
@@ -371,7 +373,7 @@ func createModFileContent(moduleName string, modules map[string]string, pathPref
 	}
 
 	fmt.Fprintf(&mod, "require dbt v0.0.0\n")
-	fmt.Fprintf(&mod, "replace dbt => %s\n\n", dbtModulePath)
+	fmt.Fprintf(&mod, "replace dbt => %s %s\n\n", dbtModulePath, dbtVersion)
 
 	return []byte(mod.String())
 }
@@ -448,6 +450,19 @@ func getAvailable(kind string, info buildInfo) map[string]struct{} {
 		}
 	}
 	return result
+}
+
+func createSumGoFile(buildFilesDir string) {
+	var stdout, stderr bytes.Buffer
+	cmd := exec.Command("go", "mod", "download")
+	cmd.Dir = buildFilesDir
+	cmd.Stderr = &stderr
+	cmd.Stdout = &stdout
+	err := cmd.Run()
+	fmt.Print(string(stderr.Bytes()))
+	if err != nil {
+		log.Fatal("Failed to run 'go mod download': %s.\n", err)
+	}
 }
 
 func runGenerator(info buildInfo, mode string) bytes.Buffer {
