@@ -24,7 +24,7 @@ import (
 const buildDirName = "BUILD"
 const buildFileName = "BUILD.go"
 const buildFilesDirName = "buildfiles"
-const dbtModulePath = "github.com/daedaleanai/dbt v0.1.7"
+const dbtModulePath = "github.com/daedaleanai/dbt v0.1.8"
 const initFileName = "init.go"
 const mainFileName = "main.go"
 const modFileName = "go.mod"
@@ -89,8 +89,10 @@ func main() {
 	switch os.Args[1] {
 	case "ninja":
 		ctx = &core.NinjaContext{}
+		ctx.Initialize()
 	case "targets":
 		ctx = &core.ListTargetsContext{}
+		ctx.Initialize()
 	case "flags":
 		for flag := range core.BuildFlags {
 			fmt.Println(flag)
