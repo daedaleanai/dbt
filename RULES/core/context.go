@@ -7,6 +7,7 @@ import (
 )
 
 type Context interface {
+	Initialize()
 	AddTarget(name string, target interface{})
 	AddBuildStep(BuildStep)
 }
@@ -23,6 +24,10 @@ type buildable interface {
 	Build(ctx Context) OutPath
 }
 
+func (ctx *NinjaContext) Initialize() {
+	fmt.Printf("build __phony__: phony\n\n")
+}
+
 func (ctx *NinjaContext) AddTarget(name string, target interface{}) {
 	iface, ok := target.(buildable)
 	if !ok {
@@ -37,7 +42,7 @@ func (ctx *NinjaContext) AddTarget(name string, target interface{}) {
 	fmt.Printf("  command = echo \"%s\"\n", relativePath)
 	fmt.Printf("  description = Created %s:", name)
 	fmt.Printf("\n")
-	fmt.Printf("build %s: r%d %s\n", name, ctx.nextRuleID, ninjaEscape(out.Absolute()))
+	fmt.Printf("build %s: r%d %s __phony__\n", name, ctx.nextRuleID, ninjaEscape(out.Absolute()))
 	fmt.Printf("\n")
 	fmt.Printf("\n")
 
@@ -72,6 +77,8 @@ func (ctx *NinjaContext) AddBuildStep(step BuildStep) {
 }
 
 type ListTargetsContext struct{}
+
+func (ctx *ListTargetsContext) Initialize() {}
 
 func (ctx *ListTargetsContext) AddTarget(name string, target interface{}) {
 	_, ok := target.(buildable)
