@@ -2,10 +2,11 @@ package cmd
 
 import (
 	"fmt"
+
 	"github.com/daedaleanai/cobra"
 )
 
-const dbtVersion = "v0.1.11"
+const dbtVersion = "v0.1.12"
 
 var versionCmd = &cobra.Command{
 	Use:   "version",

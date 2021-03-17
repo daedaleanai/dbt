@@ -26,7 +26,7 @@ func (obj ObjectFile) Build(ctx core.Context) core.OutPath {
 	cmd := toolchain.ObjectFile(out, depfile, obj.Flags, obj.Includes, obj.Src)
 	ctx.AddBuildStep(core.BuildStep{
 		Out:     out,
-		Depfile: &depfile,
+		Depfile: depfile,
 		In:      obj.Src,
 		Cmd:     cmd,
 		Descr:   fmt.Sprintf("CC %s", out.Relative()),
