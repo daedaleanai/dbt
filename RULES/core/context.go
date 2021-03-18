@@ -24,7 +24,7 @@ type buildsOne interface {
 	Build(ctx Context) OutPath
 }
 
-type buildsMultiple interface {
+type buildsMany interface {
 	Build(ctx Context) OutPaths
 }
 
@@ -40,7 +40,7 @@ func (ctx *NinjaContext) AddTarget(name string, target interface{}) {
 		outs = OutPaths{iface.Build(ctx)}
 	}
 
-	if iface, ok := target.(buildsMultiple); ok {
+	if iface, ok := target.(buildsMany); ok {
 		outs = iface.Build(ctx)
 	}
 
@@ -106,8 +106,8 @@ func (ctx *ListTargetsContext) Initialize() {}
 
 func (ctx *ListTargetsContext) AddTarget(name string, target interface{}) {
 	_, okOne := target.(buildsOne)
-	_, okMultiple := target.(buildsMultiple)
-	if okOne || okMultiple {
+	_, okMany := target.(buildsMany)
+	if okOne || okMany {
 		fmt.Println(name)
 	}
 }
