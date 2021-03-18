@@ -20,8 +20,12 @@ func ninjaEscape(s string) string {
 	return strings.ReplaceAll(s, " ", "$ ")
 }
 
-type buildable interface {
+type buildsOne interface {
 	Build(ctx Context) OutPath
+}
+
+type buildsMany interface {
+	Build(ctx Context) OutPaths
 }
 
 func (ctx *NinjaContext) Initialize() {
@@ -29,20 +33,34 @@ func (ctx *NinjaContext) Initialize() {
 }
 
 func (ctx *NinjaContext) AddTarget(name string, target interface{}) {
-	iface, ok := target.(buildable)
-	if !ok {
+	currentTarget = name
+	outs := OutPaths{}
+
+	if iface, ok := target.(buildsOne); ok {
+		outs = OutPaths{iface.Build(ctx)}
+	}
+
+	if iface, ok := target.(buildsMany); ok {
+		outs = iface.Build(ctx)
+	}
+
+	if len(outs) == 0 {
 		return
 	}
 
-	currentTarget = name
-	out := iface.Build(ctx)
+	relPaths := []string{}
+	ninjaPaths := []string{}
+	for _, out := range outs {
+		relPath, _ := filepath.Rel(WorkingDir(), out.Absolute())
+		relPaths = append(relPaths, relPath)
+		ninjaPaths = append(ninjaPaths, ninjaEscape(out.Absolute()))
+	}
 
 	fmt.Printf("rule r%d\n", ctx.nextRuleID)
-	relativePath, _ := filepath.Rel(WorkingDir(), out.Absolute())
-	fmt.Printf("  command = echo \"%s\"\n", relativePath)
+	fmt.Printf("  command = echo \"%s\"\n", strings.Join(relPaths, "\\n"))
 	fmt.Printf("  description = Created %s:", name)
 	fmt.Printf("\n")
-	fmt.Printf("build %s: r%d %s __phony__\n", name, ctx.nextRuleID, ninjaEscape(out.Absolute()))
+	fmt.Printf("build %s: r%d %s __phony__\n", name, ctx.nextRuleID, strings.Join(ninjaPaths, " "))
 	fmt.Printf("\n")
 	fmt.Printf("\n")
 
@@ -58,7 +76,13 @@ func (ctx *NinjaContext) AddBuildStep(step BuildStep) {
 		ins = append(ins, ninjaEscape(step.In.Absolute()))
 	}
 
-	out := ninjaEscape(step.Out.Absolute())
+	outs := []string{}
+	for _, out := range step.Outs {
+		outs = append(outs, ninjaEscape(out.Absolute()))
+	}
+	if step.Out != nil {
+		outs = append(outs, ninjaEscape(step.Out.Absolute()))
+	}
 
 	fmt.Printf("rule r%d\n", ctx.nextRuleID)
 	if step.Depfile != nil {
@@ -70,7 +94,7 @@ func (ctx *NinjaContext) AddBuildStep(step BuildStep) {
 		fmt.Printf("  description = %s\n", step.Descr)
 	}
 	fmt.Print("\n")
-	fmt.Printf("build %s: r%d %s\n", out, ctx.nextRuleID, strings.Join(ins, " "))
+	fmt.Printf("build %s: r%d %s\n", strings.Join(outs, " "), ctx.nextRuleID, strings.Join(ins, " "))
 	fmt.Print("\n\n")
 
 	ctx.nextRuleID++
@@ -81,8 +105,9 @@ type ListTargetsContext struct{}
 func (ctx *ListTargetsContext) Initialize() {}
 
 func (ctx *ListTargetsContext) AddTarget(name string, target interface{}) {
-	_, ok := target.(buildable)
-	if ok {
+	_, okOne := target.(buildsOne)
+	_, okMany := target.(buildsMany)
+	if okOne || okMany {
 		fmt.Println(name)
 	}
 }
