@@ -12,18 +12,15 @@ func mode() string {
 	return os.Args[1]
 }
 
-// SourceDir returns the workspace source directory.
-func SourceDir() string {
+func sourceDir() string {
 	return os.Args[2]
 }
 
-// BuildDir returns the workspace build directory.
-func BuildDir() string {
+func buildDir() string {
 	return os.Args[3]
 }
 
-// WorkingDir returns the directory the build command was executed in.
-func WorkingDir() string {
+func workingDir() string {
 	return os.Args[4]
 }
 

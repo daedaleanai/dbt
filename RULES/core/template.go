@@ -13,7 +13,7 @@ type ExpandTemplate struct {
 }
 
 // BuildSteps for ExpandTemplate.
-func (tmpl ExpandTemplate) Build(ctx Context) OutPath {
+func (tmpl ExpandTemplate) Build(ctx Context) {
 	substitutions := []string{}
 	for old, new := range tmpl.Substitutions {
 		substitutions = append(substitutions, fmt.Sprintf("-e 's/%s/%s/g'", old, new))
@@ -25,5 +25,8 @@ func (tmpl ExpandTemplate) Build(ctx Context) OutPath {
 		Cmd:   cmd,
 		Descr: fmt.Sprintf("TEMPLATE %s", tmpl.Out.Relative()),
 	})
+}
+
+func (tmpl ExpandTemplate) Output() OutPath {
 	return tmpl.Out
 }

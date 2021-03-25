@@ -26,12 +26,16 @@ func ninjaEscape(s string) string {
 	return strings.ReplaceAll(s, " ", "$ ")
 }
 
-type buildsOne interface {
-	Build(ctx Context) OutPath
+type buildable interface {
+	Build(ctx Context)
 }
 
-type buildsMany interface {
-	Build(ctx Context) OutPaths
+type output interface {
+	Output() OutPath
+}
+
+type outputs interface {
+	Outputs() OutPaths
 }
 
 func (ctx *NinjaContext) Initialize() {
@@ -41,14 +45,17 @@ func (ctx *NinjaContext) Initialize() {
 func (ctx *NinjaContext) AddTarget(name string, target interface{}, cwd OutPath) {
 	currentTarget = name
 	ctx.cwd = cwd
-	outs := OutPaths{}
 
-	if iface, ok := target.(buildsOne); ok {
-		outs = OutPaths{iface.Build(ctx)}
+	if iface, ok := target.(buildable); ok {
+		iface.Build(ctx)
 	}
 
-	if iface, ok := target.(buildsMany); ok {
-		outs = iface.Build(ctx)
+	outs := OutPaths{}
+	if iface, ok := target.(outputs); ok {
+		outs = iface.Outputs()
+	}
+	if iface, ok := target.(output); ok {
+		outs = append(outs, iface.Output())
 	}
 
 	if len(outs) == 0 {
@@ -58,7 +65,7 @@ func (ctx *NinjaContext) AddTarget(name string, target interface{}, cwd OutPath)
 	relPaths := []string{}
 	ninjaPaths := []string{}
 	for _, out := range outs {
-		relPath, _ := filepath.Rel(WorkingDir(), out.Absolute())
+		relPath, _ := filepath.Rel(workingDir(), out.Absolute())
 		relPaths = append(relPaths, relPath)
 		ninjaPaths = append(ninjaPaths, ninjaEscape(out.Absolute()))
 	}
@@ -122,9 +129,7 @@ func NewListTargetsContext(writer io.Writer) *ListTargetsContext {
 func (ctx *ListTargetsContext) Initialize() {}
 
 func (ctx *ListTargetsContext) AddTarget(name string, target interface{}, cwd OutPath) {
-	_, okOne := target.(buildsOne)
-	_, okMany := target.(buildsMany)
-	if okOne || okMany {
+	if _, ok := target.(buildable); ok {
 		fmt.Fprintln(ctx.writer, name)
 	}
 }

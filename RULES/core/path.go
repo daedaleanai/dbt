@@ -34,7 +34,7 @@ type inPath struct {
 
 // Absolute returns the absolute path.
 func (p inPath) Absolute() string {
-	return path.Join(SourceDir(), p.rel)
+	return path.Join(sourceDir(), p.rel)
 }
 
 // Relative returns the path relative to the workspace source directory.
@@ -85,7 +85,7 @@ type outPath struct {
 
 // Absolute returns the absolute path.
 func (p outPath) Absolute() string {
-	return path.Join(BuildDir(), p.rel)
+	return path.Join(buildDir(), p.rel)
 }
 
 // Relative returns the path relative to the workspace build directory.
