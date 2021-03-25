@@ -31,7 +31,7 @@ const mainFileName = "main.go"
 const modFileName = "go.mod"
 const ninjaFileName = "build.ninja"
 const outputDirName = "output"
-const RulesDirName = "RULES"
+const rulesDirName = "RULES"
 
 const goVersion = "1.13"
 
@@ -317,7 +317,7 @@ func copyBuildAndRuleFiles(moduleName, modulePath, buildFilesDir string, modules
 		relativeFilePath := strings.TrimPrefix(filePath, modulePath+"/")
 
 		// Ignore the BUILD/, DEPS/ and RULES/ directories.
-		if file.IsDir() && (relativeFilePath == buildDirName || relativeFilePath == util.DepsDirName || relativeFilePath == RulesDirName) {
+		if file.IsDir() && (relativeFilePath == buildDirName || relativeFilePath == util.DepsDirName || relativeFilePath == rulesDirName) {
 			return filepath.SkipDir
 		}
 
@@ -355,7 +355,7 @@ func copyBuildAndRuleFiles(moduleName, modulePath, buildFilesDir string, modules
 		util.CopyFile(buildFile, copyFilePath)
 	}
 
-	rulesDirPath := path.Join(modulePath, RulesDirName)
+	rulesDirPath := path.Join(modulePath, rulesDirName)
 	if !util.DirExists(rulesDirPath) {
 		log.Debug("Module '%s' does not specify any build rules.\n", moduleName)
 		return packages

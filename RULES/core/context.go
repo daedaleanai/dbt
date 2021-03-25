@@ -2,10 +2,15 @@ package core
 
 import (
 	"fmt"
+	"hash/crc32"
 	"io"
+	"os"
+	"path"
 	"path/filepath"
 	"strings"
 )
+
+const scriptFileMode = 0755
 
 type Context interface {
 	AddBuildStep(BuildStep)
@@ -96,6 +101,18 @@ func (ctx *NinjaContext) AddBuildStep(step BuildStep) {
 	}
 	if step.Out != nil {
 		outs = append(outs, ninjaEscape(step.Out.Absolute()))
+	}
+
+	if len(step.Cmds) > 0 {
+		script := []byte(strings.Join(step.Cmds, "\n"))
+		hash := crc32.ChecksumIEEE([]byte(script))
+		scriptFileName := fmt.Sprintf("%08X.sh", hash)
+		scriptFilePath := path.Join(buildDir(), "..", scriptFileName)
+		err := os.WriteFile(scriptFilePath, script, scriptFileMode)
+		if err != nil {
+			Fatal("%s", err)
+		}
+		step.Cmd = scriptFilePath
 	}
 
 	fmt.Fprintf(ctx.writer, "rule r%d\n", ctx.nextRuleID)

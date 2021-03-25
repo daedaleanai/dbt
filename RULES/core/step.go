@@ -9,5 +9,6 @@ type BuildStep struct {
 	Ins     Paths
 	Depfile OutPath
 	Cmd     string
+	Cmds    []string
 	Descr   string
 }
