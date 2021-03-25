@@ -8,18 +8,18 @@ import (
 )
 
 type Context interface {
-	Initialize()
-	AddTarget(name string, target interface{})
 	AddBuildStep(BuildStep)
+	Cwd() Path
 }
 
 type NinjaContext struct {
 	writer     io.Writer
 	nextRuleID int
+	cwd        OutPath
 }
 
-func NewNinjaContext(writer io.Writer) Context {
-	return &NinjaContext{writer, 0}
+func NewNinjaContext(writer io.Writer) *NinjaContext {
+	return &NinjaContext{writer, 0, outPath{}}
 }
 
 func ninjaEscape(s string) string {
@@ -38,8 +38,9 @@ func (ctx *NinjaContext) Initialize() {
 	fmt.Fprintf(ctx.writer, "build __phony__: phony\n\n")
 }
 
-func (ctx *NinjaContext) AddTarget(name string, target interface{}) {
+func (ctx *NinjaContext) AddTarget(name string, target interface{}, cwd OutPath) {
 	currentTarget = name
+	ctx.cwd = cwd
 	outs := OutPaths{}
 
 	if iface, ok := target.(buildsOne); ok {
@@ -106,17 +107,21 @@ func (ctx *NinjaContext) AddBuildStep(step BuildStep) {
 	ctx.nextRuleID++
 }
 
+func (ctx *NinjaContext) Cwd() Path {
+	return ctx.cwd
+}
+
 type ListTargetsContext struct {
 	writer io.Writer
 }
 
-func NewListTargetsContext(writer io.Writer) Context {
+func NewListTargetsContext(writer io.Writer) *ListTargetsContext {
 	return &ListTargetsContext{writer}
 }
 
 func (ctx *ListTargetsContext) Initialize() {}
 
-func (ctx *ListTargetsContext) AddTarget(name string, target interface{}) {
+func (ctx *ListTargetsContext) AddTarget(name string, target interface{}, cwd OutPath) {
 	_, okOne := target.(buildsOne)
 	_, okMany := target.(buildsMany)
 	if okOne || okMany {
@@ -125,3 +130,7 @@ func (ctx *ListTargetsContext) AddTarget(name string, target interface{}) {
 }
 
 func (ctx *ListTargetsContext) AddBuildStep(step BuildStep) {}
+
+func (ctx *ListTargetsContext) Cwd() Path {
+	return outPath{}
+}

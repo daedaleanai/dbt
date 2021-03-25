@@ -49,7 +49,13 @@ import (
 
 type __internal_pkg struct{}
 
-func DbtMain(ctx core.Context) {
+type context interface {
+	core.Context
+	Initialize()
+	AddTarget(name string, target interface{}, cwd core.OutPath)
+}
+
+func DbtMain(ctx context) {
 %s
 }
 
@@ -84,8 +90,14 @@ import "dbt/RULES/core"
 
 %s
 
+type context interface {
+	core.Context
+	Initialize()
+	AddTarget(name string, target interface{}, cwd core.OutPath)
+}
+
 func main() {
-	var ctx core.Context
+	var ctx context
 
 	file, err := os.Create("%s")
 	if err != nil {
@@ -331,7 +343,8 @@ func copyBuildAndRuleFiles(moduleName, modulePath, buildFilesDir string, modules
 		packageName, targets := parseBuildFile(buildFile)
 		targetLines := []string{}
 		for _, targetName := range targets {
-			targetLines = append(targetLines, fmt.Sprintf("    ctx.AddTarget(reflect.TypeOf(__internal_pkg{}).PkgPath()+\"/%s\", %s)", targetName, targetName))
+			targetLines = append(targetLines,
+				fmt.Sprintf("    ctx.AddTarget(reflect.TypeOf(__internal_pkg{}).PkgPath()+\"/%s\", %s, out(\"\"))", targetName, targetName))
 		}
 
 		initFileContent := fmt.Sprintf(initFileTemplate, packageName, strings.Join(targetLines, "\n"))
