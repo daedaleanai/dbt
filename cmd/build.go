@@ -210,14 +210,15 @@ func completeArgs(cmd *cobra.Command, args []string, toComplete string) ([]strin
 		suggestions = append(suggestions, suggestion)
 	}
 
+	sort.Strings(suggestions)
 	return suggestions, cobra.ShellCompDirectiveNoSpace
 }
 
 func normalizeTarget(target string) string {
-	// Build targets are interpreted as relative to the workspace root when they start with a '/'.
+	// Build targets are interpreted as relative to the workspace root when they start with '//'.
 	// Otherwise they are interpreted as relative to the current working directory.
-	// E.g.: Running 'dbt build //src/path/to/mylib.a' from anywhere in the workspace is equivallent
-	// to running 'dbt build mylib.a' in '.../src/path/to/' or running 'dbt build path/to/mylib.a' in '.../src/'.
+	// E.g.: Running 'dbt build //src/path/to/mylib.a' from anywhere in the workspace is equivalent
+	// to 'dbt build mylib.a' in '.../src/path/to/' or 'dbt build path/to/mylib.a' in '.../src/'.
 	if strings.HasPrefix(target, "//") {
 		return strings.TrimLeft(target, "/")
 	}
