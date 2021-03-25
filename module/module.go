@@ -138,7 +138,7 @@ func (d Dependency) ModuleName() string {
 func ReadModuleFile(modulePath string) []Dependency {
 	moduleFilePath := path.Join(modulePath, util.ModuleFileName)
 	if !util.FileExists(moduleFilePath) {
-		log.Warning("Module has no '%s' file.\n", util.ModuleFileName)
+		log.Debug("Module has no '%s' file.\n", util.ModuleFileName)
 		return []Dependency{}
 	}
 
