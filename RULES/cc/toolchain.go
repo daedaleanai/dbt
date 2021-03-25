@@ -37,14 +37,14 @@ type GccToolchain struct {
 func (gcc GccToolchain) ObjectFile(out core.OutPath, depfile core.OutPath, flags core.Flags, includes core.Paths, src core.Path) string {
 	includesStr := strings.Builder{}
 	for _, include := range includes {
-		includesStr.WriteString(fmt.Sprintf("-I%s ", include))
+		includesStr.WriteString(fmt.Sprintf("-I%q ", include))
 	}
 	for _, include := range gcc.Includes {
-		includesStr.WriteString(fmt.Sprintf("-isystem %s ", include))
+		includesStr.WriteString(fmt.Sprintf("-isystem %q ", include))
 	}
 
 	return fmt.Sprintf(
-		"%s -pipe -c -o %s -MD -MF %s %s %s %s",
+		"%q -pipe -c -o %q -MD -MF %q %s %s %q",
 		gcc.Cxx,
 		out,
 		depfile,
@@ -56,7 +56,7 @@ func (gcc GccToolchain) ObjectFile(out core.OutPath, depfile core.OutPath, flags
 // StaticLibrary generates the command to build a static library.
 func (gcc GccToolchain) StaticLibrary(out core.Path, objs core.Paths) string {
 	return fmt.Sprintf(
-		"%s rv %s %s >/dev/null 2>/dev/null",
+		"%q rv %q %s >/dev/null 2>/dev/null",
 		gcc.Ar,
 		out,
 		objs)
@@ -65,7 +65,7 @@ func (gcc GccToolchain) StaticLibrary(out core.Path, objs core.Paths) string {
 // SharedLibrary generates the command to build a shared library.
 func (gcc GccToolchain) SharedLibrary(out core.Path, objs core.Paths) string {
 	return fmt.Sprintf(
-		"%s -pipe -shared -o %s %s",
+		"%q -pipe -shared -o %q %s",
 		gcc.Cxx,
 		out,
 		objs)
@@ -75,11 +75,11 @@ func (gcc GccToolchain) SharedLibrary(out core.Path, objs core.Paths) string {
 func (gcc GccToolchain) Binary(out core.Path, objs core.Paths, alwaysLinkLibs core.Paths, libs core.Paths, flags core.Flags, script core.Path) string {
 	flags = append(gcc.LinkerFlags, flags...)
 	if script != nil {
-		flags = append(flags, "-T", script.String())
+		flags = append(flags, "-T", fmt.Sprintf("%q", script))
 	}
 
 	return fmt.Sprintf(
-		"%s -pipe -o %s %s -Wl,-whole-archive %s -Wl,-no-whole-archive %s %s",
+		"%q -pipe -o %q %s -Wl,-whole-archive %s -Wl,-no-whole-archive %s %s",
 		gcc.Cxx,
 		out,
 		objs,
@@ -90,7 +90,7 @@ func (gcc GccToolchain) Binary(out core.Path, objs core.Paths, alwaysLinkLibs co
 
 func (gcc GccToolchain) EmbeddedBlob(out core.OutPath, src core.Path) string {
 	return fmt.Sprintf(
-		"%s -I binary -O %s -B %s %s %s",
+		"%q -I binary -O %s -B %s %q %q",
 		gcc.Objcopy,
 		gcc.TargetName,
 		gcc.ArchName,

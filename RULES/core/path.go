@@ -22,7 +22,7 @@ type Paths []Path
 func (ps Paths) String() string {
 	paths := []string{}
 	for _, p := range ps {
-		paths = append(paths, fmt.Sprint(p))
+		paths = append(paths, fmt.Sprintf("%q", p))
 	}
 	return strings.Join(paths, " ")
 }
@@ -59,7 +59,7 @@ func (p inPath) WithSuffix(suffix string) OutPath {
 
 // String representation of an inPath is its quoted absolute path.
 func (p inPath) String() string {
-	return fmt.Sprintf("\"%s\"", p.Absolute())
+	return p.Absolute()
 }
 
 // OutPath is a path relative to the workspace build directory.
@@ -74,7 +74,7 @@ type OutPaths []OutPath
 func (ps OutPaths) String() string {
 	paths := []string{}
 	for _, p := range ps {
-		paths = append(paths, fmt.Sprint(p))
+		paths = append(paths, fmt.Sprintf("%q", p))
 	}
 	return strings.Join(paths, " ")
 }
@@ -112,7 +112,7 @@ func (p outPath) WithSuffix(suffix string) OutPath {
 
 // String representation of an OutPath is its quoted absolute path.
 func (p outPath) String() string {
-	return fmt.Sprintf("\"%s\"", p.Absolute())
+	return p.Absolute()
 }
 
 // forceOutPath makes sure that inPath or Path cannot be used as OutPath.
@@ -134,7 +134,7 @@ func (p globalPath) Absolute() string {
 
 // String representation of a globalPath is its quoted absolute path.
 func (p globalPath) String() string {
-	return fmt.Sprintf("\"%s\"", p.Absolute())
+	return p.Absolute()
 }
 
 // NewInPath creates an inPath for a path relativ to the source directory.

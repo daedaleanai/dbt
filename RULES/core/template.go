@@ -18,7 +18,7 @@ func (tmpl ExpandTemplate) Build(ctx Context) OutPath {
 	for old, new := range tmpl.Substitutions {
 		substitutions = append(substitutions, fmt.Sprintf("-e 's/%s/%s/g'", old, new))
 	}
-	cmd := fmt.Sprintf("sed %s %s > %s", strings.Join(substitutions, " "), tmpl.Template, tmpl.Out)
+	cmd := fmt.Sprintf("sed %s %q > %q", strings.Join(substitutions, " "), tmpl.Template, tmpl.Out)
 	ctx.AddBuildStep(BuildStep{
 		Out:   tmpl.Out,
 		In:    tmpl.Template,
