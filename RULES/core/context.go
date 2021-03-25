@@ -2,6 +2,7 @@ package core
 
 import (
 	"fmt"
+	"io"
 	"path/filepath"
 	"strings"
 )
@@ -13,7 +14,12 @@ type Context interface {
 }
 
 type NinjaContext struct {
+	writer     io.Writer
 	nextRuleID int
+}
+
+func NewNinjaContext(writer io.Writer) Context {
+	return &NinjaContext{writer, 0}
 }
 
 func ninjaEscape(s string) string {
@@ -29,7 +35,7 @@ type buildsMany interface {
 }
 
 func (ctx *NinjaContext) Initialize() {
-	fmt.Printf("build __phony__: phony\n\n")
+	fmt.Fprintf(ctx.writer, "build __phony__: phony\n\n")
 }
 
 func (ctx *NinjaContext) AddTarget(name string, target interface{}) {
@@ -56,13 +62,13 @@ func (ctx *NinjaContext) AddTarget(name string, target interface{}) {
 		ninjaPaths = append(ninjaPaths, ninjaEscape(out.Absolute()))
 	}
 
-	fmt.Printf("rule r%d\n", ctx.nextRuleID)
-	fmt.Printf("  command = echo \"%s\"\n", strings.Join(relPaths, "\\n"))
-	fmt.Printf("  description = Created %s:", name)
-	fmt.Printf("\n")
-	fmt.Printf("build %s: r%d %s __phony__\n", name, ctx.nextRuleID, strings.Join(ninjaPaths, " "))
-	fmt.Printf("\n")
-	fmt.Printf("\n")
+	fmt.Fprintf(ctx.writer, "rule r%d\n", ctx.nextRuleID)
+	fmt.Fprintf(ctx.writer, "  command = echo \"%s\"\n", strings.Join(relPaths, "\\n"))
+	fmt.Fprintf(ctx.writer, "  description = Created %s:", name)
+	fmt.Fprintf(ctx.writer, "\n")
+	fmt.Fprintf(ctx.writer, "build %s: r%d %s __phony__\n", name, ctx.nextRuleID, strings.Join(ninjaPaths, " "))
+	fmt.Fprintf(ctx.writer, "\n")
+	fmt.Fprintf(ctx.writer, "\n")
 
 	ctx.nextRuleID++
 }
@@ -84,23 +90,29 @@ func (ctx *NinjaContext) AddBuildStep(step BuildStep) {
 		outs = append(outs, ninjaEscape(step.Out.Absolute()))
 	}
 
-	fmt.Printf("rule r%d\n", ctx.nextRuleID)
+	fmt.Fprintf(ctx.writer, "rule r%d\n", ctx.nextRuleID)
 	if step.Depfile != nil {
 		depfile := ninjaEscape(step.Depfile.Absolute())
-		fmt.Printf("  depfile = %s\n", depfile)
+		fmt.Fprintf(ctx.writer, "  depfile = %s\n", depfile)
 	}
-	fmt.Printf("  command = %s\n", step.Cmd)
+	fmt.Fprintf(ctx.writer, "  command = %s\n", step.Cmd)
 	if step.Descr != "" {
-		fmt.Printf("  description = %s\n", step.Descr)
+		fmt.Fprintf(ctx.writer, "  description = %s\n", step.Descr)
 	}
-	fmt.Print("\n")
-	fmt.Printf("build %s: r%d %s\n", strings.Join(outs, " "), ctx.nextRuleID, strings.Join(ins, " "))
-	fmt.Print("\n\n")
+	fmt.Fprint(ctx.writer, "\n")
+	fmt.Fprintf(ctx.writer, "build %s: r%d %s\n", strings.Join(outs, " "), ctx.nextRuleID, strings.Join(ins, " "))
+	fmt.Fprint(ctx.writer, "\n\n")
 
 	ctx.nextRuleID++
 }
 
-type ListTargetsContext struct{}
+type ListTargetsContext struct {
+	writer io.Writer
+}
+
+func NewListTargetsContext(writer io.Writer) Context {
+	return &ListTargetsContext{writer}
+}
 
 func (ctx *ListTargetsContext) Initialize() {}
 
@@ -108,7 +120,7 @@ func (ctx *ListTargetsContext) AddTarget(name string, target interface{}) {
 	_, okOne := target.(buildsOne)
 	_, okMany := target.(buildsMany)
 	if okOne || okMany {
-		fmt.Println(name)
+		fmt.Fprintln(ctx.writer, name)
 	}
 }
 
