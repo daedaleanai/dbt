@@ -44,7 +44,7 @@ func (gcc GccToolchain) ObjectFile(out core.OutPath, depfile core.OutPath, flags
 	}
 
 	return fmt.Sprintf(
-		"%s -c -o %s -MD -MF %s %s %s %s",
+		"%s -pipe -c -o %s -MD -MF %s %s %s %s",
 		gcc.Cxx,
 		out,
 		depfile,
@@ -65,7 +65,7 @@ func (gcc GccToolchain) StaticLibrary(out core.Path, objs core.Paths) string {
 // SharedLibrary generates the command to build a shared library.
 func (gcc GccToolchain) SharedLibrary(out core.Path, objs core.Paths) string {
 	return fmt.Sprintf(
-		"%s -shared -o %s %s",
+		"%s -pipe -shared -o %s %s",
 		gcc.Cxx,
 		out,
 		objs)
@@ -79,7 +79,7 @@ func (gcc GccToolchain) Binary(out core.Path, objs core.Paths, alwaysLinkLibs co
 	}
 
 	return fmt.Sprintf(
-		"%s -o %s %s -Wl,-whole-archive %s -Wl,-no-whole-archive %s %s",
+		"%s -pipe -o %s %s -Wl,-whole-archive %s -Wl,-no-whole-archive %s %s",
 		gcc.Cxx,
 		out,
 		objs,
