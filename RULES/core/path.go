@@ -64,12 +64,7 @@ func (p inPath) String() string {
 
 // OutPath is a path relative to the workspace build directory.
 type OutPath interface {
-	Absolute() string
-	Relative() string
-	String() string
-	WithExt(ext string) OutPath
-	WithPrefix(prefix string) OutPath
-	WithSuffix(suffix string) OutPath
+	Path
 	forceOutPath()
 }
 
