@@ -31,16 +31,12 @@ func ninjaEscape(s string) string {
 	return strings.ReplaceAll(s, " ", "$ ")
 }
 
-type buildable interface {
-	Build(ctx Context)
+type buildsOne interface {
+	Build(ctx Context) OutPath
 }
 
-type output interface {
-	Output() OutPath
-}
-
-type outputs interface {
-	Outputs() OutPaths
+type buildsMany interface {
+	Build(ctx Context) OutPaths
 }
 
 func (ctx *NinjaContext) Initialize() {
@@ -50,17 +46,14 @@ func (ctx *NinjaContext) Initialize() {
 func (ctx *NinjaContext) AddTarget(name string, target interface{}, cwd OutPath) {
 	currentTarget = name
 	ctx.cwd = cwd
-
-	if iface, ok := target.(buildable); ok {
-		iface.Build(ctx)
-	}
-
 	outs := OutPaths{}
-	if iface, ok := target.(outputs); ok {
-		outs = iface.Outputs()
+
+	if iface, ok := target.(buildsOne); ok {
+		outs = append(outs, iface.Build(ctx))
 	}
-	if iface, ok := target.(output); ok {
-		outs = append(outs, iface.Output())
+
+	if iface, ok := target.(buildsMany); ok {
+		outs = append(outs, iface.Build(ctx)...)
 	}
 
 	if len(outs) == 0 {
@@ -147,7 +140,9 @@ func NewListTargetsContext(writer io.Writer) *ListTargetsContext {
 func (ctx *ListTargetsContext) Initialize() {}
 
 func (ctx *ListTargetsContext) AddTarget(name string, target interface{}, cwd OutPath) {
-	if _, ok := target.(buildable); ok {
+	_, okOne := target.(buildsOne)
+	_, okMany := target.(buildsMany)
+	if okOne || okMany {
 		fmt.Fprintln(ctx.writer, name)
 	}
 }
