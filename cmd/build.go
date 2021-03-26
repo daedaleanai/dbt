@@ -7,6 +7,7 @@ import (
 	"go/parser"
 	"go/token"
 	"hash/crc32"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"path"
@@ -501,7 +502,7 @@ func runGenerator(info buildInfo, mode string) []byte {
 		log.Fatal("Failed to run generator in mode '%s': %s.\n", mode, err)
 	}
 	generatorOutputPath := path.Join(info.buildFilesDir, generatorOutputFileName)
-	output, err := os.ReadFile(generatorOutputPath)
+	output, err := ioutil.ReadFile(generatorOutputPath)
 	if err != nil {
 		log.Fatal("Failed to read generator output: %s.\n", err)
 	}

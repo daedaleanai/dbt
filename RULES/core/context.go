@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"hash/crc32"
 	"io"
-	"os"
+	"io/ioutil"
 	"path"
 	"path/filepath"
 	"strings"
@@ -103,12 +103,13 @@ func (ctx *NinjaContext) AddBuildStep(step BuildStep) {
 		outs = append(outs, ninjaEscape(step.Out.Absolute()))
 	}
 
-	if len(step.Cmds) > 0 {
-		script := []byte(strings.Join(step.Cmds, "\n"))
+	if step.Script != "" {
+		Assert(step.Cmd == "", "cannot specify Cmd and Script in a build step")
+		script := []byte(step.Script)
 		hash := crc32.ChecksumIEEE([]byte(script))
 		scriptFileName := fmt.Sprintf("%08X.sh", hash)
 		scriptFilePath := path.Join(buildDir(), "..", scriptFileName)
-		err := os.WriteFile(scriptFilePath, script, scriptFileMode)
+		err := ioutil.WriteFile(scriptFilePath, script, scriptFileMode)
 		if err != nil {
 			Fatal("%s", err)
 		}
