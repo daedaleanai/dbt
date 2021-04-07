@@ -310,7 +310,7 @@ func copyBuildAndRuleFiles(moduleName, modulePath, buildFilesDir string, modules
 		targetLines := []string{}
 		for _, targetName := range targets {
 			targetLines = append(targetLines,
-				fmt.Sprintf("    registerTargetFn(out(\"\"), out(\"%s\").Relative(), %s)", targetName, targetName))
+				fmt.Sprintf("    registerTargetFn(out(\"\"), out(\"%s\").Relative(), &%s)", targetName, targetName))
 		}
 
 		initFileContent := fmt.Sprintf(initFileTemplate, packageName, strings.Join(targetLines, "\n"))
