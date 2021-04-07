@@ -8,10 +8,6 @@ import (
 
 var currentTarget string
 
-func mode() string {
-	return os.Args[1]
-}
-
 func sourceDir() string {
 	return os.Args[2]
 }
@@ -58,11 +54,6 @@ func Flag(name string) string {
 
 // Fatal can be used in build rules to abort build file generation with an error message unconditionally.
 func Fatal(format string, a ...interface{}) {
-	// Ignore all errors when not generating the ninja build file. This allows listing all targets in a workspace
-	// without specifying required build flags.
-	if mode() != "ninja" {
-		return
-	}
 	msg := fmt.Sprintf(format, a...)
 	if currentTarget == "" {
 		fmt.Fprintf(os.Stderr, "A fatal error occured: %s", msg)
