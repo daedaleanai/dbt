@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"go/ast"
 	"go/parser"
@@ -26,7 +27,7 @@ const buildDirName = "BUILD"
 const buildFileName = "BUILD.go"
 const dbtModulePath = "github.com/daedaleanai/dbt"
 const generatorDirName = "GENERATOR"
-const generatorOutputFileName = "generator.output"
+const generatorOutputFileName = "output.json"
 const initFileName = "init.go"
 const mainFileName = "main.go"
 const modFileName = "go.mod"
@@ -50,13 +51,7 @@ import (
 
 type __internal_pkg struct{}
 
-type context interface {
-	core.Context
-	Initialize()
-	AddTarget(name string, target interface{}, cwd core.OutPath)
-}
-
-func DbtMain(ctx context) {
+func DbtMain(registerTargetFn func(core.OutPath, string, interface{})) {
 %s
 }
 
@@ -82,47 +77,14 @@ const mainFileTemplate = `
 
 package main
 
-import (
-	"fmt"
-	"os"
-)
-
 import "dbt/RULES/core"
 
 %s
 
-type context interface {
-	core.Context
-	Initialize()
-	AddTarget(name string, target interface{}, cwd core.OutPath)
-}
-
 func main() {
-	var ctx context
-
-	file, err := os.Create("%s")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error creating generator output file: %%s\n", err)
-		os.Exit(1)
-	}
-	defer file.Close()
-
-	switch os.Args[1] {
-	case "ninja":
-		ctx = core.NewNinjaContext(file)
-		ctx.Initialize()
-	case "targets":
-		ctx = core.NewListTargetsContext(file)
-		ctx.Initialize()
-	case "flags":
-		for flag := range core.BuildFlags {
-			fmt.Fprintln(file, flag)
-		}
-		return
-	}
-
-	core.LockBuildFlags()
+	core.GeneratorMain([]func(func(core.OutPath, string, interface{})){
 %s
+	})
 }
 `
 
@@ -134,6 +96,11 @@ type buildInfo struct {
 	buildFlags   []string
 	targets      []string
 	ninjaTargets []string
+}
+
+type generatorOutput struct {
+	NinjaFile string
+	Targets   map[string]string
 }
 
 var buildCmd = &cobra.Command{
@@ -343,7 +310,7 @@ func copyBuildAndRuleFiles(moduleName, modulePath, buildFilesDir string, modules
 		targetLines := []string{}
 		for _, targetName := range targets {
 			targetLines = append(targetLines,
-				fmt.Sprintf("    ctx.AddTarget(reflect.TypeOf(__internal_pkg{}).PkgPath()+\"/%s\", %s, out(\"\"))", targetName, targetName))
+				fmt.Sprintf("    registerTargetFn(out(\"\"), out(\"%s\").Relative(), %s)", targetName, targetName))
 		}
 
 		initFileContent := fmt.Sprintf(initFileTemplate, packageName, strings.Join(targetLines, "\n"))
@@ -441,11 +408,11 @@ func createGeneratorMainFile(generatorDir string, packages []string, modules map
 	dbtMainLines := []string{}
 	for idx, pkg := range packages {
 		importLines = append(importLines, fmt.Sprintf("import p%d \"%s\"", idx, pkg))
-		dbtMainLines = append(dbtMainLines, fmt.Sprintf("    p%d.DbtMain(ctx)", idx))
+		dbtMainLines = append(dbtMainLines, fmt.Sprintf("        p%d.DbtMain,", idx))
 	}
 
 	mainFilePath := path.Join(generatorDir, mainFileName)
-	mainFileContent := fmt.Sprintf(mainFileTemplate, strings.Join(importLines, "\n"), generatorOutputFileName, strings.Join(dbtMainLines, "\n"))
+	mainFileContent := fmt.Sprintf(mainFileTemplate, strings.Join(importLines, "\n"), strings.Join(dbtMainLines, "\n"))
 	util.WriteFile(mainFilePath, []byte(mainFileContent))
 
 	modFilePath := path.Join(generatorDir, modFileName)
@@ -453,24 +420,12 @@ func createGeneratorMainFile(generatorDir string, packages []string, modules map
 	util.WriteFile(modFilePath, modFileContent)
 }
 
-func getAvailableTargets(info buildInfo) map[string]struct{} {
-	return getAvailable("targets", info)
+func getAvailableTargets(info buildInfo) map[string]string {
+	return runGenerator(info).Targets
 }
 
 func getAvailableFlags(info buildInfo) map[string]struct{} {
-	return getAvailable("flags", info)
-}
-
-func getAvailable(kind string, info buildInfo) map[string]struct{} {
-	output := runGenerator(info, kind)
-	lines := strings.Split(string(output), "\n")
-	result := map[string]struct{}{}
-	for _, line := range lines {
-		if line != "" {
-			result[line] = struct{}{}
-		}
-	}
-	return result
+	return map[string]struct{}{"config": struct{}{}}
 }
 
 func createSumGoFile(generatorDir string) {
@@ -486,9 +441,9 @@ func createSumGoFile(generatorDir string) {
 	}
 }
 
-func runGenerator(info buildInfo, mode string) []byte {
+func runGenerator(info buildInfo) generatorOutput {
 	var stdout, stderr bytes.Buffer
-	cmdArgs := append([]string{"run", mainFileName, mode, info.sourceDir, info.outputDir, info.workingDir}, info.buildFlags...)
+	cmdArgs := append([]string{"run", mainFileName, "", info.sourceDir, info.outputDir, info.workingDir}, info.buildFlags...)
 	cmd := exec.Command("go", cmdArgs...)
 	cmd.Dir = info.generatorDir
 	cmd.Stderr = &stderr
@@ -497,21 +452,28 @@ func runGenerator(info buildInfo, mode string) []byte {
 	fmt.Print(string(stdout.Bytes()))
 	fmt.Print(string(stderr.Bytes()))
 	if err != nil {
-		log.Fatal("Failed to run generator in mode '%s': %s.\n", mode, err)
+		log.Fatal("Failed to run generator: %s.\n", err)
 	}
 	generatorOutputPath := path.Join(info.generatorDir, generatorOutputFileName)
-	output, err := ioutil.ReadFile(generatorOutputPath)
+	outputBytes, err := ioutil.ReadFile(generatorOutputPath)
 	if err != nil {
 		log.Fatal("Failed to read generator output: %s.\n", err)
 	}
+
+	var output generatorOutput
+	err = json.Unmarshal(outputBytes, &output)
+	if err != nil {
+		log.Fatal("Failed to parse generator output: %s.\n", err)
+	}
+
 	return output
 }
 
 func runNinja(info buildInfo) {
 	// Produce the ninja.build file.
-	ninjaFileContent := runGenerator(info, "ninja")
+	ninjaFileContent := runGenerator(info).NinjaFile
 	ninjaFilePath := path.Join(info.outputDir, ninjaFileName)
-	util.WriteFile(ninjaFilePath, ninjaFileContent)
+	util.WriteFile(ninjaFilePath, []byte(ninjaFileContent))
 
 	args := info.ninjaTargets
 	if log.Verbose {
