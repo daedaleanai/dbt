@@ -24,14 +24,14 @@ import (
 
 const buildDirName = "BUILD"
 const buildFileName = "BUILD.go"
-const buildFilesDirName = "buildfiles"
 const dbtModulePath = "github.com/daedaleanai/dbt"
+const generatorDirName = "GENERATOR"
 const generatorOutputFileName = "generator.output"
 const initFileName = "init.go"
 const mainFileName = "main.go"
 const modFileName = "go.mod"
 const ninjaFileName = "build.ninja"
-const outputDirName = "output"
+const outputDirPrefix = "OUTPUT"
 const rulesDirName = "RULES"
 
 const goVersion = "1.13"
@@ -127,13 +127,13 @@ func main() {
 `
 
 type buildInfo struct {
-	workingDir     string
-	sourceDir      string
-	buildOutputDir string
-	buildFilesDir  string
-	buildFlags     []string
-	targets        []string
-	ninjaTargets   []string
+	workingDir   string
+	sourceDir    string
+	outputDir    string
+	generatorDir string
+	buildFlags   []string
+	targets      []string
+	ninjaTargets []string
 }
 
 var buildCmd = &cobra.Command{
@@ -270,33 +270,31 @@ func prepareGenerator(args []string) buildInfo {
 		}
 	}
 
-	// Create a hash from all sorted build flags and a unique build directory for this set of flags.
+	// Create a hash from all sorted build flags and a unique output directory for this set of flags.
 	sort.Strings(info.buildFlags)
 	buildConfigHash := crc32.ChecksumIEEE([]byte(strings.Join(info.buildFlags, "#")))
-	buildConfigName := fmt.Sprintf("%s-%08X", buildDirName, buildConfigHash)
-	buildDir := path.Join(workspaceRoot, buildDirName, buildConfigName)
-	info.buildOutputDir = path.Join(buildDir, outputDirName)
-	info.buildFilesDir = path.Join(buildDir, buildFilesDirName)
+	outputDirName := fmt.Sprintf("%s-%08X", outputDirPrefix, buildConfigHash)
+	info.outputDir = path.Join(workspaceRoot, buildDirName, outputDirName)
+	info.generatorDir = path.Join(workspaceRoot, buildDirName, generatorDirName)
 
 	log.Debug("Build flags: '%s'.\n", strings.Join(info.buildFlags, " "))
-	log.Debug("Build config: '%s'.\n", buildConfigName)
 	log.Debug("Source directory: '%s'.\n", info.sourceDir)
-	log.Debug("Build directory: '%s'.\n", buildDir)
+	log.Debug("Output directory: '%s'.\n", info.outputDir)
 
 	// Remove all existing buildfiles.
-	util.RemoveDir(info.buildFilesDir)
+	util.RemoveDir(info.generatorDir)
 
 	// Copy all BUILD.go files and RULES/ files from the source directory.
 	modules := module.GetAllModulePaths(workspaceRoot)
 	packages := []string{}
 	for modName, modPath := range modules {
-		modBuildfilesDir := path.Join(info.buildFilesDir, modName)
+		modBuildfilesDir := path.Join(info.generatorDir, modName)
 		modulePackages := copyBuildAndRuleFiles(modName, modPath, modBuildfilesDir, modules)
 		packages = append(packages, modulePackages...)
 	}
 
-	createGeneratorMainFile(info.buildFilesDir, packages, modules)
-	createSumGoFile(info.buildFilesDir)
+	createGeneratorMainFile(info.generatorDir, packages, modules)
+	createSumGoFile(info.generatorDir)
 
 	return info
 }
@@ -438,7 +436,7 @@ func parseBuildFile(buildFilePath string) (string, []string) {
 	return fileAst.Name.String(), targets
 }
 
-func createGeneratorMainFile(buildFilesDir string, packages []string, modules map[string]string) {
+func createGeneratorMainFile(generatorDir string, packages []string, modules map[string]string) {
 	importLines := []string{}
 	dbtMainLines := []string{}
 	for idx, pkg := range packages {
@@ -446,11 +444,11 @@ func createGeneratorMainFile(buildFilesDir string, packages []string, modules ma
 		dbtMainLines = append(dbtMainLines, fmt.Sprintf("    p%d.DbtMain(ctx)", idx))
 	}
 
-	mainFilePath := path.Join(buildFilesDir, mainFileName)
+	mainFilePath := path.Join(generatorDir, mainFileName)
 	mainFileContent := fmt.Sprintf(mainFileTemplate, strings.Join(importLines, "\n"), generatorOutputFileName, strings.Join(dbtMainLines, "\n"))
 	util.WriteFile(mainFilePath, []byte(mainFileContent))
 
-	modFilePath := path.Join(buildFilesDir, modFileName)
+	modFilePath := path.Join(generatorDir, modFileName)
 	modFileContent := createModFileContent("root", modules, ".")
 	util.WriteFile(modFilePath, modFileContent)
 }
@@ -475,10 +473,10 @@ func getAvailable(kind string, info buildInfo) map[string]struct{} {
 	return result
 }
 
-func createSumGoFile(buildFilesDir string) {
+func createSumGoFile(generatorDir string) {
 	var stdout, stderr bytes.Buffer
 	cmd := exec.Command("go", "mod", "download")
-	cmd.Dir = buildFilesDir
+	cmd.Dir = generatorDir
 	cmd.Stderr = &stderr
 	cmd.Stdout = &stdout
 	err := cmd.Run()
@@ -490,9 +488,9 @@ func createSumGoFile(buildFilesDir string) {
 
 func runGenerator(info buildInfo, mode string) []byte {
 	var stdout, stderr bytes.Buffer
-	cmdArgs := append([]string{"run", mainFileName, mode, info.sourceDir, info.buildOutputDir, info.workingDir}, info.buildFlags...)
+	cmdArgs := append([]string{"run", mainFileName, mode, info.sourceDir, info.outputDir, info.workingDir}, info.buildFlags...)
 	cmd := exec.Command("go", cmdArgs...)
-	cmd.Dir = info.buildFilesDir
+	cmd.Dir = info.generatorDir
 	cmd.Stderr = &stderr
 	cmd.Stdout = &stdout
 	err := cmd.Run()
@@ -501,7 +499,7 @@ func runGenerator(info buildInfo, mode string) []byte {
 	if err != nil {
 		log.Fatal("Failed to run generator in mode '%s': %s.\n", mode, err)
 	}
-	generatorOutputPath := path.Join(info.buildFilesDir, generatorOutputFileName)
+	generatorOutputPath := path.Join(info.generatorDir, generatorOutputFileName)
 	output, err := ioutil.ReadFile(generatorOutputPath)
 	if err != nil {
 		log.Fatal("Failed to read generator output: %s.\n", err)
@@ -512,7 +510,7 @@ func runGenerator(info buildInfo, mode string) []byte {
 func runNinja(info buildInfo) {
 	// Produce the ninja.build file.
 	ninjaFileContent := runGenerator(info, "ninja")
-	ninjaFilePath := path.Join(info.buildOutputDir, ninjaFileName)
+	ninjaFilePath := path.Join(info.outputDir, ninjaFileName)
 	util.WriteFile(ninjaFilePath, ninjaFileContent)
 
 	args := info.ninjaTargets
@@ -520,7 +518,7 @@ func runNinja(info buildInfo) {
 		args = append([]string{"-v"}, args...)
 	}
 	cmd := exec.Command("ninja", args...)
-	cmd.Dir = info.buildOutputDir
+	cmd.Dir = info.outputDir
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
 	err := cmd.Run()
