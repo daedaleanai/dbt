@@ -8,10 +8,10 @@ import (
 )
 
 type Toolchain interface {
-	ObjectFile(out core.OutPath, depfile core.OutPath, flags core.Flags, includes core.Paths, src core.Path) string
-	StaticLibrary(out core.Path, objs core.Paths) string
-	SharedLibrary(out core.Path, objs core.Paths) string
-	Binary(out core.Path, objs core.Paths, alwaysLinkLibs core.Paths, libs core.Paths, flags core.Flags, script core.Path) string
+	ObjectFile(out core.OutPath, depfile core.OutPath, flags []string, includes []core.Path, src core.Path) string
+	StaticLibrary(out core.Path, objs []core.Path) string
+	SharedLibrary(out core.Path, objs []core.Path) string
+	Binary(out core.Path, objs []core.Path, alwaysLinkLibs []core.Path, libs []core.Path, flags []string, script core.Path) string
 	EmbeddedBlob(out core.OutPath, src core.Path) string
 }
 
@@ -24,17 +24,17 @@ type GccToolchain struct {
 	Cxx     core.GlobalPath
 	Objcopy core.GlobalPath
 
-	Includes core.Paths
+	Includes []core.Path
 
-	CompilerFlags core.Flags
-	LinkerFlags   core.Flags
+	CompilerFlags []string
+	LinkerFlags   []string
 
 	ArchName   string
 	TargetName string
 }
 
 // ObjectFile generates a compile command.
-func (gcc GccToolchain) ObjectFile(out core.OutPath, depfile core.OutPath, flags core.Flags, includes core.Paths, src core.Path) string {
+func (gcc GccToolchain) ObjectFile(out core.OutPath, depfile core.OutPath, flags []string, includes []core.Path, src core.Path) string {
 	includesStr := strings.Builder{}
 	for _, include := range includes {
 		includesStr.WriteString(fmt.Sprintf("-I%q ", include))
@@ -48,31 +48,31 @@ func (gcc GccToolchain) ObjectFile(out core.OutPath, depfile core.OutPath, flags
 		gcc.Cxx,
 		out,
 		depfile,
-		append(gcc.CompilerFlags, flags...),
+		strings.Join(append(gcc.CompilerFlags, flags...), " "),
 		includesStr.String(),
 		src)
 }
 
 // StaticLibrary generates the command to build a static library.
-func (gcc GccToolchain) StaticLibrary(out core.Path, objs core.Paths) string {
+func (gcc GccToolchain) StaticLibrary(out core.Path, objs []core.Path) string {
 	return fmt.Sprintf(
 		"%q rv %q %s >/dev/null 2>/dev/null",
 		gcc.Ar,
 		out,
-		objs)
+		joinQuoted(objs))
 }
 
 // SharedLibrary generates the command to build a shared library.
-func (gcc GccToolchain) SharedLibrary(out core.Path, objs core.Paths) string {
+func (gcc GccToolchain) SharedLibrary(out core.Path, objs []core.Path) string {
 	return fmt.Sprintf(
 		"%q -pipe -shared -o %q %s",
 		gcc.Cxx,
 		out,
-		objs)
+		joinQuoted(objs))
 }
 
 // Binary generates the command to build an executable.
-func (gcc GccToolchain) Binary(out core.Path, objs core.Paths, alwaysLinkLibs core.Paths, libs core.Paths, flags core.Flags, script core.Path) string {
+func (gcc GccToolchain) Binary(out core.Path, objs []core.Path, alwaysLinkLibs []core.Path, libs []core.Path, flags []string, script core.Path) string {
 	flags = append(gcc.LinkerFlags, flags...)
 	if script != nil {
 		flags = append(flags, "-T", fmt.Sprintf("%q", script))
@@ -82,10 +82,10 @@ func (gcc GccToolchain) Binary(out core.Path, objs core.Paths, alwaysLinkLibs co
 		"%q -pipe -o %q %s -Wl,-whole-archive %s -Wl,-no-whole-archive %s %s",
 		gcc.Cxx,
 		out,
-		objs,
-		alwaysLinkLibs,
-		libs,
-		flags)
+		joinQuoted(objs),
+		joinQuoted(alwaysLinkLibs),
+		joinQuoted(libs),
+		strings.Join(flags, " "))
 }
 
 func (gcc GccToolchain) EmbeddedBlob(out core.OutPath, src core.Path) string {
@@ -98,6 +98,14 @@ func (gcc GccToolchain) EmbeddedBlob(out core.OutPath, src core.Path) string {
 		out)
 }
 
+func joinQuoted(paths []core.Path) string {
+	b := strings.Builder{}
+	for _, p := range paths {
+		fmt.Fprintf(&b, "%q ", p)
+	}
+	return b.String()
+}
+
 var defaultToolchain = GccToolchain{
 	Ar:      core.NewGlobalPath("ar"),
 	As:      core.NewGlobalPath("as"),
@@ -106,6 +114,6 @@ var defaultToolchain = GccToolchain{
 	Cxx:     core.NewGlobalPath("g++"),
 	Objcopy: core.NewGlobalPath("objcopy"),
 
-	CompilerFlags: core.Flags{"-std=c++14", "-O3", "-fdiagnostics-color=always"},
-	LinkerFlags:   core.Flags{"-fdiagnostics-color=always"},
+	CompilerFlags: []string{"-std=c++14", "-O3", "-fdiagnostics-color=always"},
+	LinkerFlags:   []string{"-fdiagnostics-color=always"},
 }

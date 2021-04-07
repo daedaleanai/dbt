@@ -59,8 +59,8 @@ func in(name string) core.Path {
 	return core.NewInPath(path.Join(reflect.TypeOf(__internal_pkg{}).PkgPath(), name))
 }
 
-func ins(names ...string) core.Paths {
-	var paths core.Paths
+func ins(names ...string) []core.Path {
+	var paths []core.Path
 	for _, name := range names {
 		paths = append(paths, in(name))
 	}

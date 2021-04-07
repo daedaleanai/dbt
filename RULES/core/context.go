@@ -29,7 +29,7 @@ type outputInterface interface {
 }
 
 type outputsInterface interface {
-	Outputs() OutPaths
+	Outputs() []OutPath
 }
 
 type descriptionInterface interface {

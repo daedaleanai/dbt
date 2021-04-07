@@ -9,8 +9,8 @@ import (
 // ObjectFile compiles a single C++ source file.
 type ObjectFile struct {
 	Src       core.Path
-	Includes  core.Paths
-	Flags     core.Flags
+	Includes  []core.Path
+	Flags     []string
 	Toolchain Toolchain
 }
 
@@ -54,13 +54,13 @@ func flattenDeps(deps []Dep) []Library {
 	return flattenDepsRec(deps, map[string]bool{})
 }
 
-func compileSources(ctx core.Context, srcs core.Paths, flags core.Flags, deps []Library, toolchain Toolchain) core.Paths {
-	includes := core.Paths{core.NewInPath(".")}
+func compileSources(ctx core.Context, srcs []core.Path, flags []string, deps []Library, toolchain Toolchain) []core.Path {
+	includes := []core.Path{core.NewInPath(".")}
 	for _, dep := range deps {
 		includes = append(includes, dep.Includes...)
 	}
 
-	objs := core.Paths{}
+	objs := []core.Path{}
 
 	for _, src := range srcs {
 		obj := ObjectFile{
@@ -84,10 +84,10 @@ type Dep interface {
 // Library builds and links a static C++ library.
 type Library struct {
 	Out           core.OutPath
-	Srcs          core.Paths
-	Objs          core.Paths
-	Includes      core.Paths
-	CompilerFlags core.Flags
+	Srcs          []core.Path
+	Objs          []core.Path
+	Includes      []core.Path
+	CompilerFlags []string
 	Deps          []Dep
 	Shared        bool
 	AlwaysLink    bool
@@ -134,9 +134,9 @@ func (lib Library) CcLibrary() Library {
 // Binary builds and links an executable.
 type Binary struct {
 	Out           core.OutPath
-	Srcs          core.Paths
-	CompilerFlags core.Flags
-	LinkerFlags   core.Flags
+	Srcs          []core.Path
+	CompilerFlags []string
+	LinkerFlags   []string
 	Deps          []Dep
 	Script        core.Path
 	Toolchain     Toolchain
@@ -153,8 +153,8 @@ func (bin Binary) Build(ctx core.Context) {
 	objs := compileSources(ctx, bin.Srcs, bin.CompilerFlags, deps, toolchain)
 
 	ins := objs
-	alwaysLinkLibs := core.Paths{}
-	otherLibs := core.Paths{}
+	alwaysLinkLibs := []core.Path{}
+	otherLibs := []core.Path{}
 	for _, dep := range deps {
 		ins = append(ins, dep.Out)
 		if dep.AlwaysLink {

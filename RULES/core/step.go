@@ -4,9 +4,9 @@ package core
 // Each BuildStep produces `Out` and `Outs` from `Ins` and `In` by running `Cmd`.
 type BuildStep struct {
 	Out     OutPath
-	Outs    OutPaths
+	Outs    []OutPath
 	In      Path
-	Ins     Paths
+	Ins     []Path
 	Depfile OutPath
 	Cmd     string
 	Script  string
