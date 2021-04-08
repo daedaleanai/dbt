@@ -101,6 +101,7 @@ type buildInfo struct {
 type generatorOutput struct {
 	NinjaFile string
 	Targets   map[string]string
+	Flags     map[string]string
 }
 
 var buildCmd = &cobra.Command{
@@ -424,8 +425,8 @@ func getAvailableTargets(info buildInfo) map[string]string {
 	return runGenerator(info).Targets
 }
 
-func getAvailableFlags(info buildInfo) map[string]struct{} {
-	return map[string]struct{}{"config": struct{}{}}
+func getAvailableFlags(info buildInfo) map[string]string {
+	return runGenerator(info).Flags
 }
 
 func createSumGoFile(generatorDir string) {

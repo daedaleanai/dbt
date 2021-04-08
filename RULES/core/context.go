@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"hash/crc32"
 	"io/ioutil"
-	"os"
 	"path"
 	"path/filepath"
 	"sort"
@@ -15,9 +14,9 @@ const scriptFileMode = 0755
 
 type Context interface {
 	AddBuildStep(BuildStep)
+	BuildPath(string) OutPath
 	Cwd() OutPath
-	Assert(bool, string, ...interface{})
-	Fail(string, ...interface{})
+	SourcePath(string) Path
 }
 
 // BuildStep represents one build step (i.e., one build command).
@@ -50,9 +49,10 @@ type descriptionInterface interface {
 }
 
 type context struct {
-	currentTarget string
-	cwd           OutPath
-	leafOutputs   map[string]struct{}
+	skipNinjaFile bool
+
+	cwd         OutPath
+	leafOutputs map[string]struct{}
 
 	nextRuleID int
 
@@ -60,15 +60,20 @@ type context struct {
 	targets   map[string]string
 }
 
-func newContext() *context {
+func newContext(skipNinja bool) *context {
 	ctx := &context{}
+	ctx.skipNinjaFile = skipNinja
 	ctx.targets = map[string]string{}
-	fmt.Fprintf(&ctx.ninjaFile, "build __phony__: phony\n\n")
+
+	if !ctx.skipNinjaFile {
+		fmt.Fprintf(&ctx.ninjaFile, "build __phony__: phony\n\n")
+	}
+
 	return ctx
 }
 
 func (ctx *context) addTarget(cwd OutPath, name string, target interface{}) {
-	ctx.currentTarget = name
+	currentTarget = name
 	ctx.cwd = cwd
 	ctx.leafOutputs = map[string]struct{}{}
 
@@ -76,7 +81,9 @@ func (ctx *context) addTarget(cwd OutPath, name string, target interface{}) {
 	if !ok {
 		return
 	}
-	iface.Build(ctx)
+	if !ctx.skipNinjaFile {
+		iface.Build(ctx)
+	}
 
 	if iface, ok := target.(descriptionInterface); ok {
 		ctx.targets[name] = iface.Description()
@@ -145,13 +152,13 @@ func (ctx *context) AddBuildStep(step BuildStep) {
 	}
 
 	if step.Script != "" {
-		ctx.Assert(step.Cmd == "", "cannot specify Cmd and Script in a build step")
+		Assert(step.Cmd == "", "cannot specify Cmd and Script in a build step")
 		script := []byte(step.Script)
 		hash := crc32.ChecksumIEEE([]byte(script))
 		scriptFileName := fmt.Sprintf("%08X.sh", hash)
 		scriptFilePath := path.Join(buildDir(), "..", scriptFileName)
 		err := ioutil.WriteFile(scriptFilePath, script, scriptFileMode)
-		ctx.Assert(err == nil, "%s", err)
+		Assert(err == nil, "%s", err)
 		step.Cmd = scriptFilePath
 	}
 
@@ -171,26 +178,19 @@ func (ctx *context) AddBuildStep(step BuildStep) {
 	ctx.nextRuleID++
 }
 
+// BuildPath returns a path relative to the build directory.
+func (ctx *context) BuildPath(p string) OutPath {
+	return NewOutPath(p)
+}
+
 // Cwd returns the build directory of the current target.
 func (ctx *context) Cwd() OutPath {
 	return ctx.cwd
 }
 
-// Assert can be used in build rules to abort build file generation with an error message if `cond` is true.
-func (ctx *context) Assert(cond bool, format string, args ...interface{}) {
-	if cond {
-		return
-	}
-
-	msg := fmt.Sprintf(format, args...)
-	fmt.Fprintf(os.Stderr, "Assertion failed while processing target '%s': %s", ctx.currentTarget, msg)
-	os.Exit(1)
-}
-
-func (ctx *context) Fail(format string, args ...interface{}) {
-	msg := fmt.Sprintf(format, args...)
-	fmt.Fprintf(os.Stderr, "Fatal error occured while processing target '%s': %s", ctx.currentTarget, msg)
-	os.Exit(1)
+// SourcePath returns a path relative to the source directory.
+func (ctx *context) SourcePath(p string) Path {
+	return NewInPath(p)
 }
 
 func ninjaEscape(s string) string {

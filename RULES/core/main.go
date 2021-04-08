@@ -14,23 +14,25 @@ type dbtMainFn = func(registerTargetFn)
 type output struct {
 	NinjaFile string
 	Targets   map[string]string
+	Flags     map[string]string
 }
 
 func GeneratorMain(dbtMainFns []dbtMainFn) {
-	ctx := newContext()
+	ctx := newContext(false)
 
 	for _, dbtMainFn := range dbtMainFns {
 		dbtMainFn(ctx.addTarget)
 	}
 
-	ctx.currentTarget = ""
+	currentTarget = ""
 
 	output := output{}
 	output.NinjaFile = ctx.ninjaFile.String()
 	output.Targets = ctx.targets
+	output.Flags = BuildFlags
 
 	data, err := json.MarshalIndent(output, "", "  ")
-	ctx.Assert(err == nil, "failed to marshall generator output: %s", err)
+	Assert(err == nil, "failed to marshall generator output: %s", err)
 	err = ioutil.WriteFile(outputFileName, data, outputFileMode)
-	ctx.Assert(err == nil, "failed to write generator output: %s", err)
+	Assert(err == nil, "failed to write generator output: %s", err)
 }
