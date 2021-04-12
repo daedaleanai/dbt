@@ -8,6 +8,13 @@ import (
 
 var currentTarget string
 
+<<<<<<< HEAD
+=======
+func mode() string {
+	return os.Args[1]
+}
+
+>>>>>>> main
 func sourceDir() string {
 	return os.Args[2]
 }

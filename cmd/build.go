@@ -81,6 +81,12 @@ import "dbt/RULES/core"
 
 %s
 
+type context interface {
+	core.Context
+	Initialize()
+	AddTarget(name string, target interface{}, cwd core.OutPath)
+}
+
 func main() {
 	core.GeneratorMain([]func(func(core.OutPath, string, interface{})){
 %s
