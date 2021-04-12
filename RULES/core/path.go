@@ -16,6 +16,8 @@ type Path interface {
 	WithSuffix(suffix string) OutPath
 }
 
+<<<<<<< HEAD
+=======
 // Paths represents a list of Paths.
 type Paths []Path
 
@@ -27,6 +29,7 @@ func (ps Paths) String() string {
 	return strings.Join(paths, " ")
 }
 
+>>>>>>> main
 // inPath is a path relative to the workspace source directory.
 type inPath struct {
 	rel string
@@ -68,6 +71,8 @@ type OutPath interface {
 	forceOutPath()
 }
 
+<<<<<<< HEAD
+=======
 // OutPaths represents a list of OutPaths.
 type OutPaths []OutPath
 
@@ -79,6 +84,7 @@ func (ps OutPaths) String() string {
 	return strings.Join(paths, " ")
 }
 
+>>>>>>> main
 type outPath struct {
 	rel string
 }

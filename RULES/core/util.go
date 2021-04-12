@@ -8,10 +8,13 @@ import (
 
 var currentTarget string
 
+<<<<<<< HEAD
+=======
 func mode() string {
 	return os.Args[1]
 }
 
+>>>>>>> main
 func sourceDir() string {
 	return os.Args[2]
 }
@@ -56,34 +59,28 @@ func Flag(name string) string {
 	return ""
 }
 
-// Fatal can be used in build rules to abort build file generation with an error message unconditionally.
-func Fatal(format string, a ...interface{}) {
-	// Ignore all errors when not generating the ninja build file. This allows listing all targets in a workspace
-	// without specifying required build flags.
-	if mode() != "ninja" {
+// Assert can be used in build rules to abort build file generation with an error message if `cond` is true.
+func Assert(cond bool, format string, args ...interface{}) {
+	if cond {
 		return
 	}
+
+	msg := fmt.Sprintf(format, args...)
+	if currentTarget == "" {
+		fmt.Fprintf(os.Stderr, "Assertion failed while processing target '%s': %s", currentTarget, msg)
+	} else {
+		fmt.Fprintf(os.Stderr, "Assertion failed: %s", msg)
+	}
+	os.Exit(1)
+}
+
+// Fatal can be used in build rules to abort build file generation with an error message unconditionally.
+func Fatal(format string, a ...interface{}) {
 	msg := fmt.Sprintf(format, a...)
 	if currentTarget == "" {
 		fmt.Fprintf(os.Stderr, "A fatal error occured: %s", msg)
 	} else {
 		fmt.Fprintf(os.Stderr, "A fatal error occured while processing target '%s': %s", currentTarget, msg)
-	}
-	os.Exit(1)
-}
-
-// Assert can be used in build rules to abort build file generation with an error message if `cond` is true.
-func Assert(cond bool, format string, a ...interface{}) {
-	// Ignore all asserts when not generating the ninja build file. This allows listing all targets in a workspace
-	// without specifying required build flags.
-	if cond || mode() != "ninja" {
-		return
-	}
-	msg := fmt.Sprintf(format, a...)
-	if currentTarget == "" {
-		fmt.Fprintf(os.Stderr, "Assertion failed: %s", msg)
-	} else {
-		fmt.Fprintf(os.Stderr, "Assertion failed while processing target '%s': %s", currentTarget, msg)
 	}
 	os.Exit(1)
 }
