@@ -22,7 +22,7 @@ type Paths []Path
 func (ps Paths) String() string {
 	paths := []string{}
 	for _, p := range ps {
-		paths = append(paths, fmt.Sprint(p))
+		paths = append(paths, fmt.Sprintf("%q", p))
 	}
 	return strings.Join(paths, " ")
 }
@@ -34,7 +34,7 @@ type inPath struct {
 
 // Absolute returns the absolute path.
 func (p inPath) Absolute() string {
-	return path.Join(SourceDir(), p.rel)
+	return path.Join(sourceDir(), p.rel)
 }
 
 // Relative returns the path relative to the workspace source directory.
@@ -59,17 +59,12 @@ func (p inPath) WithSuffix(suffix string) OutPath {
 
 // String representation of an inPath is its quoted absolute path.
 func (p inPath) String() string {
-	return fmt.Sprintf("\"%s\"", p.Absolute())
+	return p.Absolute()
 }
 
 // OutPath is a path relative to the workspace build directory.
 type OutPath interface {
-	Absolute() string
-	Relative() string
-	String() string
-	WithExt(ext string) OutPath
-	WithPrefix(prefix string) OutPath
-	WithSuffix(suffix string) OutPath
+	Path
 	forceOutPath()
 }
 
@@ -79,7 +74,7 @@ type OutPaths []OutPath
 func (ps OutPaths) String() string {
 	paths := []string{}
 	for _, p := range ps {
-		paths = append(paths, fmt.Sprint(p))
+		paths = append(paths, fmt.Sprintf("%q", p))
 	}
 	return strings.Join(paths, " ")
 }
@@ -90,7 +85,7 @@ type outPath struct {
 
 // Absolute returns the absolute path.
 func (p outPath) Absolute() string {
-	return path.Join(BuildDir(), p.rel)
+	return path.Join(buildDir(), p.rel)
 }
 
 // Relative returns the path relative to the workspace build directory.
@@ -117,7 +112,7 @@ func (p outPath) WithSuffix(suffix string) OutPath {
 
 // String representation of an OutPath is its quoted absolute path.
 func (p outPath) String() string {
-	return fmt.Sprintf("\"%s\"", p.Absolute())
+	return p.Absolute()
 }
 
 // forceOutPath makes sure that inPath or Path cannot be used as OutPath.
@@ -139,7 +134,7 @@ func (p globalPath) Absolute() string {
 
 // String representation of a globalPath is its quoted absolute path.
 func (p globalPath) String() string {
-	return fmt.Sprintf("\"%s\"", p.Absolute())
+	return p.Absolute()
 }
 
 // NewInPath creates an inPath for a path relativ to the source directory.

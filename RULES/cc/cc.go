@@ -15,13 +15,13 @@ type ObjectFile struct {
 }
 
 // Build an ObjectFile.
-func (obj ObjectFile) Build(ctx core.Context) core.OutPath {
+func (obj ObjectFile) Build(ctx core.Context) {
 	toolchain := obj.Toolchain
 	if toolchain == nil {
 		toolchain = &defaultToolchain
 	}
 
-	out := obj.Src.WithExt("o")
+	out := obj.Output()
 	depfile := obj.Src.WithExt("d")
 	cmd := toolchain.ObjectFile(out, depfile, obj.Flags, obj.Includes, obj.Src)
 	ctx.AddBuildStep(core.BuildStep{
@@ -31,7 +31,10 @@ func (obj ObjectFile) Build(ctx core.Context) core.OutPath {
 		Cmd:     cmd,
 		Descr:   fmt.Sprintf("CC %s", out.Relative()),
 	})
-	return out
+}
+
+func (obj ObjectFile) Output() core.OutPath {
+	return obj.Src.WithExt("o")
 }
 
 func flattenDepsRec(deps []Dep, visited map[string]bool) []Library {
@@ -66,7 +69,8 @@ func compileSources(ctx core.Context, srcs core.Paths, flags core.Flags, deps []
 			Flags:     flags,
 			Toolchain: toolchain,
 		}
-		objs = append(objs, obj.Build(ctx))
+		obj.Build(ctx)
+		objs = append(objs, obj.Output())
 	}
 
 	return objs
@@ -91,7 +95,7 @@ type Library struct {
 }
 
 // Build a Library.
-func (lib Library) Build(ctx core.Context) core.OutPath {
+func (lib Library) Build(ctx core.Context) {
 	toolchain := lib.Toolchain
 	if toolchain == nil {
 		toolchain = &defaultToolchain
@@ -115,7 +119,9 @@ func (lib Library) Build(ctx core.Context) core.OutPath {
 		Cmd:   cmd,
 		Descr: descr,
 	})
+}
 
+func (lib Library) Output() core.OutPath {
 	return lib.Out
 }
 
@@ -136,7 +142,7 @@ type Binary struct {
 }
 
 // Build a Binary.
-func (bin Binary) Build(ctx core.Context) core.OutPath {
+func (bin Binary) Build(ctx core.Context) {
 	toolchain := bin.Toolchain
 	if toolchain == nil {
 		toolchain = defaultToolchain
@@ -168,6 +174,8 @@ func (bin Binary) Build(ctx core.Context) core.OutPath {
 		Cmd:   cmd,
 		Descr: fmt.Sprintf("LD %s", bin.Out.Relative()),
 	})
+}
 
+func (bin Binary) Output() core.OutPath {
 	return bin.Out
 }
