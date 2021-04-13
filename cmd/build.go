@@ -25,7 +25,6 @@ import (
 
 const buildDirName = "BUILD"
 const buildFileName = "BUILD.go"
-const dbtModulePath = "github.com/daedaleanai/dbt"
 const generatorDirName = "GENERATOR"
 const generatorOutputFileName = "output.json"
 const initFileName = "init.go"
@@ -366,9 +365,6 @@ func createModFileContent(moduleName string, modules map[string]string, pathPref
 		fmt.Fprintf(&mod, "require %s v0.0.0\n", modName)
 		fmt.Fprintf(&mod, "replace %s => %s/%s\n\n", modName, pathPrefix, modName)
 	}
-
-	fmt.Fprintf(&mod, "require dbt v0.0.0\n")
-	fmt.Fprintf(&mod, "replace dbt => %s %s\n\n", dbtModulePath, dbtVersion)
 
 	return []byte(mod.String())
 }
