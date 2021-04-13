@@ -41,12 +41,7 @@ const initFileTemplate = `
 
 package %s
 
-import (
-	"path"
-	"reflect"
-
-	"dbt/RULES/core"
-)
+import "dbt-rules/RULES/core"
 
 type __internal_pkg struct{}
 
@@ -55,7 +50,7 @@ func DbtMain(registerTargetFn func(core.OutPath, string, interface{})) {
 }
 
 func in(name string) core.Path {
-	return core.NewInPath(path.Join(reflect.TypeOf(__internal_pkg{}).PkgPath(), name))
+	return core.NewInPath(__internal_pkg{}, name)
 }
 
 func ins(names ...string) []core.Path {
@@ -67,7 +62,7 @@ func ins(names ...string) []core.Path {
 }
 
 func out(name string) core.OutPath {
-	return core.NewOutPath(path.Join(reflect.TypeOf(__internal_pkg{}).PkgPath(), name))
+	return core.NewOutPath(__internal_pkg{}, name)
 }
 `
 
@@ -76,15 +71,9 @@ const mainFileTemplate = `
 
 package main
 
-import "dbt/RULES/core"
+import "dbt-rules/RULES/core"
 
 %s
-
-type context interface {
-	core.Context
-	Initialize()
-	AddTarget(name string, target interface{}, cwd core.OutPath)
-}
 
 func main() {
 	core.GeneratorMain([]func(func(core.OutPath, string, interface{})){
