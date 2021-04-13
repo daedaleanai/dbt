@@ -6,7 +6,7 @@ import (
 	"github.com/daedaleanai/cobra"
 )
 
-const dbtVersion = "v0.4.1"
+const dbtVersion = "v0.4.2"
 
 var versionCmd = &cobra.Command{
 	Use:   "version",
