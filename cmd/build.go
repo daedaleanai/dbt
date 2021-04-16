@@ -116,7 +116,7 @@ func init() {
 
 func runBuild(cmd *cobra.Command, args []string) {
 	targets, flags := parseArgs(args)
-	genOutput := runGenerator("ninja", flags, false)
+	genOutput := runGenerator("ninja", flags)
 
 	log.Debug("Targets: '%s'.\n", strings.Join(targets, "', '"))
 
@@ -184,7 +184,7 @@ func runBuild(cmd *cobra.Command, args []string) {
 	// Run ninja.
 	ninjaArgs := []string{}
 	if log.Verbose {
-		ninjaArgs = append(ninjaArgs, "-v")
+		ninjaArgs = append(ninjaArgs, "-v", "-d", "explain")
 	}
 	for target := range expandedTargets {
 		ninjaArgs = append(ninjaArgs, target)
@@ -202,28 +202,30 @@ func runBuild(cmd *cobra.Command, args []string) {
 }
 
 func completeArgs(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-	//_, flags := parseArgs()
-	//genOutput := runGenerator(args, "completion")
+	genOutput := runGenerator("completion", []string{})
+
+	if strings.Contains(toComplete, "=") {
+		suggestions := []string{}
+		flag := strings.SplitN(toComplete, "=", 2)[0]
+		for _, value := range genOutput.Flags[flag].AllowedValues {
+			suggestions = append(suggestions, fmt.Sprintf("%s=%s", flag, value))
+		}
+		return suggestions, cobra.ShellCompDirectiveNoFileComp
+	}
 
 	suggestions := []string{}
-	/*	for flag := range getAvailableFlags(info) {
-			suggestions = append(suggestions, fmt.Sprintf("%s=", flag))
+	targetToComplete := normalizeTarget(toComplete)
+	for name, target := range genOutput.Targets {
+		if strings.HasPrefix(name, targetToComplete) {
+			suggestions = append(suggestions, fmt.Sprintf("%s%s\t%s", toComplete, strings.TrimPrefix(name, targetToComplete), target.Description))
 		}
+	}
 
-		targetToComplete := normalizeTarget(toComplete)
-		numParts := len(strings.Split(targetToComplete, "/"))
-		for target := range getAvailableTargets(info) {
-			if !strings.HasPrefix(target, targetToComplete) {
-				continue
-			}
-			suggestion := strings.Join(strings.SplitAfter(target, "/")[0:numParts], "")
-			suggestion = toComplete + strings.TrimPrefix(suggestion, targetToComplete)
-			suggestions = append(suggestions, suggestion)
-		}
+	for name, flag := range genOutput.Flags {
+		suggestions = append(suggestions, fmt.Sprintf("%s=\t%s", name, flag.Description))
+	}
 
-		sort.Strings(suggestions)
-	*/
-	return suggestions, cobra.ShellCompDirectiveNoSpace
+	return suggestions, cobra.ShellCompDirectiveNoFileComp
 }
 
 func parseArgs(args []string) ([]string, []string) {
@@ -261,7 +263,7 @@ func normalizeTarget(target string) string {
 	return strings.TrimLeft(target, "/")
 }
 
-func runGenerator(mode string, flags []string, silent bool) generatorOutput {
+func runGenerator(mode string, flags []string) generatorOutput {
 	workspaceRoot := util.GetWorkspaceRoot()
 	sourceDir := path.Join(workspaceRoot, util.DepsDirName)
 	workingDir := util.GetWorkingDir()
@@ -286,7 +288,7 @@ func runGenerator(mode string, flags []string, silent bool) generatorOutput {
 	cmdArgs := append([]string{"run", mainFileName, mode, sourceDir, buildDirPrefix, workingDir}, flags...)
 	cmd := exec.Command("go", cmdArgs...)
 	cmd.Dir = generatorDir
-	if !silent {
+	if mode != "completion" {
 		cmd.Stderr = os.Stderr
 		cmd.Stdout = os.Stdout
 	}
