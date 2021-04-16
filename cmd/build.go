@@ -7,7 +7,6 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
-	"hash/crc32"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -31,7 +30,7 @@ const initFileName = "init.go"
 const mainFileName = "main.go"
 const modFileName = "go.mod"
 const ninjaFileName = "build.ninja"
-const outputDirPrefix = "OUTPUT"
+const buildDirNamePrefix = "OUTPUT"
 const rulesDirName = "RULES"
 
 const goVersion = "1.13"
@@ -45,10 +44,8 @@ import "dbt-rules/RULES/core"
 
 type __internal_pkg struct{}
 
-func DbtGetVariables() map[string]interface{} {
-    return map[string]interface{}{
+func DbtMain(vars map[string]interface{}) {
 %s
-	}
 }
 
 func in(name string) core.Path {
@@ -77,12 +74,6 @@ import "dbt-rules/RULES/core"
 
 %s
 
-func merge(dst map[string]interface{}, src map[string]interface{}) {
-	for k, v := range src {
-		dst[k] = v
-	}
-}
-
 func main() {
     vars := map[string]interface{}{}
 
@@ -97,17 +88,17 @@ type target struct {
 }
 
 type flag struct {
-	Type string
-	Alias string
+	Description   string
+	Type          string
 	AllowedValues []string
-	Value string
+	Value         string
 }
 
 type generatorOutput struct {
 	NinjaFile string
 	Targets   map[string]target
 	Flags     map[string]flag
-	outputDir string
+	BuildDir  string
 }
 
 var buildCmd = &cobra.Command{
@@ -133,20 +124,30 @@ func runBuild(cmd *cobra.Command, args []string) {
 	if len(targets) == 0 {
 		log.Debug("No targets specified.\n")
 
+		targetNames := []string{}
+		for name := range genOutput.Targets {
+			targetNames = append(targetNames, name)
+		}
+		sort.Strings(targetNames)
+
 		fmt.Println("\nAvailable targets:")
-		for name, target := range genOutput.Targets {
+		for _, name := range targetNames {
+			target := genOutput.Targets[name]
 			fmt.Printf("  //%s", name)
 			if target.Description != "" {
 				fmt.Printf("  //%s (%s)", name, target.Description)
 			}
-			fmt.Println()	
+			fmt.Println()
 		}
 
 		fmt.Println("\nAvailable flags:")
 		for name, flag := range genOutput.Flags {
 			fmt.Printf("  %s='%s' [%s]", name, flag.Value, flag.Type)
-			if len(flag.AllowedValues) > 0{
+			if len(flag.AllowedValues) > 0 {
 				fmt.Printf(" ('%s')", strings.Join(flag.AllowedValues, "', '"))
+			}
+			if flag.Description != "" {
+				fmt.Printf(" // %s", flag.Description)
 			}
 			fmt.Println()
 		}
@@ -177,7 +178,7 @@ func runBuild(cmd *cobra.Command, args []string) {
 	}
 
 	// Write the ninja.build file.
-	ninjaFilePath := path.Join(genOutput.outputDir, ninjaFileName)
+	ninjaFilePath := path.Join(genOutput.BuildDir, ninjaFileName)
 	util.WriteFile(ninjaFilePath, []byte(genOutput.NinjaFile))
 
 	// Run ninja.
@@ -188,10 +189,10 @@ func runBuild(cmd *cobra.Command, args []string) {
 	for target := range expandedTargets {
 		ninjaArgs = append(ninjaArgs, target)
 	}
-	
+
 	log.Debug("Running ninja command: 'ninja %s'\n", strings.Join(ninjaArgs, " "))
 	ninjaCmd := exec.Command("ninja", ninjaArgs...)
-	ninjaCmd.Dir = genOutput.outputDir
+	ninjaCmd.Dir = genOutput.BuildDir
 	ninjaCmd.Stderr = os.Stderr
 	ninjaCmd.Stdout = os.Stdout
 	err := ninjaCmd.Run()
@@ -205,23 +206,23 @@ func completeArgs(cmd *cobra.Command, args []string, toComplete string) ([]strin
 	//genOutput := runGenerator(args, "completion")
 
 	suggestions := []string{}
-/*	for flag := range getAvailableFlags(info) {
-		suggestions = append(suggestions, fmt.Sprintf("%s=", flag))
-	}
-
-	targetToComplete := normalizeTarget(toComplete)
-	numParts := len(strings.Split(targetToComplete, "/"))
-	for target := range getAvailableTargets(info) {
-		if !strings.HasPrefix(target, targetToComplete) {
-			continue
+	/*	for flag := range getAvailableFlags(info) {
+			suggestions = append(suggestions, fmt.Sprintf("%s=", flag))
 		}
-		suggestion := strings.Join(strings.SplitAfter(target, "/")[0:numParts], "")
-		suggestion = toComplete + strings.TrimPrefix(suggestion, targetToComplete)
-		suggestions = append(suggestions, suggestion)
-	}
 
-	sort.Strings(suggestions)
-*/
+		targetToComplete := normalizeTarget(toComplete)
+		numParts := len(strings.Split(targetToComplete, "/"))
+		for target := range getAvailableTargets(info) {
+			if !strings.HasPrefix(target, targetToComplete) {
+				continue
+			}
+			suggestion := strings.Join(strings.SplitAfter(target, "/")[0:numParts], "")
+			suggestion = toComplete + strings.TrimPrefix(suggestion, targetToComplete)
+			suggestions = append(suggestions, suggestion)
+		}
+
+		sort.Strings(suggestions)
+	*/
 	return suggestions, cobra.ShellCompDirectiveNoSpace
 }
 
@@ -264,17 +265,8 @@ func runGenerator(mode string, flags []string, silent bool) generatorOutput {
 	workspaceRoot := util.GetWorkspaceRoot()
 	sourceDir := path.Join(workspaceRoot, util.DepsDirName)
 	workingDir := util.GetWorkingDir()
-
-
-	// Create a hash from all sorted build flags and a unique output directory for this set of flags.
-	sort.Strings(flags)
-	buildConfigHash := crc32.ChecksumIEEE([]byte(strings.Join(flags, "#")))
-	outputDirName := fmt.Sprintf("%s-%08X", outputDirPrefix, buildConfigHash)
-	outputDir := path.Join(workspaceRoot, buildDirName, outputDirName)
 	generatorDir := path.Join(workspaceRoot, buildDirName, generatorDirName)
-
-	log.Debug("Source directory: '%s'.\n", sourceDir)
-	log.Debug("Output directory: '%s'.\n", outputDir)
+	buildDirPrefix := path.Join(workspaceRoot, buildDirName, buildDirNamePrefix)
 
 	// Remove all existing buildfiles.
 	util.RemoveDir(generatorDir)
@@ -291,7 +283,7 @@ func runGenerator(mode string, flags []string, silent bool) generatorOutput {
 	createGeneratorMainFile(generatorDir, packages, modules)
 	createSumGoFile(generatorDir)
 
-	cmdArgs := append([]string{"run", mainFileName, mode, sourceDir, outputDir, workingDir}, flags...)
+	cmdArgs := append([]string{"run", mainFileName, mode, sourceDir, buildDirPrefix, workingDir}, flags...)
 	cmd := exec.Command("go", cmdArgs...)
 	cmd.Dir = generatorDir
 	if !silent {
@@ -309,7 +301,6 @@ func runGenerator(mode string, flags []string, silent bool) generatorOutput {
 	}
 
 	var output generatorOutput
-	output.outputDir = outputDir
 	err = json.Unmarshal(outputBytes, &output)
 	if err != nil {
 		log.Fatal("Failed to parse generator output: %s.\n", err)
@@ -344,13 +335,13 @@ func copyBuildAndRuleFiles(moduleName, modulePath, buildFilesDir string, modules
 			return nil
 		}
 
-		log.Debug("Found build file '%s'.\n", path.Join(modulePath, relativeFilePath))
+		log.Debug("Found %s file '%s'.\n", buildFileName, path.Join(modulePath, relativeFilePath))
 		buildFiles = append(buildFiles, filePath)
 		return nil
 	})
 
 	if err != nil {
-		log.Fatal("Failed to search module '%s' for '%s' files: %s.\n", moduleName, buildFileName, err)
+		log.Fatal("Failed to process %s files for module %s: %s.\n", buildFileName, moduleName, err)
 	}
 
 	for _, buildFile := range buildFiles {
@@ -361,7 +352,7 @@ func copyBuildAndRuleFiles(moduleName, modulePath, buildFilesDir string, modules
 		packageName, vars := parseBuildFile(buildFile)
 		varLines := []string{}
 		for _, varName := range vars {
-			varLines = append(varLines, fmt.Sprintf("        in(\"%s\").Relative(): &%s,", varName, varName))
+			varLines = append(varLines, fmt.Sprintf("    vars[in(\"%s\").Relative()] = &%s", varName, varName))
 		}
 
 		initFileContent := fmt.Sprintf(initFileTemplate, packageName, strings.Join(varLines, "\n"))
@@ -374,7 +365,6 @@ func copyBuildAndRuleFiles(moduleName, modulePath, buildFilesDir string, modules
 
 	rulesDirPath := path.Join(modulePath, rulesDirName)
 	if !util.DirExists(rulesDirPath) {
-		log.Debug("Module '%s' does not specify any build rules.\n", moduleName)
 		return packages
 	}
 
@@ -394,7 +384,7 @@ func copyBuildAndRuleFiles(moduleName, modulePath, buildFilesDir string, modules
 	})
 
 	if err != nil {
-		log.Fatal("Failed to copy rule files for module '%s': %s.\n", moduleName, err)
+		log.Fatal("Failed to process %s/ files for module '%s': %s.\n", rulesDirName, moduleName, err)
 	}
 
 	return packages
@@ -457,7 +447,7 @@ func createGeneratorMainFile(generatorDir string, packages []string, modules map
 	dbtMainLines := []string{}
 	for idx, pkg := range packages {
 		importLines = append(importLines, fmt.Sprintf("import p%d \"%s\"", idx, pkg))
-		dbtMainLines = append(dbtMainLines, fmt.Sprintf("    merge(vars, p%d.DbtGetVariables())", idx))
+		dbtMainLines = append(dbtMainLines, fmt.Sprintf("    p%d.DbtMain(vars)", idx))
 	}
 
 	mainFilePath := path.Join(generatorDir, mainFileName)
