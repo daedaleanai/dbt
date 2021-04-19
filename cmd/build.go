@@ -22,7 +22,9 @@ import (
 	"github.com/daedaleanai/cobra"
 )
 
+const bashFileName = "build.sh"
 const buildDirName = "BUILD"
+const buildDirNamePrefix = "OUTPUT"
 const buildFileName = "BUILD.go"
 const generatorDirName = "GENERATOR"
 const generatorOutputFileName = "output.json"
@@ -30,7 +32,6 @@ const initFileName = "init.go"
 const mainFileName = "main.go"
 const modFileName = "go.mod"
 const ninjaFileName = "build.ninja"
-const buildDirNamePrefix = "OUTPUT"
 const rulesDirName = "RULES"
 
 const goVersion = "1.13"
@@ -96,6 +97,7 @@ type flag struct {
 
 type generatorOutput struct {
 	NinjaFile string
+	BashFile  string
 	Targets   map[string]target
 	Flags     map[string]flag
 	BuildDir  string
@@ -116,7 +118,7 @@ func init() {
 
 func runBuild(cmd *cobra.Command, args []string) {
 	targets, flags := parseArgs(args)
-	genOutput := runGenerator("ninja", flags)
+	genOutput := runGenerator("buildFiles", flags)
 
 	log.Debug("Targets: '%s'.\n", strings.Join(targets, "', '"))
 
@@ -177,9 +179,12 @@ func runBuild(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	// Write the ninja.build file.
+	// Write the build files.
 	ninjaFilePath := path.Join(genOutput.BuildDir, ninjaFileName)
 	util.WriteFile(ninjaFilePath, []byte(genOutput.NinjaFile))
+
+	bashFilePath := path.Join(genOutput.BuildDir, bashFileName)
+	util.WriteFile(bashFilePath, []byte(genOutput.BashFile))
 
 	// Run ninja.
 	ninjaArgs := []string{}
