@@ -120,6 +120,13 @@ func runBuild(cmd *cobra.Command, args []string) {
 	targets, flags := parseArgs(args)
 	genOutput := runGenerator("buildFiles", flags)
 
+	// Write the build files.
+	ninjaFilePath := path.Join(genOutput.BuildDir, ninjaFileName)
+	util.WriteFile(ninjaFilePath, []byte(genOutput.NinjaFile))
+
+	bashFilePath := path.Join(genOutput.BuildDir, bashFileName)
+	util.WriteFile(bashFilePath, []byte(genOutput.BashFile))
+
 	log.Debug("Targets: '%s'.\n", strings.Join(targets, "', '"))
 
 	// Get all available targets and flags.
@@ -178,13 +185,6 @@ func runBuild(cmd *cobra.Command, args []string) {
 			log.Fatal("No target is matching pattern '%s'.\n", target)
 		}
 	}
-
-	// Write the build files.
-	ninjaFilePath := path.Join(genOutput.BuildDir, ninjaFileName)
-	util.WriteFile(ninjaFilePath, []byte(genOutput.NinjaFile))
-
-	bashFilePath := path.Join(genOutput.BuildDir, bashFileName)
-	util.WriteFile(bashFilePath, []byte(genOutput.BashFile))
 
 	// Run ninja.
 	ninjaArgs := []string{}
