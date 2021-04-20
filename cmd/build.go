@@ -7,7 +7,6 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
-	"hash/crc32"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -23,7 +22,9 @@ import (
 	"github.com/daedaleanai/cobra"
 )
 
+const bashFileName = "build.sh"
 const buildDirName = "BUILD"
+const buildDirNamePrefix = "OUTPUT"
 const buildFileName = "BUILD.go"
 const generatorDirName = "GENERATOR"
 const generatorOutputFileName = "output.json"
@@ -31,7 +32,6 @@ const initFileName = "init.go"
 const mainFileName = "main.go"
 const modFileName = "go.mod"
 const ninjaFileName = "build.ninja"
-const outputDirPrefix = "OUTPUT"
 const rulesDirName = "RULES"
 
 const goVersion = "1.13"
@@ -45,7 +45,7 @@ import "dbt-rules/RULES/core"
 
 type __internal_pkg struct{}
 
-func DbtMain(registerTargetFn func(core.OutPath, string, interface{})) {
+func DbtMain(vars map[string]interface{}) {
 %s
 }
 
@@ -76,26 +76,31 @@ import "dbt-rules/RULES/core"
 %s
 
 func main() {
-	core.GeneratorMain([]func(func(core.OutPath, string, interface{})){
+    vars := map[string]interface{}{}
+
 %s
-	})
+
+    core.GeneratorMain(vars)
 }
 `
 
-type buildInfo struct {
-	workingDir   string
-	sourceDir    string
-	outputDir    string
-	generatorDir string
-	buildFlags   []string
-	targets      []string
-	ninjaTargets []string
+type target struct {
+	Description string
+}
+
+type flag struct {
+	Description   string
+	Type          string
+	AllowedValues []string
+	Value         string
 }
 
 type generatorOutput struct {
 	NinjaFile string
-	Targets   map[string]string
-	Flags     map[string]string
+	BashFile  string
+	Targets   map[string]target
+	Flags     map[string]flag
+	BuildDir  string
 }
 
 var buildCmd = &cobra.Command{
@@ -112,45 +117,68 @@ func init() {
 }
 
 func runBuild(cmd *cobra.Command, args []string) {
-	info := prepareGenerator(args)
+	targets, flags := parseArgs(args)
+	genOutput := runGenerator("buildFiles", flags)
 
-	log.Debug("Normalized targets: '%s'.\n", strings.Join(info.targets, "', '"))
+	// Write the build files.
+	ninjaFilePath := path.Join(genOutput.BuildDir, ninjaFileName)
+	util.WriteFile(ninjaFilePath, []byte(genOutput.NinjaFile))
+
+	bashFilePath := path.Join(genOutput.BuildDir, bashFileName)
+	util.WriteFile(bashFilePath, []byte(genOutput.BashFile))
+
+	log.Debug("Targets: '%s'.\n", strings.Join(targets, "', '"))
 
 	// Get all available targets and flags.
-	availableTargets := getAvailableTargets(info)
-	availableFlags := getAvailableFlags(info)
-
-	if len(info.targets) == 0 {
+	if len(targets) == 0 {
 		log.Debug("No targets specified.\n")
 
+		targetNames := []string{}
+		for name := range genOutput.Targets {
+			targetNames = append(targetNames, name)
+		}
+		sort.Strings(targetNames)
+
 		fmt.Println("\nAvailable targets:")
-		for target := range availableTargets {
-			fmt.Printf("  //%s\n", target)
+		for _, name := range targetNames {
+			target := genOutput.Targets[name]
+			fmt.Printf("  //%s", name)
+			if target.Description != "" {
+				fmt.Printf("  //%s (%s)", name, target.Description)
+			}
+			fmt.Println()
 		}
 
 		fmt.Println("\nAvailable flags:")
-		for flag := range availableFlags {
-			fmt.Printf("  %s=\n", flag)
+		for name, flag := range genOutput.Flags {
+			fmt.Printf("  %s='%s' [%s]", name, flag.Value, flag.Type)
+			if len(flag.AllowedValues) > 0 {
+				fmt.Printf(" ('%s')", strings.Join(flag.AllowedValues, "', '"))
+			}
+			if flag.Description != "" {
+				fmt.Printf(" // %s", flag.Description)
+			}
+			fmt.Println()
 		}
 		return
 	}
 
-	uniqueNinjaTargets := map[string]struct{}{}
-	for _, target := range info.targets {
+	expandedTargets := map[string]struct{}{}
+	for _, target := range targets {
 		if !strings.HasSuffix(target, "...") {
-			if _, exists := availableTargets[target]; !exists {
+			if _, exists := genOutput.Targets[target]; !exists {
 				log.Fatal("Target '%s' does not exist.\n", target)
 			}
-			uniqueNinjaTargets[target] = struct{}{}
+			expandedTargets[target] = struct{}{}
 			continue
 		}
 
 		targetPrefix := strings.TrimSuffix(target, "...")
 		found := false
-		for availableTarget := range availableTargets {
+		for availableTarget := range genOutput.Targets {
 			if strings.HasPrefix(availableTarget, targetPrefix) {
 				found = true
-				uniqueNinjaTargets[availableTarget] = struct{}{}
+				expandedTargets[availableTarget] = struct{}{}
 			}
 		}
 		if !found {
@@ -158,43 +186,68 @@ func runBuild(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	for target := range uniqueNinjaTargets {
-		info.ninjaTargets = append(info.ninjaTargets, target)
+	// Run ninja.
+	ninjaArgs := []string{}
+	if log.Verbose {
+		ninjaArgs = append(ninjaArgs, "-v", "-d", "explain")
 	}
-	log.Debug("Expanded targets: '%s'.\n", strings.Join(info.ninjaTargets, "', '"))
-
-	for _, flag := range info.buildFlags {
-		name := strings.Split(flag, "=")[0]
-		if _, exists := availableFlags[name]; !exists {
-			log.Fatal("Flag '%s' does not exist.\n", name)
-		}
+	for target := range expandedTargets {
+		ninjaArgs = append(ninjaArgs, target)
 	}
 
-	// Produce the ninja.build file and run Ninja.
-	runNinja(info)
+	log.Debug("Running ninja command: 'ninja %s'\n", strings.Join(ninjaArgs, " "))
+	ninjaCmd := exec.Command("ninja", ninjaArgs...)
+	ninjaCmd.Dir = genOutput.BuildDir
+	ninjaCmd.Stderr = os.Stderr
+	ninjaCmd.Stdout = os.Stdout
+	err := ninjaCmd.Run()
+	if err != nil {
+		log.Fatal("Running ninja failed: %s\n", err)
+	}
 }
 
 func completeArgs(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-	info := prepareGenerator(args)
+	genOutput := runGenerator("completion", []string{})
+
+	if strings.Contains(toComplete, "=") {
+		suggestions := []string{}
+		flag := strings.SplitN(toComplete, "=", 2)[0]
+		for _, value := range genOutput.Flags[flag].AllowedValues {
+			suggestions = append(suggestions, fmt.Sprintf("%s=%s", flag, value))
+		}
+		return suggestions, cobra.ShellCompDirectiveNoFileComp
+	}
 
 	suggestions := []string{}
-	for flag := range getAvailableFlags(info) {
-		suggestions = append(suggestions, fmt.Sprintf("%s=", flag))
-	}
-
 	targetToComplete := normalizeTarget(toComplete)
-	numParts := len(strings.Split(targetToComplete, "/"))
-	for target := range getAvailableTargets(info) {
-		if !strings.HasPrefix(target, targetToComplete) {
-			continue
+	for name, target := range genOutput.Targets {
+		if strings.HasPrefix(name, targetToComplete) {
+			suggestions = append(suggestions, fmt.Sprintf("%s%s\t%s", toComplete, strings.TrimPrefix(name, targetToComplete), target.Description))
 		}
-		suggestion := strings.Join(strings.SplitAfter(target, "/")[0:numParts], "")
-		suggestion = toComplete + strings.TrimPrefix(suggestion, targetToComplete)
-		suggestions = append(suggestions, suggestion)
 	}
 
-	sort.Strings(suggestions)
-	return suggestions, cobra.ShellCompDirectiveNoSpace
+	for name, flag := range genOutput.Flags {
+		suggestions = append(suggestions, fmt.Sprintf("%s=\t%s", name, flag.Description))
+	}
+
+	return suggestions, cobra.ShellCompDirectiveNoFileComp
+}
+
+func parseArgs(args []string) ([]string, []string) {
+	targets := []string{}
+	flags := []string{}
+
+	// Split all args into two categories: If they contain a "= they are considered
+	// build flags, otherwise a target to be built.
+	for _, arg := range args {
+		if strings.Contains(arg, "=") {
+			flags = append(flags, arg)
+		} else {
+			targets = append(targets, normalizeTarget(arg))
+		}
+	}
+
+	return targets, flags
 }
 
 func normalizeTarget(target string) string {
@@ -215,50 +268,52 @@ func normalizeTarget(target string) string {
 	return strings.TrimLeft(target, "/")
 }
 
-func prepareGenerator(args []string) buildInfo {
-	info := buildInfo{}
-
+func runGenerator(mode string, flags []string) generatorOutput {
 	workspaceRoot := util.GetWorkspaceRoot()
-	info.sourceDir = path.Join(workspaceRoot, util.DepsDirName)
-	info.workingDir = util.GetWorkingDir()
-
-	// Split all args into two categories: If they contain a "= they are considered
-	// build flags, otherwise a target to be built.
-	for _, arg := range args {
-		if strings.Contains(arg, "=") {
-			info.buildFlags = append(info.buildFlags, arg)
-		} else {
-			info.targets = append(info.targets, normalizeTarget(arg))
-		}
-	}
-
-	// Create a hash from all sorted build flags and a unique output directory for this set of flags.
-	sort.Strings(info.buildFlags)
-	buildConfigHash := crc32.ChecksumIEEE([]byte(strings.Join(info.buildFlags, "#")))
-	outputDirName := fmt.Sprintf("%s-%08X", outputDirPrefix, buildConfigHash)
-	info.outputDir = path.Join(workspaceRoot, buildDirName, outputDirName)
-	info.generatorDir = path.Join(workspaceRoot, buildDirName, generatorDirName)
-
-	log.Debug("Build flags: '%s'.\n", strings.Join(info.buildFlags, " "))
-	log.Debug("Source directory: '%s'.\n", info.sourceDir)
-	log.Debug("Output directory: '%s'.\n", info.outputDir)
+	sourceDir := path.Join(workspaceRoot, util.DepsDirName)
+	workingDir := util.GetWorkingDir()
+	generatorDir := path.Join(workspaceRoot, buildDirName, generatorDirName)
+	buildDirPrefix := path.Join(workspaceRoot, buildDirName, buildDirNamePrefix)
 
 	// Remove all existing buildfiles.
-	util.RemoveDir(info.generatorDir)
+	util.RemoveDir(generatorDir)
 
 	// Copy all BUILD.go files and RULES/ files from the source directory.
 	modules := module.GetAllModulePaths(workspaceRoot)
 	packages := []string{}
 	for modName, modPath := range modules {
-		modBuildfilesDir := path.Join(info.generatorDir, modName)
+		modBuildfilesDir := path.Join(generatorDir, modName)
 		modulePackages := copyBuildAndRuleFiles(modName, modPath, modBuildfilesDir, modules)
 		packages = append(packages, modulePackages...)
 	}
 
-	createGeneratorMainFile(info.generatorDir, packages, modules)
-	createSumGoFile(info.generatorDir)
+	createGeneratorMainFile(generatorDir, packages, modules)
+	createSumGoFile(generatorDir)
 
-	return info
+	cmdArgs := append([]string{"run", mainFileName, mode, sourceDir, buildDirPrefix, workingDir}, flags...)
+	cmd := exec.Command("go", cmdArgs...)
+	cmd.Dir = generatorDir
+	if mode != "completion" {
+		cmd.Stderr = os.Stderr
+		cmd.Stdout = os.Stdout
+	}
+	err := cmd.Run()
+	if err != nil {
+		log.Fatal("Failed to run generator: %s.\n", err)
+	}
+	generatorOutputPath := path.Join(generatorDir, generatorOutputFileName)
+	outputBytes, err := ioutil.ReadFile(generatorOutputPath)
+	if err != nil {
+		log.Fatal("Failed to read generator output: %s.\n", err)
+	}
+
+	var output generatorOutput
+	err = json.Unmarshal(outputBytes, &output)
+	if err != nil {
+		log.Fatal("Failed to parse generator output: %s.\n", err)
+	}
+
+	return output
 }
 
 func copyBuildAndRuleFiles(moduleName, modulePath, buildFilesDir string, modules map[string]string) []string {
@@ -287,13 +342,13 @@ func copyBuildAndRuleFiles(moduleName, modulePath, buildFilesDir string, modules
 			return nil
 		}
 
-		log.Debug("Found build file '%s'.\n", path.Join(modulePath, relativeFilePath))
+		log.Debug("Found %s file '%s'.\n", buildFileName, path.Join(modulePath, relativeFilePath))
 		buildFiles = append(buildFiles, filePath)
 		return nil
 	})
 
 	if err != nil {
-		log.Fatal("Failed to search module '%s' for '%s' files: %s.\n", moduleName, buildFileName, err)
+		log.Fatal("Failed to process %s files for module %s: %s.\n", buildFileName, moduleName, err)
 	}
 
 	for _, buildFile := range buildFiles {
@@ -301,14 +356,13 @@ func copyBuildAndRuleFiles(moduleName, modulePath, buildFilesDir string, modules
 		relativeDirPath := strings.TrimSuffix(path.Dir(relativeFilePath), "/")
 
 		packages = append(packages, path.Join(moduleName, relativeDirPath))
-		packageName, targets := parseBuildFile(buildFile)
-		targetLines := []string{}
-		for _, targetName := range targets {
-			targetLines = append(targetLines,
-				fmt.Sprintf("    registerTargetFn(out(\"\"), out(\"%s\").Relative(), &%s)", targetName, targetName))
+		packageName, vars := parseBuildFile(buildFile)
+		varLines := []string{}
+		for _, varName := range vars {
+			varLines = append(varLines, fmt.Sprintf("    vars[in(\"%s\").Relative()] = &%s", varName, varName))
 		}
 
-		initFileContent := fmt.Sprintf(initFileTemplate, packageName, strings.Join(targetLines, "\n"))
+		initFileContent := fmt.Sprintf(initFileTemplate, packageName, strings.Join(varLines, "\n"))
 		initFilePath := path.Join(buildFilesDir, relativeDirPath, initFileName)
 		util.WriteFile(initFilePath, []byte(initFileContent))
 
@@ -318,7 +372,6 @@ func copyBuildAndRuleFiles(moduleName, modulePath, buildFilesDir string, modules
 
 	rulesDirPath := path.Join(modulePath, rulesDirName)
 	if !util.DirExists(rulesDirPath) {
-		log.Debug("Module '%s' does not specify any build rules.\n", moduleName)
 		return packages
 	}
 
@@ -338,24 +391,10 @@ func copyBuildAndRuleFiles(moduleName, modulePath, buildFilesDir string, modules
 	})
 
 	if err != nil {
-		log.Fatal("Failed to copy rule files for module '%s': %s.\n", moduleName, err)
+		log.Fatal("Failed to process %s/ files for module '%s': %s.\n", rulesDirName, moduleName, err)
 	}
 
 	return packages
-}
-
-func createModFileContent(moduleName string, modules map[string]string, pathPrefix string) []byte {
-	mod := strings.Builder{}
-
-	fmt.Fprintf(&mod, "module %s\n\n", moduleName)
-	fmt.Fprintf(&mod, "go %s\n\n", goVersion)
-
-	for modName := range modules {
-		fmt.Fprintf(&mod, "require %s v0.0.0\n", modName)
-		fmt.Fprintf(&mod, "replace %s => %s/%s\n\n", modName, pathPrefix, modName)
-	}
-
-	return []byte(mod.String())
 }
 
 func parseBuildFile(buildFilePath string) (string, []string) {
@@ -365,7 +404,7 @@ func parseBuildFile(buildFilePath string) (string, []string) {
 		log.Fatal("Failed to parse '%s': %s.\n", buildFilePath, err)
 	}
 
-	targets := []string{}
+	vars := []string{}
 
 	for _, decl := range fileAst.Decls {
 		decl, ok := decl.(*ast.GenDecl)
@@ -382,9 +421,10 @@ func parseBuildFile(buildFilePath string) (string, []string) {
 				}
 				for _, id := range spec.Names {
 					if id.Name == "_" {
-						log.Fatal("'%s' contains anonymous target declarations. All targets must have a name.\n", buildFilePath)
+						log.Warning("'%s' contains an anonymous declarations.\n", buildFilePath)
+						continue
 					}
-					targets = append(targets, id.Name)
+					vars = append(vars, id.Name)
 				}
 			default:
 				log.Fatal("'%s' contains invalid declarations. Only import statements and 'var' declarations are allowed.\n", buildFilePath)
@@ -392,7 +432,21 @@ func parseBuildFile(buildFilePath string) (string, []string) {
 		}
 	}
 
-	return fileAst.Name.String(), targets
+	return fileAst.Name.String(), vars
+}
+
+func createModFileContent(moduleName string, modules map[string]string, pathPrefix string) []byte {
+	mod := strings.Builder{}
+
+	fmt.Fprintf(&mod, "module %s\n\n", moduleName)
+	fmt.Fprintf(&mod, "go %s\n\n", goVersion)
+
+	for modName := range modules {
+		fmt.Fprintf(&mod, "require %s v0.0.0\n", modName)
+		fmt.Fprintf(&mod, "replace %s => %s/%s\n\n", modName, pathPrefix, modName)
+	}
+
+	return []byte(mod.String())
 }
 
 func createGeneratorMainFile(generatorDir string, packages []string, modules map[string]string) {
@@ -400,7 +454,7 @@ func createGeneratorMainFile(generatorDir string, packages []string, modules map
 	dbtMainLines := []string{}
 	for idx, pkg := range packages {
 		importLines = append(importLines, fmt.Sprintf("import p%d \"%s\"", idx, pkg))
-		dbtMainLines = append(dbtMainLines, fmt.Sprintf("        p%d.DbtMain,", idx))
+		dbtMainLines = append(dbtMainLines, fmt.Sprintf("    p%d.DbtMain(vars)", idx))
 	}
 
 	mainFilePath := path.Join(generatorDir, mainFileName)
@@ -410,14 +464,6 @@ func createGeneratorMainFile(generatorDir string, packages []string, modules map
 	modFilePath := path.Join(generatorDir, modFileName)
 	modFileContent := createModFileContent("root", modules, ".")
 	util.WriteFile(modFilePath, modFileContent)
-}
-
-func getAvailableTargets(info buildInfo) map[string]string {
-	return runGenerator(info).Targets
-}
-
-func getAvailableFlags(info buildInfo) map[string]string {
-	return runGenerator(info).Flags
 }
 
 func createSumGoFile(generatorDir string) {
@@ -430,53 +476,5 @@ func createSumGoFile(generatorDir string) {
 	fmt.Print(string(stderr.Bytes()))
 	if err != nil {
 		log.Fatal("Failed to run 'go mod download': %s.\n", err)
-	}
-}
-
-func runGenerator(info buildInfo) generatorOutput {
-	var stdout, stderr bytes.Buffer
-	cmdArgs := append([]string{"run", mainFileName, "", info.sourceDir, info.outputDir, info.workingDir}, info.buildFlags...)
-	cmd := exec.Command("go", cmdArgs...)
-	cmd.Dir = info.generatorDir
-	cmd.Stderr = &stderr
-	cmd.Stdout = &stdout
-	err := cmd.Run()
-	fmt.Print(string(stdout.Bytes()))
-	fmt.Print(string(stderr.Bytes()))
-	if err != nil {
-		log.Fatal("Failed to run generator: %s.\n", err)
-	}
-	generatorOutputPath := path.Join(info.generatorDir, generatorOutputFileName)
-	outputBytes, err := ioutil.ReadFile(generatorOutputPath)
-	if err != nil {
-		log.Fatal("Failed to read generator output: %s.\n", err)
-	}
-
-	var output generatorOutput
-	err = json.Unmarshal(outputBytes, &output)
-	if err != nil {
-		log.Fatal("Failed to parse generator output: %s.\n", err)
-	}
-
-	return output
-}
-
-func runNinja(info buildInfo) {
-	// Produce the ninja.build file.
-	ninjaFileContent := runGenerator(info).NinjaFile
-	ninjaFilePath := path.Join(info.outputDir, ninjaFileName)
-	util.WriteFile(ninjaFilePath, []byte(ninjaFileContent))
-
-	args := info.ninjaTargets
-	if log.Verbose {
-		args = append([]string{"-v"}, args...)
-	}
-	cmd := exec.Command("ninja", args...)
-	cmd.Dir = info.outputDir
-	cmd.Stderr = os.Stderr
-	cmd.Stdout = os.Stdout
-	err := cmd.Run()
-	if err != nil {
-		log.Fatal("Ninja failed: %s\n", err)
 	}
 }
