@@ -1,41 +1,31 @@
 package module
 
 import (
+	"bytes"
+	"os/exec"
 	"path"
+	"strings"
 
 	"github.com/daedaleanai/dbt/log"
-
-	"github.com/go-git/go-git/v5"
-	"github.com/go-git/go-git/v5/plumbing"
-	"github.com/go-git/go-git/v5/plumbing/object"
+	"github.com/daedaleanai/dbt/util"
 )
 
 // GitModule is a module backed by a git repository.
 type GitModule struct {
 	path string
-	repo *git.Repository
 }
 
-// CreateGitModule creates a new GitModule in the given `modulePath`
+// createGitModule creates a new GitModule in the given `modulePath`
 // by cloning the repository from `url`.
-func CreateGitModule(modulePath, url string) Module {
+func createGitModule(modulePath, url string) Module {
+	mod := GitModule{modulePath}
+	util.MkdirAll(modulePath)
 	log.Log("Cloning '%s'.\n", url)
 	log.Spinner.Start()
-	repo, err := git.PlainClone(modulePath, false, &git.CloneOptions{
-		URL: url,
-	})
+	mod.runGitCommand("clone", url, modulePath)
 	log.Spinner.Stop()
-	if err != nil {
-		log.Fatal("Failed to clone GitModule: %s.\n", err)
-	}
-	mod := GitModule{modulePath, repo}
 	SetupModule(mod)
 	return mod
-}
-
-// Path returns the on-disk path of the module.
-func (m GitModule) Path() string {
-	return m.path
 }
 
 // Name returns the name of the module.
@@ -43,143 +33,66 @@ func (m GitModule) Name() string {
 	return path.Base(m.Path())
 }
 
+// Path returns the on-disk path of the module.
+func (m GitModule) Path() string {
+	return m.path
+}
+
+// URL returns the url of the underlying git repository.
+func (m GitModule) URL() string {
+	return m.runGitCommand("config", "--get", "remote.origin.url")
+}
+
+// Head returns the commit hash of the HEAD of the underlying git repository.
+func (m GitModule) Head() string {
+	return m.RevParse("HEAD")
+}
+
+// RevParse returns the commit hash for the commit referenced by `ref`.
+func (m GitModule) RevParse(ref string) string {
+	return string(m.runGitCommand("rev-parse", ref))
+}
+
 // IsDirty returns whether the underlying repository has any uncommited changes.
 func (m GitModule) IsDirty() bool {
-	worktree, err := m.repo.Worktree()
-	if err != nil {
-		log.Fatal("Failed to get repo worktree: %s.\n", err)
-	}
-	status, err := worktree.Status()
-	if err != nil {
-		log.Fatal("Failed to get repo status: %s.\n", err)
-	}
-	return !status.IsClean()
+	return len(m.runGitCommand("status", "-s")) > 0
 }
 
-// HasOrigin returns whether the underlying repository has a remote called origin that matches `url`.
-func (m GitModule) HasOrigin(url string) bool {
-	for _, originURL := range m.origin().Config().URLs {
-		if originURL == url {
-			return true
-		}
-	}
-	return false
-}
-
-// HasVersionCheckedOut returns whether the current module's version matches `version`.
-func (m GitModule) HasVersionCheckedOut(version string) bool {
-	if m.IsDirty() {
-		// If the module has uncommited changes, it does not match any version.
-		log.Debug("The module has uncommited changes.\n")
-		return false
-	}
-
-	// Convert the version (which might be a hash, tag, branch, etc.) to a cannonical commit hash
-	// before comparing it to HEAD.
-	hash, err := m.repo.ResolveRevision(plumbing.Revision(version))
-	if err != nil {
-		log.Debug("Failed to resolve revision '%s': %s.\n", version, err)
-		return false
-	}
-	log.Debug("Version '%s' was resolved to commit hash '%s'.\n", version, hash.String())
-
-	head, err := m.repo.Head()
-	if err != nil {
-		log.Fatal("Failed to get repo HEAD: %s.\n", err)
-	}
-	log.Debug("Repo HEAD is '%s'.\n", head.Hash().String())
-
-	return head.Hash() == *hash
-}
-
-// CheckoutVersion changes the current module's version to `version`.
-func (m GitModule) CheckoutVersion(version string) {
-	worktree, err := m.repo.Worktree()
-	if err != nil {
-		log.Fatal("Failed to get repo worktree: %s.\n", err)
-	}
-
-	// Convert the version (which might be a hash, tag, branch, etc.) to a cannonical commit hash.
-	hash, err := m.repo.ResolveRevision(plumbing.Revision(version))
-	if err != nil {
-		log.Fatal("Failed to resolve revision '%s': %s.\n", version, err)
-	}
-	log.Debug("Version '%s' was resolved to commit hash '%s'.\n", version, hash.String())
-
-	err = worktree.Checkout(&git.CheckoutOptions{
-		Hash: *hash,
-	})
-	if err != nil {
-		log.Fatal("Failed to checkout version '%s': %s.\n", hash.String(), err)
-	}
-}
-
-// Fetch fetches changes from the 'origin' remote and reports whether any updates have bee fetched.
+// Fetch fetches changes from the default remote and reports whether any updates have been fetched.
 func (m GitModule) Fetch() bool {
 	if m.IsDirty() {
 		// If the module has uncommited changes, it does not match any version.
-		log.Warning("The module has uncommited changes. Not pulling any changes.\n")
+		log.Warning("The module has uncommited changes. Not fetching any changes.\n")
 		return false
 	}
 
-	origin := m.origin()
-	log.Spinner.Start()
-	err := origin.Fetch(&git.FetchOptions{
-		Tags: git.AllTags,
-	})
-	log.Spinner.Stop()
-
-	if err == nil {
-		return true
-	}
-	if err != git.NoErrAlreadyUpToDate {
-		log.Fatal("Failed to fetch changes: %s.\n", err)
-	}
-	return false
+	return len(m.runGitCommand("fetch")) > 0
 }
 
-func (m GitModule) origin() *git.Remote {
-	remotes, err := m.repo.Remotes()
-	if err != nil {
-		log.Fatal("Failed to get repository remotes: %s.\n", err)
-	}
-	for _, remote := range remotes {
-		if remote.Config().Name == "origin" {
-			return remote
-		}
-	}
-
-	log.Fatal("Failed to get 'origin' remote: repository has no such remote.\n")
-	return nil
-}
-
-// CheckedOutVersions returns all currently checked out versions.
-// This includes the HEAD commit hash and all annotated tags that point to HEAD.
-func (m GitModule) CheckedOutVersions() []string {
+// Checkout changes the current module's version to `ref`.
+func (m GitModule) Checkout(ref string) {
 	if m.IsDirty() {
-		return []string{}
+		// If the module has uncommited changes, it does not match any version.
+		log.Debug("The module has uncommited changes.\n")
+		return
 	}
 
-	head := m.head().Hash()
-	versions := []string{head.String()}
-
-	tags, err := m.repo.TagObjects()
-	if err != nil {
-		log.Fatal("Failed to read tags: %s.\n", err)
-	}
-	tags.ForEach(func(tag *object.Tag) error {
-		if tag.Target == head {
-			versions = append(versions, tag.Name)
-		}
-		return nil
-	})
-	return versions
+	m.runGitCommand("checkout", ref)
 }
 
-func (m GitModule) head() *plumbing.Reference {
-	head, err := m.repo.Head()
+func (m GitModule) runGitCommand(args ...string) string {
+	stderr := bytes.Buffer{}
+	stdout := bytes.Buffer{}
+	log.Debug("Running git command: git %s\n", strings.Join(args, " "))
+	log.Spinner.Start()
+	cmd := exec.Command("git", args...)
+	cmd.Stderr = &stderr
+	cmd.Stdout = &stdout
+	cmd.Dir = m.path
+	err := cmd.Run()
+	log.Spinner.Stop()
 	if err != nil {
-		log.Fatal("Failed to get repo HEAD: %s.\n", err)
+		log.Fatal("Failed to run git command 'git %s':\n%s\n%s\n", strings.Join(args, " "), stderr.String(), err)
 	}
-	return head
+	return strings.TrimSuffix(stdout.String(), "\n")
 }

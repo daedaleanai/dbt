@@ -1,8 +1,6 @@
 package cmd
 
 import (
-	"strings"
-
 	"github.com/daedaleanai/dbt/log"
 	"github.com/daedaleanai/dbt/module"
 	"github.com/daedaleanai/dbt/util"
@@ -40,24 +38,24 @@ func runStatus(cmd *cobra.Command, args []string) {
 		if mod.IsDirty() {
 			log.Error("Module has uncommited changes.\n")
 		} else {
-			log.Log("Current versions: '%s'.\n", strings.Join(mod.CheckedOutVersions(), "', '"))
+			log.Log("Current version: '%s'.\n", mod.Head())
 		}
-		deps := module.ReadModuleFile(mod.Path())
+		deps := module.ReadModuleFile(mod.Path()).Dependencies
 		log.Log("Module has %d dependencies.\n", len(deps))
 
 		for idx, dep := range deps {
 			log.IndentationLevel = 1
-			log.Log("%d) Dependency on module '%s' (%s), version '%s':\n", idx+1, dep.ModuleName(), dep.URL, dep.Version)
+			log.Log("%d) Dependency on module '%s' (%s), version '%s' (%s).\n", idx+1, dep.Name, dep.URL, dep.Version.Rev, dep.Version.Hash)
 			log.IndentationLevel = 2
 
-			depMod, exists := modules[dep.ModuleName()]
+			depMod, exists := modules[dep.Name]
 			if !exists {
 				log.Error("Dependency module does not exist. Try running 'dbt sync'.\n")
 				continue
 			}
 
-			if !depMod.HasOrigin(dep.URL) {
-				log.Error("Dependency module origin does not match URL required by the dependency.\n")
+			if depMod.URL() != dep.URL {
+				log.Error("Dependency module URL does not match URL required by the dependency.\n")
 				continue
 			}
 
@@ -66,9 +64,8 @@ func runStatus(cmd *cobra.Command, args []string) {
 				continue
 			}
 
-			if !depMod.HasVersionCheckedOut(dep.Version) {
-				versions := depMod.CheckedOutVersions()
-				log.Error("Dependency module version does not match the required version. Current versions are: '%s'.\n", strings.Join(versions, "', '"))
+			if depMod.Head() != dep.Version.Hash {
+				log.Error("Dependency module version does not match the required version.\n")
 				continue
 			}
 

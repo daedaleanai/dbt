@@ -2,12 +2,14 @@ package cmd
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"go/ast"
 	"go/parser"
 	"go/token"
+<<<<<<< HEAD
+=======
 	"io/ioutil"
+>>>>>>> master
 	"os"
 	"os/exec"
 	"path"
@@ -26,6 +28,7 @@ const bashFileName = "build.sh"
 const buildDirName = "BUILD"
 const buildDirNamePrefix = "OUTPUT"
 const buildFileName = "BUILD.go"
+const dbtRulesDirName = "dbt-rules"
 const generatorDirName = "GENERATOR"
 const generatorOutputFileName = "output.json"
 const initFileName = "init.go"
@@ -108,7 +111,7 @@ var buildCmd = &cobra.Command{
 	Short:                 "Builds the targets",
 	Long:                  `Builds the targets.`,
 	Run:                   runBuild,
-	ValidArgsFunction:     completeArgs,
+	ValidArgsFunction:     completeBuildArgs,
 	DisableFlagsInUseLine: true,
 }
 
@@ -117,6 +120,12 @@ func init() {
 }
 
 func runBuild(cmd *cobra.Command, args []string) {
+	dbtRulesDir := path.Join(util.GetWorkspaceRoot(), util.DepsDirName, dbtRulesDirName)
+	if !util.DirExists(dbtRulesDir) {
+		log.Fatal("You are running 'dbt build' without '%s' being available. Add that dependency, run 'dbt sync' and try again.\n", dbtRulesDirName)
+		return
+	}
+
 	targets, flags := parseArgs(args)
 	genOutput := runGenerator("buildFiles", flags)
 
@@ -206,7 +215,11 @@ func runBuild(cmd *cobra.Command, args []string) {
 	}
 }
 
+<<<<<<< HEAD
+func completeBuildArgs(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+=======
 func completeArgs(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+>>>>>>> master
 	genOutput := runGenerator("completion", []string{})
 
 	if strings.Contains(toComplete, "=") {
@@ -223,6 +236,7 @@ func completeArgs(cmd *cobra.Command, args []string, toComplete string) ([]strin
 	for name, target := range genOutput.Targets {
 		if strings.HasPrefix(name, targetToComplete) {
 			suggestions = append(suggestions, fmt.Sprintf("%s%s\t%s", toComplete, strings.TrimPrefix(name, targetToComplete), target.Description))
+<<<<<<< HEAD
 		}
 	}
 
@@ -247,6 +261,32 @@ func parseArgs(args []string) ([]string, []string) {
 		}
 	}
 
+=======
+		}
+	}
+
+	for name, flag := range genOutput.Flags {
+		suggestions = append(suggestions, fmt.Sprintf("%s=\t%s", name, flag.Description))
+	}
+
+	return suggestions, cobra.ShellCompDirectiveNoFileComp
+}
+
+func parseArgs(args []string) ([]string, []string) {
+	targets := []string{}
+	flags := []string{}
+
+	// Split all args into two categories: If they contain a "= they are considered
+	// build flags, otherwise a target to be built.
+	for _, arg := range args {
+		if strings.Contains(arg, "=") {
+			flags = append(flags, arg)
+		} else {
+			targets = append(targets, normalizeTarget(arg))
+		}
+	}
+
+>>>>>>> master
 	return targets, flags
 }
 
@@ -289,6 +329,23 @@ func runGenerator(mode string, flags []string) generatorOutput {
 
 	createGeneratorMainFile(generatorDir, packages, modules)
 	createSumGoFile(generatorDir)
+<<<<<<< HEAD
+
+	cmdArgs := append([]string{"run", mainFileName, mode, sourceDir, buildDirPrefix, workingDir}, flags...)
+	cmd := exec.Command("go", cmdArgs...)
+	cmd.Dir = generatorDir
+	if mode != "completion" {
+		cmd.Stderr = os.Stderr
+		cmd.Stdout = os.Stdout
+	}
+	err := cmd.Run()
+	if err != nil {
+		log.Fatal("Failed to run generator: %s.\n", err)
+	}
+	var output generatorOutput
+	generatorOutputPath := path.Join(generatorDir, generatorOutputFileName)
+	util.ReadJson(generatorOutputPath, &output)
+=======
 
 	cmdArgs := append([]string{"run", mainFileName, mode, sourceDir, buildDirPrefix, workingDir}, flags...)
 	cmd := exec.Command("go", cmdArgs...)
@@ -313,6 +370,7 @@ func runGenerator(mode string, flags []string) generatorOutput {
 		log.Fatal("Failed to parse generator output: %s.\n", err)
 	}
 
+>>>>>>> master
 	return output
 }
 
