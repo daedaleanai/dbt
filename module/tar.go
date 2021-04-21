@@ -3,6 +3,8 @@ package module
 import (
 	"archive/tar"
 	"compress/gzip"
+	"crypto/sha256"
+	"encoding/hex"
 	"io"
 	"net/http"
 	"os"
@@ -12,11 +14,14 @@ import (
 	"github.com/daedaleanai/dbt/util"
 )
 
+// TarDefaultVersion is the default version for all TarModules.
+const TarDefaultVersion = "master"
+
 const tarMetadataFileName = ".metadata"
-const tarDefaultVersion = "master"
 
 type metadataFile struct {
-	URL string
+	URL    string
+	Sha256 string
 }
 
 // TarModule is a module backed by a tar.gz archive.
@@ -39,7 +44,10 @@ func createTarModule(modulePath, url string) Module {
 	}
 	defer response.Body.Close()
 
-	tarFile, err := gzip.NewReader(response.Body)
+	hasher := sha256.New()
+	gzFile := io.TeeReader(response.Body, hasher)
+
+	tarFile, err := gzip.NewReader(gzFile)
 	if err != nil {
 		log.Fatal("Failed to decompress: %s.\n", err)
 	}
@@ -101,7 +109,8 @@ func createTarModule(modulePath, url string) Module {
 		}
 	}
 
-	util.WriteYaml(path.Join(modulePath, tarMetadataFileName), metadataFile{url})
+	metadata := metadataFile{url, hex.EncodeToString(hasher.Sum(nil))}
+	util.WriteYaml(path.Join(modulePath, tarMetadataFileName), metadata)
 	return TarModule{modulePath}
 }
 
@@ -124,15 +133,17 @@ func (m TarModule) URL() string {
 
 // Head returns the default version for all TarModules.
 func (m TarModule) Head() string {
-	return tarDefaultVersion
+	var metadata metadataFile
+	util.ReadYaml(path.Join(m.path, tarMetadataFileName), &metadata)
+	return metadata.Sha256
 }
 
 // RevParse returns the default version for all TarModules.
 func (m TarModule) RevParse(ref string) string {
-	if ref != tarDefaultVersion {
-		log.Fatal("Failed to parse version '%s': TarModule only has '%s' version.\n", ref, tarDefaultVersion)
+	if ref != TarDefaultVersion {
+		log.Fatal("Failed to parse version '%s': TarModule only has '%s' version.\n", ref, TarDefaultVersion)
 	}
-	return tarDefaultVersion
+	return m.Head()
 }
 
 // IsDirty returns whether the module has any uncommited changes.
@@ -150,7 +161,7 @@ func (m TarModule) Fetch() bool {
 // TarModules only have a single version. Attempting to check out any
 // other version results in an error.
 func (m TarModule) Checkout(hash string) {
-	if hash != tarDefaultVersion {
+	if hash != m.Head() {
 		log.Fatal("Failed to checkout version '%s': cannot change version of TarModule.\n", hash)
 	}
 }

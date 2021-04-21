@@ -38,7 +38,7 @@ func runStatus(cmd *cobra.Command, args []string) {
 		if mod.IsDirty() {
 			log.Error("Module has uncommited changes.\n")
 		} else {
-			log.Log("Current version: '%s'.\n", mod.Head())
+			log.Log("Current version hash: '%s'.\n", mod.Head())
 		}
 		deps := module.ReadModuleFile(mod.Path()).Dependencies
 		log.Log("Module has %d dependencies.\n", len(deps))

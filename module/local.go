@@ -6,7 +6,7 @@ import (
 	"github.com/daedaleanai/dbt/log"
 )
 
-const localDefaultVersion = "master"
+const localDefaultHash = "<local>"
 
 // LocalModule is a module that is not backed by a git repository or .tar.gz archive.
 type LocalModule struct {
@@ -31,7 +31,7 @@ func (m LocalModule) URL() string {
 
 // Head returns the default version for all LocalModules.
 func (m LocalModule) Head() string {
-	return localDefaultVersion
+	return localDefaultHash
 }
 
 // RevParse must never be called on a LocalModule.

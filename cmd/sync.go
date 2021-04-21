@@ -97,7 +97,7 @@ func runSync(cmd *cobra.Command, args []string) {
 
 			// If the dependency module has uncommited changes, don't try to change its version.
 			if depMod.IsDirty() {
-				log.Warning("Module is in a dirty state. Not changing version.\n")
+				log.Warning("Module has uncommited changes. Not changing version.\n")
 				continue
 			}
 
