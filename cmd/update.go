@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"path"
-	"strings"
 
 	"github.com/daedaleanai/dbt/log"
 	"github.com/daedaleanai/dbt/module"
@@ -12,28 +11,50 @@ import (
 )
 
 var updateCmd = &cobra.Command{
-	Use:   "update [modules]",
-	Short: "Updates dependency versions in MODULE file of the current module",
-	Long: `Updates dependency versions in MODULE file of the current module.
+	Use:   "update MODULES",
+	Short: "Updates dependency version hashes the MODULE file of the current module",
+	Long: `Updates dependency version hashes in MODULE file of the current module.
 By default all modules in each MODULE file will be updated.
-If a list of modules is supplied to the command only the versions of the listed modules will be updated.
-The new version of a dependency is determined by taking the HEAD of the currently checked out module repository.
-If the head has an annotated tag associated with it, the tag name is used.
-Otherwise, the commit hash is used.`,
+If a list of modules is supplied to the command only the hashes of the listed modules will be updated.
+If the --all flag is provided, the MODULE files of all modules are updated.`,
 	Run: runUpdate,
 }
 
+var allModules bool
+
 func init() {
+	updateCmd.Flags().BoolVar(&allModules, "all", false, "Update all modules")
 	depCmd.AddCommand(updateCmd)
 }
 
 func runUpdate(cmd *cobra.Command, args []string) {
-	// Returns whether to update the depndency to a given module.
+	if allModules {
+		workspaceRoot := util.GetWorkspaceRoot()
+		log.Log("Current workspace is '%s'.\n", workspaceRoot)
+
+		for modName, modPath := range module.GetAllModulePaths(workspaceRoot) {
+			log.IndentationLevel = 0
+			log.Log("\nProcessing module '%s'.\n", modName)
+			log.IndentationLevel = 1
+			updateModule(modPath, args)
+		}
+	} else {
+		moduleRoot := util.GetModuleRoot()
+		log.Log("Current module is '%s'.\n\n", moduleRoot)
+		updateModule(moduleRoot, args)
+	}
+
+	log.IndentationLevel = 0
+	log.Success("Done.\n")
+}
+
+func updateModule(moduleRoot string, modulesToUpdate []string) {
+	// Whether to update the depndency to a given module.
 	updateDependency := func(dep string) bool {
-		if len(args) == 0 {
+		if len(modulesToUpdate) == 0 {
 			return true
 		}
-		for _, arg := range args {
+		for _, arg := range modulesToUpdate {
 			if dep == arg {
 				return true
 			}
@@ -41,35 +62,28 @@ func runUpdate(cmd *cobra.Command, args []string) {
 		return false
 	}
 
-	moduleRoot := util.GetModuleRoot()
-	log.Log("Current module is '%s'.\n", moduleRoot)
-
 	depsDir := path.Join(util.GetWorkspaceRoot(), util.DepsDirName)
-	deps := module.ReadModuleFile(moduleRoot)
+	changedModuleFile := false
+	moduleFile := module.ReadModuleFile(moduleRoot)
 
-	for idx, dep := range deps {
-		log.IndentationLevel = 0
-		if !updateDependency(dep.ModuleName()) {
+	basicIndentationLevel := log.IndentationLevel
+	for idx, dep := range moduleFile.Dependencies {
+		log.IndentationLevel = basicIndentationLevel
+		if !updateDependency(dep.Name) {
 			continue
 		}
+		log.Log("%d) Updating dependency on module '%s', version '%s'.\n", idx+1, dep.Name, dep.Version.Rev)
+		log.IndentationLevel = basicIndentationLevel + 1
 
-		log.Log("\nUpdating dependency on module '%s', version '%s':\n", dep.ModuleName(), dep.Version)
-		log.IndentationLevel = 1
-
-		depModulePath := path.Join(depsDir, dep.ModuleName())
+		depModulePath := path.Join(depsDir, dep.Name)
 		if !util.DirExists(depModulePath) {
 			log.Warning("Dependency module does not exist. Run 'dbt sync' to create it. Not updating dependency version.\n")
 			continue
 		}
 
 		depMod := module.OpenModule(depModulePath)
-		if !depMod.HasOrigin(dep.URL) {
-			log.Warning("Origin of existing module does not match dependency URL '%s'. Not updating dependency version.\n")
-			continue
-		}
-
-		if depMod.HasVersionCheckedOut(dep.Version) {
-			log.Success("Dependency version is already up-to-date.\n")
+		if depMod.URL() != dep.URL {
+			log.Warning("URL of existing module does not match dependency URL '%s'. Not updating dependency version.\n")
 			continue
 		}
 
@@ -78,21 +92,19 @@ func runUpdate(cmd *cobra.Command, args []string) {
 			continue
 		}
 
-		versions := depMod.CheckedOutVersions()
-		// This is save, since depMod.CheckedOutVersions() returns at least one version
-		// if IsDirty() is false (which is checked above).
-		// For GitModules this is the HEAD commit, for TarModules this is 'master'.
-		newVersion := versions[len(versions)-1]
-		if len(versions) > 2 {
-			log.Debug("Dependency module has multiple versions: '%s'. Using '%s'.\n", strings.Join(versions, "', '"), newVersion)
+		newHash := depMod.RevParse(dep.Version.Rev)
+		if dep.Version.Hash == newHash {
+			log.Success("Version hash is already up-to-date.\n")
+		} else {
+			moduleFile.Dependencies[idx].Version.Hash = newHash
+			changedModuleFile = true
+			log.Success("Changed dependency version hash from '%s' to '%s'.\n", dep.Version.Hash, newHash)
 		}
-		log.Success("Changing dependency version from '%s' to '%s'.\n", dep.Version, newVersion)
-		deps[idx].Version = newVersion
+
+		log.Log("\n")
 	}
 
-	module.WriteModuleFile(moduleRoot, deps)
-
-	log.IndentationLevel = 0
-	log.Log("\n")
-	log.Success("Done.\n")
+	if changedModuleFile {
+		module.WriteModuleFile(moduleRoot, moduleFile)
+	}
 }

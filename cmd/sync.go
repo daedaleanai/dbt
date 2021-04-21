@@ -35,30 +35,27 @@ func runSync(cmd *cobra.Command, args []string) {
 	log.Log("Current workspace is '%s'.\n", workspaceRoot)
 
 	// The top-level module must already exist and will never be cloned or downloaded by the tool.
-	rootModule := module.OpenModule(workspaceRoot)
-	module.SetupModule(rootModule)
+	topLevelModule := module.OpenModule(workspaceRoot)
+	module.SetupModule(topLevelModule)
 
 	// Create the DEPS/ subdirectory and create a symlink to the top-level module.
-	rootModuleSymlink := path.Join(workspaceRoot, util.DepsDirName, rootModule.Name())
-	if !util.DirExists(rootModuleSymlink) {
-		log.Debug("Creating symlink for the top-level module: '%s/%s' -> '%s'.\n", util.DepsDirName, rootModule.Name(), workspaceRoot)
+	topLevelModuleSymlink := path.Join(workspaceRoot, util.DepsDirName, topLevelModule.Name())
+	if !util.DirExists(topLevelModuleSymlink) {
+		log.Debug("Creating symlink for the top-level module: '%s/%s' -> '%s'.\n", util.DepsDirName, topLevelModule.Name(), workspaceRoot)
 
-		err := os.MkdirAll(path.Dir(rootModuleSymlink), util.DirMode)
-		if err != nil {
-			log.Fatal("Failed to create %s/ directory: %s.\n", util.DepsDirName, err)
-		}
-		err = os.Symlink("..", rootModuleSymlink)
+		util.MkdirAll(path.Dir(topLevelModuleSymlink))
+		err := os.Symlink("..", topLevelModuleSymlink)
 		if err != nil {
 			log.Fatal("Failed to create symlink to top-level module: %s.\n", err)
 		}
 	}
 
-	// Keeps track of the modules whose versions have already been fixed and the
-	// dependent module that caused the version to be fixed.
-	fixed := map[string]string{rootModule.Name(): rootModule.Name()}
+	// Keeps track of the modules whose versions and names have already been fixed and the
+	// dependent module that caused the version and name to be fixed.
+	fixedModules := map[string]string{topLevelModule.Name(): topLevelModule.Name()}
 
 	// Modules that still need to be processed.
-	queue := []module.Module{rootModule}
+	queue := []module.Module{topLevelModule}
 
 	for len(queue) > 0 {
 		mod := queue[0]
@@ -68,61 +65,75 @@ func runSync(cmd *cobra.Command, args []string) {
 		log.Log("\nProcessing module '%s'.\n", mod.Name())
 		log.IndentationLevel = 1
 
-		deps := module.ReadModuleFile(mod.Path())
-		log.Log("Module has %d dependencies.\n", len(deps))
+		moduleFile := module.ReadModuleFile(mod.Path())
+		changedModuleFile := false
+		log.Log("Module has %d dependencies.\n", len(moduleFile.Dependencies))
 
-		for idx, dep := range deps {
+		for idx, dep := range moduleFile.Dependencies {
 			if useMasterVersion {
-				dep.Version = masterVersion
+				dep.Version = module.Version{Rev: masterVersion, Hash: ""}
 			}
 			log.IndentationLevel = 1
-			log.Log("%d) Resolving dependency to '%s', version '%s'.\n", idx+1, dep.ModuleName(), dep.Version)
+			log.Log("%d) Resolving dependency to module '%s', version '%s' (%s).\n", idx+1, dep.Name, dep.Version.Rev, dep.Version.Hash)
 			log.IndentationLevel = 2
 
-			depPath := path.Join(workspaceRoot, util.DepsDirName, dep.ModuleName())
+			depPath := path.Join(workspaceRoot, util.DepsDirName, dep.Name)
 			depMod := module.OpenOrCreateModule(depPath, dep.URL)
 
 			// If the version of the dependency is not yet fixed, the current module will determine
 			// the dependency version.
-			dependentModule, versionIsFixed := fixed[depMod.Name()]
+			prevModule, versionIsFixed := fixedModules[dep.Name]
 			if !versionIsFixed {
-				fixed[depMod.Name()] = mod.Name()
+				fixedModules[dep.Name] = mod.Name()
 				queue = append(queue, depMod)
 			}
 
-			// Check that the module fulfilling dependency actually comes from source required
-			// by the dependency. I.e., that the dependency module is not a different module that
-			// just happens to have the same name.
-			if !depMod.HasOrigin(dep.URL) {
-				log.Warning("Module origin does not match dependency URL '%s'.\n", dep.URL)
+			// Check that the module fulfilling the dependency actually comes from URL required
+			// by the dependency (i.e., that the dependency module is not a different module that
+			// just happens to have the same name).
+			if depMod.URL() != dep.URL {
+				log.Error("Module URL does not match dependency URL '%s'.\n", dep.URL)
 			}
 
 			// If the dependency module has uncommited changes, don't try to change its version.
 			if depMod.IsDirty() {
-				log.Warning("Module is in a dirty state. Not changing version.\n")
+				log.Warning("Module has uncommited changes. Not changing version.\n")
 				continue
 			}
 
-			// If the dependency module already has the required version checked out, there is nothing to do.
-			if depMod.HasVersionCheckedOut(dep.Version) {
-				log.Success("Module version matches required version.\n")
+			if dep.Version.Hash == "" {
+				dep.Version.Hash = depMod.RevParse(dep.Version.Rev)
+				log.Debug("Dependency version '%s' resolved as hash '%s'.\n", dep.Version.Rev, dep.Version.Hash)
+				if !useMasterVersion {
+					moduleFile.Dependencies[idx].Version.Hash = dep.Version.Hash
+					changedModuleFile = true
+				}
+			}
+
+			// If the dependency module already has the required hash checked out, there is nothing to do.
+			if depMod.Head() == dep.Version.Hash {
+				log.Success("Module version hash matches required version.\n")
 				continue
 			}
 
 			// If the dependency module's version is already fixed, but does not match
 			// the version required by the dependency, we issue a warning but do not change the version.
 			if versionIsFixed {
-				log.Warning("Module version is already fixed by dependent module '%s'. Not changing version.\n", dependentModule)
+				log.Warning("Module version is already fixed by dependent module '%s'. Not changing version.\n", prevModule)
 				continue
 			}
 
-			log.Log("Changing version to '%s'.\n", dep.Version)
-			depMod.CheckoutVersion(dep.Version)
+			log.Log("Checking out version '%s'.\n", dep.Version.Hash)
+			depMod.Checkout(dep.Version.Hash)
 
 			// Verify that changing the version has worked.
-			if !depMod.HasVersionCheckedOut(dep.Version) {
-				log.Fatal("Failed to check out required module version '%s'.\n", dep.Version)
+			if depMod.IsDirty() || depMod.Head() != dep.Version.Hash {
+				log.Fatal("Failed to check out required module version '%s'.\n", dep.Version.Hash)
 			}
+		}
+
+		if changedModuleFile {
+			module.WriteModuleFile(mod.Path(), moduleFile)
 		}
 	}
 

@@ -1,6 +1,7 @@
 package util
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -9,19 +10,17 @@ import (
 	"strings"
 
 	"github.com/daedaleanai/dbt/log"
+	"gopkg.in/yaml.v2"
 )
-
-// FileMode is the default FileMode used when creating files.
-const FileMode = 0664
-
-// DirMode is the default FileMode used when creating directories.
-const DirMode = 0775
 
 // ModuleFileName is the name of the file describing each module.
 const ModuleFileName = "MODULE"
 
 // DepsDirName is directory that dependencies are stored in.
 const DepsDirName = "DEPS"
+
+const fileMode = 0664
+const dirMode = 0775
 
 // FileExists checks whether some file exists.
 func FileExists(file string) bool {
@@ -43,6 +42,14 @@ func RemoveDir(p string) {
 	}
 }
 
+// MkdirAll creates directory `p` and all parent directories.
+func MkdirAll(p string) {
+	err := os.MkdirAll(p, dirMode)
+	if err != nil {
+		log.Fatal("Failed to create directory '%s': %s.\n", p, err)
+	}
+}
+
 func ReadFile(filePath string) []byte {
 	data, err := ioutil.ReadFile(filePath)
 	if err != nil {
@@ -51,16 +58,46 @@ func ReadFile(filePath string) []byte {
 	return data
 }
 
+func ReadJson(filePath string, v interface{}) {
+	err := json.Unmarshal(ReadFile(filePath), v)
+	if err != nil {
+		log.Fatal("Failed to unmarshal JSON file '%s': %s.\n", filePath, err)
+	}
+}
+
+func ReadYaml(filePath string, v interface{}) {
+	err := yaml.Unmarshal(ReadFile(filePath), v)
+	if err != nil {
+		log.Fatal("Failed to unmarshal YAML file '%s': %s.\n", filePath, err)
+	}
+}
+
 func WriteFile(filePath string, data []byte) {
 	dir := path.Dir(filePath)
-	err := os.MkdirAll(dir, DirMode)
+	err := os.MkdirAll(dir, dirMode)
 	if err != nil {
 		log.Fatal("Failed to create directory '%s': %s.\n", dir, err)
 	}
-	err = ioutil.WriteFile(filePath, data, FileMode)
+	err = ioutil.WriteFile(filePath, data, fileMode)
 	if err != nil {
 		log.Fatal("Failed to write file '%s': %s.\n", filePath, err)
 	}
+}
+
+func WriteJson(filePath string, v interface{}) {
+	data, err := json.Marshal(v)
+	if err != nil {
+		log.Fatal("Failed to marshal JSON for file '%s': %s.\n", filePath, err)
+	}
+	WriteFile(filePath, data)
+}
+
+func WriteYaml(filePath string, v interface{}) {
+	data, err := yaml.Marshal(v)
+	if err != nil {
+		log.Fatal("Failed to marshal YAML for file '%s': %s.\n", filePath, err)
+	}
+	WriteFile(filePath, data)
 }
 
 func CopyFile(sourceFile, destFile string) {

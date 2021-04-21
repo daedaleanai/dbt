@@ -2,12 +2,10 @@ package cmd
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"go/ast"
 	"go/parser"
 	"go/token"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path"
@@ -26,6 +24,7 @@ const bashFileName = "build.sh"
 const buildDirName = "BUILD"
 const buildDirNamePrefix = "OUTPUT"
 const buildFileName = "BUILD.go"
+const dbtRulesDirName = "dbt-rules"
 const generatorDirName = "GENERATOR"
 const generatorOutputFileName = "output.json"
 const initFileName = "init.go"
@@ -108,7 +107,7 @@ var buildCmd = &cobra.Command{
 	Short:                 "Builds the targets",
 	Long:                  `Builds the targets.`,
 	Run:                   runBuild,
-	ValidArgsFunction:     completeArgs,
+	ValidArgsFunction:     completeBuildArgs,
 	DisableFlagsInUseLine: true,
 }
 
@@ -117,6 +116,12 @@ func init() {
 }
 
 func runBuild(cmd *cobra.Command, args []string) {
+	dbtRulesDir := path.Join(util.GetWorkspaceRoot(), util.DepsDirName, dbtRulesDirName)
+	if !util.DirExists(dbtRulesDir) {
+		log.Fatal("You are running 'dbt build' without '%s' being available. Add that dependency, run 'dbt sync' and try again.\n", dbtRulesDirName)
+		return
+	}
+
 	targets, flags := parseArgs(args)
 	genOutput := runGenerator("buildFiles", flags)
 
@@ -206,7 +211,7 @@ func runBuild(cmd *cobra.Command, args []string) {
 	}
 }
 
-func completeArgs(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+func completeBuildArgs(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 	genOutput := runGenerator("completion", []string{})
 
 	if strings.Contains(toComplete, "=") {
@@ -301,18 +306,9 @@ func runGenerator(mode string, flags []string) generatorOutput {
 	if err != nil {
 		log.Fatal("Failed to run generator: %s.\n", err)
 	}
-	generatorOutputPath := path.Join(generatorDir, generatorOutputFileName)
-	outputBytes, err := ioutil.ReadFile(generatorOutputPath)
-	if err != nil {
-		log.Fatal("Failed to read generator output: %s.\n", err)
-	}
-
 	var output generatorOutput
-	err = json.Unmarshal(outputBytes, &output)
-	if err != nil {
-		log.Fatal("Failed to parse generator output: %s.\n", err)
-	}
-
+	generatorOutputPath := path.Join(generatorDir, generatorOutputFileName)
+	util.ReadJson(generatorOutputPath, &output)
 	return output
 }
 
