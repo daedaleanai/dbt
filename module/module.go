@@ -58,11 +58,11 @@ func OpenOrCreateModule(modulePath string, url string) Module {
 	log.Debug("Module directory does not exists.\n")
 
 	if strings.HasSuffix(url, ".git") {
-		log.Debug("Module Url ends in '.git'. Trying to create a new GitModule.\n")
+		log.Debug("Module URL ends in '.git'. Trying to create a new GitModule.\n")
 		return createGitModule(modulePath, url)
 	}
 	if strings.HasSuffix(url, ".tar.gz") {
-		log.Debug("Module Url ends in '.tar.gz'. Trying to create a new TarModule.\n")
+		log.Debug("Module URL ends in '.tar.gz'. Trying to create a new TarModule.\n")
 		return createTarModule(modulePath, url)
 	}
 

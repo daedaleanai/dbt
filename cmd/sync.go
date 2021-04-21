@@ -88,11 +88,11 @@ func runSync(cmd *cobra.Command, args []string) {
 				queue = append(queue, depMod)
 			}
 
-			// Check that the module fulfilling the dependency actually comes from Url required
+			// Check that the module fulfilling the dependency actually comes from URL required
 			// by the dependency (i.e., that the dependency module is not a different module that
 			// just happens to have the same name).
 			if depMod.URL() != dep.URL {
-				log.Error("Module Url does not match dependency Url '%s'.\n", dep.URL)
+				log.Error("Module URL does not match dependency URL '%s'.\n", dep.URL)
 			}
 
 			// If the dependency module has uncommited changes, don't try to change its version.

@@ -35,10 +35,10 @@ func addDependency(newDep module.Dependency) {
 	moduleFile := module.ReadModuleFile(moduleRoot)
 
 	if !depNameAndVersionRegexp.MatchString(newDep.Name) {
-		log.Fatal("Dependency name '%s' contains unallowed characters.\n", newDep.Name)
+		log.Fatal("Dependency name '%s' contains forbidden characters.\n", newDep.Name)
 	}
 	if !depNameAndVersionRegexp.MatchString(newDep.Version.Rev) {
-		log.Fatal("Dependency version '%s' contains unallowed characters.\n", newDep.Version.Rev)
+		log.Fatal("Dependency version '%s' contains forbidden characters.\n", newDep.Version.Rev)
 	}
 	if !depUrlRegexp.MatchString(newDep.URL) {
 		log.Fatal("Dependency url '%s' contains does not match the expected format.\n", newDep.URL)
@@ -49,7 +49,7 @@ func addDependency(newDep module.Dependency) {
 			continue
 		}
 		if dep.Name != newDep.Name {
-			log.Fatal("Module already has a dependency for that Url with a different name.\n")
+			log.Fatal("Module already has a dependency for that URL with a different name.\n")
 		}
 		if dep.Version != newDep.Version {
 			moduleFile.Dependencies[idx] = newDep
