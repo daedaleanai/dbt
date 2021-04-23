@@ -50,7 +50,7 @@ func (m GitModule) Head() string {
 
 // RevParse returns the commit hash for the commit referenced by `ref`.
 func (m GitModule) RevParse(ref string) string {
-	return string(m.runGitCommand("rev-parse", ref))
+	return string(m.runGitCommand("rev-list", "-n", "1", ref))
 }
 
 // IsDirty returns whether the underlying repository has any uncommited changes.
