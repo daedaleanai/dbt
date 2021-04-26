@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#375EAB">
+
+  <title>spinner - Go Documentation Server</title>
+
+<link type="text/css" rel="stylesheet" href="../../../../lib/godoc/style.css">
+
+<script>window.initFuncs = [];</script>
+<script src="../../../../lib/godoc/jquery.js" defer></script>
+
+
+
+<script>var goVersion = "go1.16";</script>
+<script src="../../../../lib/godoc/godocs.js" defer></script>
+</head>
+<body>
+
+<div id='lowframe' style="position: fixed; bottom: 0; left: 0; height: 0; width: 100%; border-top: thin solid grey; background-color: white; overflow: auto;">
+...
+</div><!-- #lowframe -->
+
+<div id="topbar" class="wide"><div class="container">
+<div class="top-heading" id="heading-wide"><a href="../../../index.html">Go Documentation Server</a></div>
+<div class="top-heading" id="heading-narrow"><a href="../../../index.html">GoDoc</a></div>
+<a href="index.html#" id="menu-button"><span id="menu-button-arrow">&#9661;</span></a>
+<form method="GET" action="http://localhost:8080/search">
+<div id="menu">
+
+<span class="search-box"><input type="search" id="search" name="q" placeholder="Search" aria-label="Search" required><button type="submit"><span><!-- magnifying glass: --><svg width="24" height="24" viewBox="0 0 24 24"><title>submit search</title><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/><path d="M0 0h24v24H0z" fill="none"/></svg></span></button></span>
+</div>
+</form>
+
+</div></div>
+
+
+
+<div id="page" class="wide">
+<div class="container">
+
+
+  <h1>
+    Package spinner
+    <span class="text-muted"></span>
+  </h1>
+
+
+
+
+
+
+
+<div id="nav"></div>
+
+
+<!--
+	Copyright 2009 The Go Authors. All rights reserved.
+	Use of this source code is governed by a BSD-style
+	license that can be found in the LICENSE file.
+-->
+<!--
+	Note: Static (i.e., not template-generated) href and id
+	attributes start with "pkg-" to make it impossible for
+	them to conflict with generated attributes (some of which
+	correspond to Go identifiers).
+-->
+
+	<script>
+	document.ANALYSIS_DATA = null;
+	document.CALLGRAPH = null;
+	</script>
+
+	
+		
+		<div id="short-nav">
+			<dl>
+			<dd><code>import "github.com/briandowns/spinner"</code></dd>
+			</dl>
+			<dl>
+			<dd><a href="index.html#pkg-overview" class="overviewLink">Overview</a></dd>
+			<dd><a href="index.html#pkg-index" class="indexLink">Index</a></dd>
+			
+			
+			</dl>
+		</div>
+		<!-- The package's Name is printed as title by the top-level template -->
+		<div id="pkg-overview" class="toggleVisible">
+			<div class="collapsed">
+				<h2 class="toggleButton" title="Click to show Overview section">Overview ▹</h2>
+			</div>
+			<div class="expanded">
+				<h2 class="toggleButton" title="Click to hide Overview section">Overview ▾</h2>
+				<p>
+Package spinner is a simple package to add a spinner / progress indicator to any terminal application.
+</p>
+
+				
+			</div>
+		</div>
+
+		<div id="pkg-index" class="toggleVisible">
+		<div class="collapsed">
+			<h2 class="toggleButton" title="Click to show Index section">Index ▹</h2>
+		</div>
+		<div class="expanded">
+			<h2 class="toggleButton" title="Click to hide Index section">Index ▾</h2>
+
+		<!-- Table of contents for API; must be named manual-nav to turn off auto nav. -->
+			<div id="manual-nav">
+			<dl>
+			
+			
+				<dd><a href="index.html#pkg-variables">Variables</a></dd>
+			
+			
+				
+				<dd><a href="index.html#GenerateNumberSequence">func GenerateNumberSequence(length int) []string</a></dd>
+			
+			
+				
+				<dd><a href="index.html#Option">type Option</a></dd>
+				
+					
+					<dd>&nbsp; &nbsp; <a href="index.html#WithColor">func WithColor(color string) Option</a></dd>
+				
+					
+					<dd>&nbsp; &nbsp; <a href="index.html#WithFinalMSG">func WithFinalMSG(finalMsg string) Option</a></dd>
+				
+					
+					<dd>&nbsp; &nbsp; <a href="index.html#WithHiddenCursor">func WithHiddenCursor(hideCursor bool) Option</a></dd>
+				
+					
+					<dd>&nbsp; &nbsp; <a href="index.html#WithSuffix">func WithSuffix(suffix string) Option</a></dd>
+				
+					
+					<dd>&nbsp; &nbsp; <a href="index.html#WithWriter">func WithWriter(w io.Writer) Option</a></dd>
+				
+				
+			
+				
+				<dd><a href="index.html#Options">type Options</a></dd>
+				
+				
+			
+				
+				<dd><a href="index.html#Spinner">type Spinner</a></dd>
+				
+					
+					<dd>&nbsp; &nbsp; <a href="index.html#New">func New(cs []string, d time.Duration, options ...Option) *Spinner</a></dd>
+				
+				
+					
+					<dd>&nbsp; &nbsp; <a href="index.html#Spinner.Active">func (s *Spinner) Active() bool</a></dd>
+				
+					
+					<dd>&nbsp; &nbsp; <a href="index.html#Spinner.Color">func (s *Spinner) Color(colors ...string) error</a></dd>
+				
+					
+					<dd>&nbsp; &nbsp; <a href="index.html#Spinner.Lock">func (s *Spinner) Lock()</a></dd>
+				
+					
+					<dd>&nbsp; &nbsp; <a href="index.html#Spinner.Restart">func (s *Spinner) Restart()</a></dd>
+				
+					
+					<dd>&nbsp; &nbsp; <a href="index.html#Spinner.Reverse">func (s *Spinner) Reverse()</a></dd>
+				
+					
+					<dd>&nbsp; &nbsp; <a href="index.html#Spinner.Start">func (s *Spinner) Start()</a></dd>
+				
+					
+					<dd>&nbsp; &nbsp; <a href="index.html#Spinner.Stop">func (s *Spinner) Stop()</a></dd>
+				
+					
+					<dd>&nbsp; &nbsp; <a href="index.html#Spinner.Unlock">func (s *Spinner) Unlock()</a></dd>
+				
+					
+					<dd>&nbsp; &nbsp; <a href="index.html#Spinner.UpdateCharSet">func (s *Spinner) UpdateCharSet(cs []string)</a></dd>
+				
+					
+					<dd>&nbsp; &nbsp; <a href="index.html#Spinner.UpdateSpeed">func (s *Spinner) UpdateSpeed(d time.Duration)</a></dd>
+				
+			
+			
+			</dl>
+			</div><!-- #manual-nav -->
+
+		
+
+		
+			<h3>Package files</h3>
+			<p>
+			<span style="font-size:90%">
+			
+				<a href="http://localhost:8080/src/github.com/briandowns/spinner/character_sets.go">character_sets.go</a>
+			
+				<a href="http://localhost:8080/src/github.com/briandowns/spinner/spinner.go">spinner.go</a>
+			
+			</span>
+			</p>
+		
+		</div><!-- .expanded -->
+		</div><!-- #pkg-index -->
+
+		
+
+		
+		
+			<h2 id="pkg-variables">Variables</h2>
+			
+				<p>
+CharSets contains the available character sets
+</p>
+
+				<pre>var <span id="CharSets">CharSets</span> = map[<a href="http://localhost:8080/pkg/builtin/#int">int</a>][]<a href="http://localhost:8080/pkg/builtin/#string">string</a>{
+    0:  {&#34;←&#34;, &#34;↖&#34;, &#34;↑&#34;, &#34;↗&#34;, &#34;→&#34;, &#34;↘&#34;, &#34;↓&#34;, &#34;↙&#34;},
+    1:  {&#34;▁&#34;, &#34;▃&#34;, &#34;▄&#34;, &#34;▅&#34;, &#34;▆&#34;, &#34;▇&#34;, &#34;█&#34;, &#34;▇&#34;, &#34;▆&#34;, &#34;▅&#34;, &#34;▄&#34;, &#34;▃&#34;, &#34;▁&#34;},
+    2:  {&#34;▖&#34;, &#34;▘&#34;, &#34;▝&#34;, &#34;▗&#34;},
+    3:  {&#34;┤&#34;, &#34;┘&#34;, &#34;┴&#34;, &#34;└&#34;, &#34;├&#34;, &#34;┌&#34;, &#34;┬&#34;, &#34;┐&#34;},
+    4:  {&#34;◢&#34;, &#34;◣&#34;, &#34;◤&#34;, &#34;◥&#34;},
+    5:  {&#34;◰&#34;, &#34;◳&#34;, &#34;◲&#34;, &#34;◱&#34;},
+    6:  {&#34;◴&#34;, &#34;◷&#34;, &#34;◶&#34;, &#34;◵&#34;},
+    7:  {&#34;◐&#34;, &#34;◓&#34;, &#34;◑&#34;, &#34;◒&#34;},
+    8:  {&#34;.&#34;, &#34;o&#34;, &#34;O&#34;, &#34;@&#34;, &#34;*&#34;},
+    9:  {&#34;|&#34;, &#34;/&#34;, &#34;-&#34;, &#34;\\&#34;},
+    10: {&#34;◡◡&#34;, &#34;⊙⊙&#34;, &#34;◠◠&#34;},
+    11: {&#34;⣾&#34;, &#34;⣽&#34;, &#34;⣻&#34;, &#34;⢿&#34;, &#34;⡿&#34;, &#34;⣟&#34;, &#34;⣯&#34;, &#34;⣷&#34;},
+    12: {&#34;&gt;))&#39;&gt;&#34;, &#34; &gt;))&#39;&gt;&#34;, &#34;  &gt;))&#39;&gt;&#34;, &#34;   &gt;))&#39;&gt;&#34;, &#34;    &gt;))&#39;&gt;&#34;, &#34;   &lt;&#39;((&lt;&#34;, &#34;  &lt;&#39;((&lt;&#34;, &#34; &lt;&#39;((&lt;&#34;},
+    13: {&#34;⠁&#34;, &#34;⠂&#34;, &#34;⠄&#34;, &#34;⡀&#34;, &#34;⢀&#34;, &#34;⠠&#34;, &#34;⠐&#34;, &#34;⠈&#34;},
+    14: {&#34;⠋&#34;, &#34;⠙&#34;, &#34;⠹&#34;, &#34;⠸&#34;, &#34;⠼&#34;, &#34;⠴&#34;, &#34;⠦&#34;, &#34;⠧&#34;, &#34;⠇&#34;, &#34;⠏&#34;},
+    15: {&#34;a&#34;, &#34;b&#34;, &#34;c&#34;, &#34;d&#34;, &#34;e&#34;, &#34;f&#34;, &#34;g&#34;, &#34;h&#34;, &#34;i&#34;, &#34;j&#34;, &#34;k&#34;, &#34;l&#34;, &#34;m&#34;, &#34;n&#34;, &#34;o&#34;, &#34;p&#34;, &#34;q&#34;, &#34;r&#34;, &#34;s&#34;, &#34;t&#34;, &#34;u&#34;, &#34;v&#34;, &#34;w&#34;, &#34;x&#34;, &#34;y&#34;, &#34;z&#34;},
+    16: {&#34;▉&#34;, &#34;▊&#34;, &#34;▋&#34;, &#34;▌&#34;, &#34;▍&#34;, &#34;▎&#34;, &#34;▏&#34;, &#34;▎&#34;, &#34;▍&#34;, &#34;▌&#34;, &#34;▋&#34;, &#34;▊&#34;, &#34;▉&#34;},
+    17: {&#34;■&#34;, &#34;□&#34;, &#34;▪&#34;, &#34;▫&#34;},
+    18: {&#34;←&#34;, &#34;↑&#34;, &#34;→&#34;, &#34;↓&#34;},
+    19: {&#34;╫&#34;, &#34;╪&#34;},
+    20: {&#34;⇐&#34;, &#34;⇖&#34;, &#34;⇑&#34;, &#34;⇗&#34;, &#34;⇒&#34;, &#34;⇘&#34;, &#34;⇓&#34;, &#34;⇙&#34;},
+    21: {&#34;⠁&#34;, &#34;⠁&#34;, &#34;⠉&#34;, &#34;⠙&#34;, &#34;⠚&#34;, &#34;⠒&#34;, &#34;⠂&#34;, &#34;⠂&#34;, &#34;⠒&#34;, &#34;⠲&#34;, &#34;⠴&#34;, &#34;⠤&#34;, &#34;⠄&#34;, &#34;⠄&#34;, &#34;⠤&#34;, &#34;⠠&#34;, &#34;⠠&#34;, &#34;⠤&#34;, &#34;⠦&#34;, &#34;⠖&#34;, &#34;⠒&#34;, &#34;⠐&#34;, &#34;⠐&#34;, &#34;⠒&#34;, &#34;⠓&#34;, &#34;⠋&#34;, &#34;⠉&#34;, &#34;⠈&#34;, &#34;⠈&#34;},
+    22: {&#34;⠈&#34;, &#34;⠉&#34;, &#34;⠋&#34;, &#34;⠓&#34;, &#34;⠒&#34;, &#34;⠐&#34;, &#34;⠐&#34;, &#34;⠒&#34;, &#34;⠖&#34;, &#34;⠦&#34;, &#34;⠤&#34;, &#34;⠠&#34;, &#34;⠠&#34;, &#34;⠤&#34;, &#34;⠦&#34;, &#34;⠖&#34;, &#34;⠒&#34;, &#34;⠐&#34;, &#34;⠐&#34;, &#34;⠒&#34;, &#34;⠓&#34;, &#34;⠋&#34;, &#34;⠉&#34;, &#34;⠈&#34;},
+    23: {&#34;⠁&#34;, &#34;⠉&#34;, &#34;⠙&#34;, &#34;⠚&#34;, &#34;⠒&#34;, &#34;⠂&#34;, &#34;⠂&#34;, &#34;⠒&#34;, &#34;⠲&#34;, &#34;⠴&#34;, &#34;⠤&#34;, &#34;⠄&#34;, &#34;⠄&#34;, &#34;⠤&#34;, &#34;⠴&#34;, &#34;⠲&#34;, &#34;⠒&#34;, &#34;⠂&#34;, &#34;⠂&#34;, &#34;⠒&#34;, &#34;⠚&#34;, &#34;⠙&#34;, &#34;⠉&#34;, &#34;⠁&#34;},
+    24: {&#34;⠋&#34;, &#34;⠙&#34;, &#34;⠚&#34;, &#34;⠒&#34;, &#34;⠂&#34;, &#34;⠂&#34;, &#34;⠒&#34;, &#34;⠲&#34;, &#34;⠴&#34;, &#34;⠦&#34;, &#34;⠖&#34;, &#34;⠒&#34;, &#34;⠐&#34;, &#34;⠐&#34;, &#34;⠒&#34;, &#34;⠓&#34;, &#34;⠋&#34;},
+    25: {&#34;ｦ&#34;, &#34;ｧ&#34;, &#34;ｨ&#34;, &#34;ｩ&#34;, &#34;ｪ&#34;, &#34;ｫ&#34;, &#34;ｬ&#34;, &#34;ｭ&#34;, &#34;ｮ&#34;, &#34;ｯ&#34;, &#34;ｱ&#34;, &#34;ｲ&#34;, &#34;ｳ&#34;, &#34;ｴ&#34;, &#34;ｵ&#34;, &#34;ｶ&#34;, &#34;ｷ&#34;, &#34;ｸ&#34;, &#34;ｹ&#34;, &#34;ｺ&#34;, &#34;ｻ&#34;, &#34;ｼ&#34;, &#34;ｽ&#34;, &#34;ｾ&#34;, &#34;ｿ&#34;, &#34;ﾀ&#34;, &#34;ﾁ&#34;, &#34;ﾂ&#34;, &#34;ﾃ&#34;, &#34;ﾄ&#34;, &#34;ﾅ&#34;, &#34;ﾆ&#34;, &#34;ﾇ&#34;, &#34;ﾈ&#34;, &#34;ﾉ&#34;, &#34;ﾊ&#34;, &#34;ﾋ&#34;, &#34;ﾌ&#34;, &#34;ﾍ&#34;, &#34;ﾎ&#34;, &#34;ﾏ&#34;, &#34;ﾐ&#34;, &#34;ﾑ&#34;, &#34;ﾒ&#34;, &#34;ﾓ&#34;, &#34;ﾔ&#34;, &#34;ﾕ&#34;, &#34;ﾖ&#34;, &#34;ﾗ&#34;, &#34;ﾘ&#34;, &#34;ﾙ&#34;, &#34;ﾚ&#34;, &#34;ﾛ&#34;, &#34;ﾜ&#34;, &#34;ﾝ&#34;},
+    26: {&#34;.&#34;, &#34;..&#34;, &#34;...&#34;},
+    27: {&#34;▁&#34;, &#34;▂&#34;, &#34;▃&#34;, &#34;▄&#34;, &#34;▅&#34;, &#34;▆&#34;, &#34;▇&#34;, &#34;█&#34;, &#34;▉&#34;, &#34;▊&#34;, &#34;▋&#34;, &#34;▌&#34;, &#34;▍&#34;, &#34;▎&#34;, &#34;▏&#34;, &#34;▏&#34;, &#34;▎&#34;, &#34;▍&#34;, &#34;▌&#34;, &#34;▋&#34;, &#34;▊&#34;, &#34;▉&#34;, &#34;█&#34;, &#34;▇&#34;, &#34;▆&#34;, &#34;▅&#34;, &#34;▄&#34;, &#34;▃&#34;, &#34;▂&#34;, &#34;▁&#34;},
+    28: {&#34;.&#34;, &#34;o&#34;, &#34;O&#34;, &#34;°&#34;, &#34;O&#34;, &#34;o&#34;, &#34;.&#34;},
+    29: {&#34;+&#34;, &#34;x&#34;},
+    30: {&#34;v&#34;, &#34;&lt;&#34;, &#34;^&#34;, &#34;&gt;&#34;},
+    31: {&#34;&gt;&gt;---&gt;&#34;, &#34; &gt;&gt;---&gt;&#34;, &#34;  &gt;&gt;---&gt;&#34;, &#34;   &gt;&gt;---&gt;&#34;, &#34;    &gt;&gt;---&gt;&#34;, &#34;    &lt;---&lt;&lt;&#34;, &#34;   &lt;---&lt;&lt;&#34;, &#34;  &lt;---&lt;&lt;&#34;, &#34; &lt;---&lt;&lt;&#34;, &#34;&lt;---&lt;&lt;&#34;},
+    32: {&#34;|&#34;, &#34;||&#34;, &#34;|||&#34;, &#34;||||&#34;, &#34;|||||&#34;, &#34;|||||||&#34;, &#34;||||||||&#34;, &#34;|||||||&#34;, &#34;||||||&#34;, &#34;|||||&#34;, &#34;||||&#34;, &#34;|||&#34;, &#34;||&#34;, &#34;|&#34;},
+    33: {&#34;[          ]&#34;, &#34;[=         ]&#34;, &#34;[==        ]&#34;, &#34;[===       ]&#34;, &#34;[====      ]&#34;, &#34;[=====     ]&#34;, &#34;[======    ]&#34;, &#34;[=======   ]&#34;, &#34;[========  ]&#34;, &#34;[========= ]&#34;, &#34;[==========]&#34;},
+    34: {&#34;(*---------)&#34;, &#34;(-*--------)&#34;, &#34;(--*-------)&#34;, &#34;(---*------)&#34;, &#34;(----*-----)&#34;, &#34;(-----*----)&#34;, &#34;(------*---)&#34;, &#34;(-------*--)&#34;, &#34;(--------*-)&#34;, &#34;(---------*)&#34;},
+    35: {&#34;█▒▒▒▒▒▒▒▒▒&#34;, &#34;███▒▒▒▒▒▒▒&#34;, &#34;█████▒▒▒▒▒&#34;, &#34;███████▒▒▒&#34;, &#34;██████████&#34;},
+    36: {&#34;[                    ]&#34;, &#34;[=&gt;                  ]&#34;, &#34;[===&gt;                ]&#34;, &#34;[=====&gt;              ]&#34;, &#34;[======&gt;             ]&#34;, &#34;[========&gt;           ]&#34;, &#34;[==========&gt;         ]&#34;, &#34;[============&gt;       ]&#34;, &#34;[==============&gt;     ]&#34;, &#34;[================&gt;   ]&#34;, &#34;[==================&gt; ]&#34;, &#34;[===================&gt;]&#34;},
+    39: {&#34;🌍&#34;, &#34;🌎&#34;, &#34;🌏&#34;},
+    40: {&#34;◜&#34;, &#34;◝&#34;, &#34;◞&#34;, &#34;◟&#34;},
+    41: {&#34;⬒&#34;, &#34;⬔&#34;, &#34;⬓&#34;, &#34;⬕&#34;},
+    42: {&#34;⬖&#34;, &#34;⬘&#34;, &#34;⬗&#34;, &#34;⬙&#34;},
+    43: {&#34;[&gt;&gt;&gt;          &gt;]&#34;, &#34;[]&gt;&gt;&gt;&gt;        []&#34;, &#34;[]  &gt;&gt;&gt;&gt;      []&#34;, &#34;[]    &gt;&gt;&gt;&gt;    []&#34;, &#34;[]      &gt;&gt;&gt;&gt;  []&#34;, &#34;[]        &gt;&gt;&gt;&gt;[]&#34;, &#34;[&gt;&gt;          &gt;&gt;]&#34;},
+    44: {&#34;♠&#34;, &#34;♣&#34;, &#34;♥&#34;, &#34;♦&#34;},
+    45: {&#34;➞&#34;, &#34;➟&#34;, &#34;➠&#34;, &#34;➡&#34;, &#34;➠&#34;, &#34;➟&#34;},
+    46: {&#34;  |  &#34;, ` \   `, &#34;_    &#34;, ` \   `, &#34;  |  &#34;, &#34;   / &#34;, &#34;    _&#34;, &#34;   / &#34;},
+    47: {&#34;  . . . .&#34;, &#34;.   . . .&#34;, &#34;. .   . .&#34;, &#34;. . .   .&#34;, &#34;. . . .  &#34;, &#34;. . . . .&#34;},
+    48: {&#34; |     &#34;, &#34;  /    &#34;, &#34;   _   &#34;, `    \  `, &#34;     | &#34;, `    \  `, &#34;   _   &#34;, &#34;  /    &#34;},
+    49: {&#34;⎺&#34;, &#34;⎻&#34;, &#34;⎼&#34;, &#34;⎽&#34;, &#34;⎼&#34;, &#34;⎻&#34;},
+    50: {&#34;▹▹▹▹▹&#34;, &#34;▸▹▹▹▹&#34;, &#34;▹▸▹▹▹&#34;, &#34;▹▹▸▹▹&#34;, &#34;▹▹▹▸▹&#34;, &#34;▹▹▹▹▸&#34;},
+    51: {&#34;[    ]&#34;, &#34;[   =]&#34;, &#34;[  ==]&#34;, &#34;[ ===]&#34;, &#34;[====]&#34;, &#34;[=== ]&#34;, &#34;[==  ]&#34;, &#34;[=   ]&#34;},
+    52: {&#34;( ●    )&#34;, &#34;(  ●   )&#34;, &#34;(   ●  )&#34;, &#34;(    ● )&#34;, &#34;(     ●)&#34;, &#34;(    ● )&#34;, &#34;(   ●  )&#34;, &#34;(  ●   )&#34;, &#34;( ●    )&#34;},
+    53: {&#34;✶&#34;, &#34;✸&#34;, &#34;✹&#34;, &#34;✺&#34;, &#34;✹&#34;, &#34;✷&#34;},
+    54: {&#34;▐|\\____________▌&#34;, &#34;▐_|\\___________▌&#34;, &#34;▐__|\\__________▌&#34;, &#34;▐___|\\_________▌&#34;, &#34;▐____|\\________▌&#34;, &#34;▐_____|\\_______▌&#34;, &#34;▐______|\\______▌&#34;, &#34;▐_______|\\_____▌&#34;, &#34;▐________|\\____▌&#34;, &#34;▐_________|\\___▌&#34;, &#34;▐__________|\\__▌&#34;, &#34;▐___________|\\_▌&#34;, &#34;▐____________|\\▌&#34;, &#34;▐____________/|▌&#34;, &#34;▐___________/|_▌&#34;, &#34;▐__________/|__▌&#34;, &#34;▐_________/|___▌&#34;, &#34;▐________/|____▌&#34;, &#34;▐_______/|_____▌&#34;, &#34;▐______/|______▌&#34;, &#34;▐_____/|_______▌&#34;, &#34;▐____/|________▌&#34;, &#34;▐___/|_________▌&#34;, &#34;▐__/|__________▌&#34;, &#34;▐_/|___________▌&#34;, &#34;▐/|____________▌&#34;},
+    55: {&#34;▐⠂       ▌&#34;, &#34;▐⠈       ▌&#34;, &#34;▐ ⠂      ▌&#34;, &#34;▐ ⠠      ▌&#34;, &#34;▐  ⡀     ▌&#34;, &#34;▐  ⠠     ▌&#34;, &#34;▐   ⠂    ▌&#34;, &#34;▐   ⠈    ▌&#34;, &#34;▐    ⠂   ▌&#34;, &#34;▐    ⠠   ▌&#34;, &#34;▐     ⡀  ▌&#34;, &#34;▐     ⠠  ▌&#34;, &#34;▐      ⠂ ▌&#34;, &#34;▐      ⠈ ▌&#34;, &#34;▐       ⠂▌&#34;, &#34;▐       ⠠▌&#34;, &#34;▐       ⡀▌&#34;, &#34;▐      ⠠ ▌&#34;, &#34;▐      ⠂ ▌&#34;, &#34;▐     ⠈  ▌&#34;, &#34;▐     ⠂  ▌&#34;, &#34;▐    ⠠   ▌&#34;, &#34;▐    ⡀   ▌&#34;, &#34;▐   ⠠    ▌&#34;, &#34;▐   ⠂    ▌&#34;, &#34;▐  ⠈     ▌&#34;, &#34;▐  ⠂     ▌&#34;, &#34;▐ ⠠      ▌&#34;, &#34;▐ ⡀      ▌&#34;, &#34;▐⠠       ▌&#34;},
+    56: {&#34;¿&#34;, &#34;?&#34;},
+    57: {&#34;⢹&#34;, &#34;⢺&#34;, &#34;⢼&#34;, &#34;⣸&#34;, &#34;⣇&#34;, &#34;⡧&#34;, &#34;⡗&#34;, &#34;⡏&#34;},
+    58: {&#34;⢄&#34;, &#34;⢂&#34;, &#34;⢁&#34;, &#34;⡁&#34;, &#34;⡈&#34;, &#34;⡐&#34;, &#34;⡠&#34;},
+    59: {&#34;.  &#34;, &#34;.. &#34;, &#34;...&#34;, &#34; ..&#34;, &#34;  .&#34;, &#34;   &#34;},
+    60: {&#34;.&#34;, &#34;o&#34;, &#34;O&#34;, &#34;°&#34;, &#34;O&#34;, &#34;o&#34;, &#34;.&#34;},
+    61: {&#34;▓&#34;, &#34;▒&#34;, &#34;░&#34;},
+    62: {&#34;▌&#34;, &#34;▀&#34;, &#34;▐&#34;, &#34;▄&#34;},
+    63: {&#34;⊶&#34;, &#34;⊷&#34;},
+    64: {&#34;▪&#34;, &#34;▫&#34;},
+    65: {&#34;□&#34;, &#34;■&#34;},
+    66: {&#34;▮&#34;, &#34;▯&#34;},
+    67: {&#34;-&#34;, &#34;=&#34;, &#34;≡&#34;},
+    68: {&#34;d&#34;, &#34;q&#34;, &#34;p&#34;, &#34;b&#34;},
+    69: {&#34;∙∙∙&#34;, &#34;●∙∙&#34;, &#34;∙●∙&#34;, &#34;∙∙●&#34;, &#34;∙∙∙&#34;},
+    70: {&#34;🌑 &#34;, &#34;🌒 &#34;, &#34;🌓 &#34;, &#34;🌔 &#34;, &#34;🌕 &#34;, &#34;🌖 &#34;, &#34;🌗 &#34;, &#34;🌘 &#34;},
+    71: {&#34;☗&#34;, &#34;☖&#34;},
+    72: {&#34;⧇&#34;, &#34;⧆&#34;},
+    73: {&#34;◉&#34;, &#34;◎&#34;},
+    74: {&#34;㊂&#34;, &#34;㊀&#34;, &#34;㊁&#34;},
+    75: {&#34;⦾&#34;, &#34;⦿&#34;},
+    76: {&#34;ဝ&#34;, &#34;၀&#34;},
+    77: {&#34;▌&#34;, &#34;▀&#34;, &#34;▐▄&#34;},
+}</pre>
+			
+		
+		
+			
+			
+			<h2 id="GenerateNumberSequence">func <a href="http://localhost:8080/src/github.com/briandowns/spinner/spinner.go?s=10863:10911#L411">GenerateNumberSequence</a>
+				<a class="permalink" href="index.html#GenerateNumberSequence">&#xb6;</a>
+				
+				
+			</h2>
+			<pre>func GenerateNumberSequence(length <a href="http://localhost:8080/pkg/builtin/#int">int</a>) []<a href="http://localhost:8080/pkg/builtin/#string">string</a></pre>
+			<p>
+GenerateNumberSequence will generate a slice of integers at the
+provided length and convert them each to a string.
+</p>
+
+			
+			
+
+		
+		
+			
+			
+			<h2 id="Option">type <a href="http://localhost:8080/src/github.com/briandowns/spinner/spinner.go?s=6038:6064#L200">Option</a>
+				<a class="permalink" href="index.html#Option">&#xb6;</a>
+				
+				
+			</h2>
+			<p>
+Option is a function that takes a spinner and applies
+a given configuration.
+</p>
+
+			<pre>type Option func(*<a href="index.html#Spinner">Spinner</a>)</pre>
+
+			
+
+			
+
+			
+			
+			
+
+			
+				
+				<h3 id="WithColor">func <a href="http://localhost:8080/src/github.com/briandowns/spinner/spinner.go?s=6268:6303#L211">WithColor</a>
+					<a class="permalink" href="index.html#WithColor">&#xb6;</a>
+					
+					
+				</h3>
+				<pre>func WithColor(color <a href="http://localhost:8080/pkg/builtin/#string">string</a>) <a href="index.html#Option">Option</a></pre>
+				<p>
+WithColor adds the given color to the spinner.
+</p>
+
+				
+				
+			
+				
+				<h3 id="WithFinalMSG">func <a href="http://localhost:8080/src/github.com/briandowns/spinner/spinner.go?s=6610:6651#L227">WithFinalMSG</a>
+					<a class="permalink" href="index.html#WithFinalMSG">&#xb6;</a>
+					
+					
+				</h3>
+				<pre>func WithFinalMSG(finalMsg <a href="http://localhost:8080/pkg/builtin/#string">string</a>) <a href="index.html#Option">Option</a></pre>
+				<p>
+WithFinalMSG adds the given string ot the spinner
+as the final message to be written.
+</p>
+
+				
+				
+			
+				
+				<h3 id="WithHiddenCursor">func <a href="http://localhost:8080/src/github.com/briandowns/spinner/spinner.go?s=6779:6824#L235">WithHiddenCursor</a>
+					<a class="permalink" href="index.html#WithHiddenCursor">&#xb6;</a>
+					
+					
+				</h3>
+				<pre>func WithHiddenCursor(hideCursor <a href="http://localhost:8080/pkg/builtin/#bool">bool</a>) <a href="index.html#Option">Option</a></pre>
+				<p>
+WithHiddenCursor hides the cursor
+if hideCursor = true given.
+</p>
+
+				
+				
+			
+				
+				<h3 id="WithSuffix">func <a href="http://localhost:8080/src/github.com/briandowns/spinner/spinner.go?s=6425:6462#L219">WithSuffix</a>
+					<a class="permalink" href="index.html#WithSuffix">&#xb6;</a>
+					
+					
+				</h3>
+				<pre>func WithSuffix(suffix <a href="http://localhost:8080/pkg/builtin/#string">string</a>) <a href="index.html#Option">Option</a></pre>
+				<p>
+WithSuffix adds the given string to the spinner
+as the suffix.
+</p>
+
+				
+				
+			
+				
+				<h3 id="WithWriter">func <a href="http://localhost:8080/src/github.com/briandowns/spinner/spinner.go?s=7023:7058#L244">WithWriter</a>
+					<a class="permalink" href="index.html#WithWriter">&#xb6;</a>
+					
+					
+				</h3>
+				<pre>func WithWriter(w <a href="http://localhost:8080/pkg/io/">io</a>.<a href="http://localhost:8080/pkg/io/#Writer">Writer</a>) <a href="index.html#Option">Option</a></pre>
+				<p>
+WithWriter adds the given writer to the spinner. This
+function should be favored over directly assigning to
+the struct value.
+</p>
+
+				
+				
+			
+
+			
+		
+			
+			
+			<h2 id="Options">type <a href="http://localhost:8080/src/github.com/briandowns/spinner/spinner.go?s=6119:6216#L203">Options</a>
+				<a class="permalink" href="index.html#Options">&#xb6;</a>
+				
+				
+			</h2>
+			<p>
+Options contains fields to configure the spinner.
+</p>
+
+			<pre>type Options struct {
+<span id="Options.Color"></span>    Color      <a href="http://localhost:8080/pkg/builtin/#string">string</a>
+<span id="Options.Suffix"></span>    Suffix     <a href="http://localhost:8080/pkg/builtin/#string">string</a>
+<span id="Options.FinalMSG"></span>    FinalMSG   <a href="http://localhost:8080/pkg/builtin/#string">string</a>
+<span id="Options.HideCursor"></span>    HideCursor <a href="http://localhost:8080/pkg/builtin/#bool">bool</a>
+}
+</pre>
+
+			
+
+			
+
+			
+			
+			
+
+			
+
+			
+		
+			
+			
+			<h2 id="Spinner">type <a href="http://localhost:8080/src/github.com/briandowns/spinner/spinner.go?s=4293:5531#L163">Spinner</a>
+				<a class="permalink" href="index.html#Spinner">&#xb6;</a>
+				
+				
+			</h2>
+			<p>
+Spinner struct to hold the provided options.
+</p>
+
+			<pre>type Spinner struct {
+<span id="Spinner.Delay"></span>    Delay <a href="http://localhost:8080/pkg/time/">time</a>.<a href="http://localhost:8080/pkg/time/#Duration">Duration</a> <span class="comment">// Delay is the speed of the indicator</span>
+
+<span id="Spinner.Prefix"></span>    Prefix   <a href="http://localhost:8080/pkg/builtin/#string">string</a> <span class="comment">// Prefix is the text preppended to the indicator</span>
+<span id="Spinner.Suffix"></span>    Suffix   <a href="http://localhost:8080/pkg/builtin/#string">string</a> <span class="comment">// Suffix is the text appended to the indicator</span>
+<span id="Spinner.FinalMSG"></span>    FinalMSG <a href="http://localhost:8080/pkg/builtin/#string">string</a> <span class="comment">// string displayed after Stop() is called</span>
+
+<span id="Spinner.Writer"></span>    Writer <a href="http://localhost:8080/pkg/io/">io</a>.<a href="http://localhost:8080/pkg/io/#Writer">Writer</a> <span class="comment">// to make testing better, exported so users have access. Use `WithWriter` to update after initialization.</span>
+
+<span id="Spinner.HideCursor"></span>    HideCursor <a href="http://localhost:8080/pkg/builtin/#bool">bool</a>             <span class="comment">// hideCursor determines if the cursor is visible</span>
+<span id="Spinner.PreUpdate"></span>    PreUpdate  func(s *<a href="index.html#Spinner">Spinner</a>) <span class="comment">// will be triggered before every spinner update</span>
+<span id="Spinner.PostUpdate"></span>    PostUpdate func(s *<a href="index.html#Spinner">Spinner</a>) <span class="comment">// will be triggered after every spinner update</span>
+    <span class="comment">// contains filtered or unexported fields</span>
+}
+</pre>
+
+			
+
+			
+
+			
+			
+			
+
+			
+				
+				<h3 id="New">func <a href="http://localhost:8080/src/github.com/briandowns/spinner/spinner.go?s=5612:5678#L181">New</a>
+					<a class="permalink" href="index.html#New">&#xb6;</a>
+					
+					
+				</h3>
+				<pre>func New(cs []<a href="http://localhost:8080/pkg/builtin/#string">string</a>, d <a href="http://localhost:8080/pkg/time/">time</a>.<a href="http://localhost:8080/pkg/time/#Duration">Duration</a>, options ...<a href="index.html#Option">Option</a>) *<a href="index.html#Spinner">Spinner</a></pre>
+				<p>
+New provides a pointer to an instance of Spinner with the supplied options.
+</p>
+
+				
+				
+			
+
+			
+				
+				<h3 id="Spinner.Active">func (*Spinner) <a href="http://localhost:8080/src/github.com/briandowns/spinner/spinner.go?s=7209:7240#L253">Active</a>
+					<a class="permalink" href="index.html#Spinner.Active">&#xb6;</a>
+					
+					
+				</h3>
+				<pre>func (s *<a href="index.html#Spinner">Spinner</a>) Active() <a href="http://localhost:8080/pkg/builtin/#bool">bool</a></pre>
+				<p>
+Active will return whether or not the spinner is currently active.
+</p>
+
+				
+				
+				
+			
+				
+				<h3 id="Spinner.Color">func (*Spinner) <a href="http://localhost:8080/src/github.com/briandowns/spinner/spinner.go?s=9266:9313#L351">Color</a>
+					<a class="permalink" href="index.html#Spinner.Color">&#xb6;</a>
+					
+					
+				</h3>
+				<pre>func (s *<a href="index.html#Spinner">Spinner</a>) Color(colors ...<a href="http://localhost:8080/pkg/builtin/#string">string</a>) <a href="http://localhost:8080/pkg/builtin/#error">error</a></pre>
+				<p>
+Color will set the struct field for the given color to be used. The spinner
+will need to be explicitly restarted.
+</p>
+
+				
+				
+				
+			
+				
+				<h3 id="Spinner.Lock">func (*Spinner) <a href="http://localhost:8080/src/github.com/briandowns/spinner/spinner.go?s=10593:10617#L400">Lock</a>
+					<a class="permalink" href="index.html#Spinner.Lock">&#xb6;</a>
+					
+					
+				</h3>
+				<pre>func (s *<a href="index.html#Spinner">Spinner</a>) Lock()</pre>
+				<p>
+Lock allows for manual control to lock the spinner.
+</p>
+
+				
+				
+				
+			
+				
+				<h3 id="Spinner.Restart">func (*Spinner) <a href="http://localhost:8080/src/github.com/briandowns/spinner/spinner.go?s=8841:8868#L335">Restart</a>
+					<a class="permalink" href="index.html#Spinner.Restart">&#xb6;</a>
+					
+					
+				</h3>
+				<pre>func (s *<a href="index.html#Spinner">Spinner</a>) Restart()</pre>
+				<p>
+Restart will stop and start the indicator.
+</p>
+
+				
+				
+				
+			
+				
+				<h3 id="Spinner.Reverse">func (*Spinner) <a href="http://localhost:8080/src/github.com/briandowns/spinner/spinner.go?s=8969:8996#L341">Reverse</a>
+					<a class="permalink" href="index.html#Spinner.Reverse">&#xb6;</a>
+					
+					
+				</h3>
+				<pre>func (s *<a href="index.html#Spinner">Spinner</a>) Reverse()</pre>
+				<p>
+Reverse will reverse the order of the slice assigned to the indicator.
+</p>
+
+				
+				
+				
+			
+				
+				<h3 id="Spinner.Start">func (*Spinner) <a href="http://localhost:8080/src/github.com/briandowns/spinner/spinner.go?s=7298:7323#L258">Start</a>
+					<a class="permalink" href="index.html#Spinner.Start">&#xb6;</a>
+					
+					
+				</h3>
+				<pre>func (s *<a href="index.html#Spinner">Spinner</a>) Start()</pre>
+				<p>
+Start will start the indicator.
+</p>
+
+				
+				
+				
+			
+				
+				<h3 id="Spinner.Stop">func (*Spinner) <a href="http://localhost:8080/src/github.com/briandowns/spinner/spinner.go?s=8481:8505#L317">Stop</a>
+					<a class="permalink" href="index.html#Spinner.Stop">&#xb6;</a>
+					
+					
+				</h3>
+				<pre>func (s *<a href="index.html#Spinner">Spinner</a>) Stop()</pre>
+				<p>
+Stop stops the indicator.
+</p>
+
+				
+				
+				
+			
+				
+				<h3 id="Spinner.Unlock">func (*Spinner) <a href="http://localhost:8080/src/github.com/briandowns/spinner/spinner.go?s=10695:10721#L405">Unlock</a>
+					<a class="permalink" href="index.html#Spinner.Unlock">&#xb6;</a>
+					
+					
+				</h3>
+				<pre>func (s *<a href="index.html#Spinner">Spinner</a>) Unlock()</pre>
+				<p>
+Unlock allows for manual control to unlock the spinner.
+</p>
+
+				
+				
+				
+			
+				
+				<h3 id="Spinner.UpdateCharSet">func (*Spinner) <a href="http://localhost:8080/src/github.com/briandowns/spinner/spinner.go?s=9921:9965#L376">UpdateCharSet</a>
+					<a class="permalink" href="index.html#Spinner.UpdateCharSet">&#xb6;</a>
+					
+					
+				</h3>
+				<pre>func (s *<a href="index.html#Spinner">Spinner</a>) UpdateCharSet(cs []<a href="http://localhost:8080/pkg/builtin/#string">string</a>)</pre>
+				<p>
+UpdateCharSet will change the current character set to the given one.
+</p>
+
+				
+				
+				
+			
+				
+				<h3 id="Spinner.UpdateSpeed">func (*Spinner) <a href="http://localhost:8080/src/github.com/briandowns/spinner/spinner.go?s=9749:9795#L369">UpdateSpeed</a>
+					<a class="permalink" href="index.html#Spinner.UpdateSpeed">&#xb6;</a>
+					
+					
+				</h3>
+				<pre>func (s *<a href="index.html#Spinner">Spinner</a>) UpdateSpeed(d <a href="http://localhost:8080/pkg/time/">time</a>.<a href="http://localhost:8080/pkg/time/#Duration">Duration</a>)</pre>
+				<p>
+UpdateSpeed will set the indicator delay to the given value.
+</p>
+
+				
+				
+				
+			
+		
+	
+
+	
+
+
+
+
+
+
+
+<div id="footer">
+Build version go1.16.<br>
+Except as <a href="https://developers.google.com/site-policies#restrictions">noted</a>,
+the content of this page is licensed under the
+Creative Commons Attribution 3.0 License,
+and code is licensed under a <a href="http://localhost:8080/LICENSE">BSD license</a>.<br>
+<a href="http://localhost:8080/doc/tos.html">Terms of Service</a> |
+<a href="http://www.google.com/intl/en/policies/privacy/">Privacy Policy</a>
+</div>
+
+</div><!-- .container -->
+</div><!-- #page -->
+</body>
+</html>
