@@ -22,8 +22,8 @@ go get github.com/daedaleanai/dbt
 * All DBT commands have a `-v` / `--verbose` flag to enable debug output.
 * The `dbt version` command prints the current version of the tool.
 * DBT supports shell completion for `bash`, `zsh`, and `fish` shells. Run `dbt completion bash|zsh|fish` to get the respective completion script.
-* The auto-generated Go documentation for this repository can be found [here](https://daedaleanai.github.io/dbt/).
-* The auto-generated Go documentation for the `dbt-rules` repository can be found [here](https://daedaleanai.github.io/dbt-rules/).
+* The auto-generated Go documentation for this repository can be found [here](https://pkg.go.dev/github.com/daedaleanai/dbt).
+* The auto-generated Go documentation for the `dbt-rules` repository can be found [here](https://pkg.go.dev/github.com/daedaleanai/dbt-rules).
 
 ## Dependency management
 
