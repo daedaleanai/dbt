@@ -41,9 +41,12 @@ func getRoot(p string) string {
 	return p[0:firstSlash]
 }
 
-// This assumes that p starts with root. It leaves a leading /, but this is fine
-// because the result paths are relative to modulePath
-func stripRoot(root, p string) string {
+// This leaves a leading /, but this is fine because the result paths are relative to modulePath
+func stripRoot(p string) string {
+	root := getRoot(p)
+	if p == root {
+		return "/"
+	}
 	return p[len(root):]
 }
 
@@ -97,7 +100,7 @@ func createTarModule(modulePath, url string) Module {
 		// When we eventually visit it, we set the correct mode
 		switch header.Typeflag {
 		case tar.TypeDir:
-			dirPath := path.Join(modulePath, stripRoot(tarRootDir, header.Name))
+			dirPath := path.Join(modulePath, stripRoot(header.Name))
 			log.Debug("Creating directory '%s'.\n", dirPath)
 			err := os.MkdirAll(dirPath, os.FileMode(header.Mode))
 			if err != nil {
@@ -109,7 +112,7 @@ func createTarModule(modulePath, url string) Module {
 				log.Fatal("Failed to change filemode while decompressing archive: %s.\n", err)
 			}
 		case tar.TypeReg:
-			filePath := path.Join(modulePath, stripRoot(tarRootDir, header.Name))
+			filePath := path.Join(modulePath, stripRoot(header.Name))
 			err := os.MkdirAll(path.Dir(filePath), defaultDirMode)
 			if err != nil {
 				log.Fatal("Failed to create directory while decompressing archive: %s.\n", err)
@@ -132,8 +135,8 @@ func createTarModule(modulePath, url string) Module {
 			if getRoot(header.Linkname) != tarRootDir {
 				log.Fatal("Failed to decompress. Archive can't have more than one root directory\n")
 			}
-			oldname := path.Join(modulePath, stripRoot(tarRootDir, header.Linkname))
-			newname := path.Join(modulePath, stripRoot(tarRootDir, header.Name))
+			oldname := path.Join(modulePath, stripRoot(header.Linkname))
+			newname := path.Join(modulePath, stripRoot(header.Name))
 			err := os.MkdirAll(path.Dir(newname), defaultDirMode)
 			if err != nil {
 				log.Fatal("Failed to create directory while decompressing archive: %s.\n", err)
@@ -144,7 +147,7 @@ func createTarModule(modulePath, url string) Module {
 				log.Fatal("Failed to create link while decompressing archive: %s.\n", err)
 			}
 		case tar.TypeSymlink:
-			newname := path.Join(modulePath, stripRoot(tarRootDir, header.Name))
+			newname := path.Join(modulePath, stripRoot(header.Name))
 			err := os.MkdirAll(path.Dir(newname), defaultDirMode)
 			if err != nil {
 				log.Fatal("Failed to create directory while decompressing archive: %s.\n", err)
