@@ -102,7 +102,7 @@ The `dbt status` command prints a summary of all currently available modules and
 
 ### Setup
 
-In order to use the build system features of DBT the `dbt-rules` module must be available. The easiest way to achive this is to add the following dependency:
+In order to use the build system features of DBT the `dbt-rules` module must be available. The easiest way to achieve this is to add the following dependency:
 ```
 dbt dep add git https://github.com/daedaleanai/dbt-rules.git origin/master
 dbt sync
@@ -246,7 +246,7 @@ type TargetDescription interface {
 
 ### Build configurations
 
-DBT supports different build configuration via build flags. This is useful when building artefects for different target architectures.
+DBT supports different build configuration via build flags. This is useful when building artefects with different build settings.
 
 All flags must be registered into a global variable before they can be used in any build rule.
 
@@ -272,6 +272,43 @@ DBT provides `core.StringFlag`s, `core.BoolFlag`s, `core.IntFlag`s and `core.Flo
 
 Flag values can be set via the command-line (see [here](#running-builds) for details). Once specified, flag values are persisted across DBT invocations. If a flag has been specified via the command-line once that value will be used until a new value is provided via the command-line.
 
-If a flag is not specified on the command-line and has no persisted previous value, the `DefaultFn` will be called to get a default value. If the `DefaultFn` is also not provided, no value can be determined fot the flag. In that case DBT will abort the build, since all flags must have a defined value.
+If a flag is not specified on the command-line and has no persisted previous value, the `DefaultFn` will be called to get a default value. If the `DefaultFn` is also not provided, no value can be determined for the flag. In that case DBT will abort the build, since all flags must have a defined value.
 
 DBT will create a separate `BUILD/OUTPUT-XXXXXX` directory for each build configuration (i.e., set of build flag values). This allows for intermediate build results to be reused even when switching back-and-forth between different build configurations.
+
+### C/C++ rules and cross-compilation
+
+All the rules in dbt-rules/RULES/cc take a an optional `Toolchain` parameter. If the parameter is not specified, the toolchain is selected based on the `cc-toolchain` flag (which defaults to using the native gcc toolchain, i.e. `gcc`, `ld`, ... for native compilation). If you never do cross-compilation, there is nothing to worry about, apart from making sure that `cc-toolchain` is left as the default `native-gcc`.
+
+You can add new toolchains by implementing the `cc.Toolchain` or `cc.GccToolchain` types. These can be used as a value for the `Toolchain` parameter. Optionally, the `RegisterToolchain()` function makes them available from the `cc-toolchain` flag. Toolchains are not just a collection of compile commands, they can also specify standard dependencies, standard includes, and a standard linker script. To this end, you can expand an existing `cc.GccToolchain` with a custom standard library with `GccToolchain.NewWithStdLib()`.
+
+If you have a `cc.Library` that could be compiled with different toolchains *within the same build* (for example if you have some utilities that you want to share between kernel- and user-space programs), mark it with `MultipleToolchains()`. Then the correct one will be selected, based on the `Toolchain` field of what you're building (or the `cc-toolchain` flag if that is not defined). Here is a full example of these concepts at work:
+
+```
+// Define a gcc toolchain by populating the struct
+val baseToolchain = cc.GccToolchain{ ... }
+
+// Add different stdlibs to baseToolchain to create new toolchains and register them 
+val kernelToolchain = cc.RegisterToolchain(baseToolchain.NewWithStdLib(kernelIncludes, kernelDeps, kernelLinkerScript, "kernel-gcc"))
+val userToolchain = cc.RegisterToolchain(baseToolchain.NewWithStdLib(userIncludes, userDeps, userLinkerScript, "user-gcc"))
+
+val kernelLib = cc.Library{
+	...,
+	Toolchain: kernelToolchain,
+}
+
+val commonLib = cc.Library{
+	...,
+	// Don't define Toolchain
+}.MultipleToolchains()
+
+val UserBinary = cc.Binary{
+	Deps: []cc.Deps{commonLib},
+	Toolchain: userToolchain,
+}
+
+val KernelBinary = cc.Binary{
+	Deps: []cc.Deps{kernelLib, commonLib},
+	Toolchain: kernelToolchain,
+}
+```
