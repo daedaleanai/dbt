@@ -33,6 +33,7 @@ const modFileName = "go.mod"
 const ninjaFileName = "build.ninja"
 const rulesDirName = "RULES"
 
+const goMajorVersion = 1
 const goMinorVersion = 16
 
 const initFileTemplate = `
@@ -80,15 +81,19 @@ import (
 %s
 
 func init() {
-	re := regexp.MustCompile("^go1\\.([[:digit:]]+)$")
+	requiredMajor := uint64(%d)
+	requiredMinor := uint64(%d)
+
+	re := regexp.MustCompile("^go([[:digit:]]+)\\.([[:digit:]]+)$")
 	matches := re.FindStringSubmatch(runtime.Version())
 	if matches == nil {
 		core.Fatal("Failed to determine go version")
 	}
-	minorVersion, _ := strconv.ParseUint(matches[1], 10, 64)
-	requiredMinorVersion := uint64(%d)
-	if minorVersion < requiredMinorVersion {
-		core.Fatal("DBT requires go version >= 1.%%d. Found 1.%%d", requiredMinorVersion, minorVersion)
+	currentMajor, _ := strconv.ParseUint(matches[1], 10, 64)
+	currentMinor, _ := strconv.ParseUint(matches[2], 10, 64)
+
+	if currentMajor < requiredMajor || (currentMajor == requiredMajor && currentMinor < requiredMinor) {
+		core.Fatal("DBT requires go version >= %%d.%%d. Found %%d.%%d", requiredMajor, requiredMinor, currentMajor, currentMinor)
 	}
 }
 
@@ -472,7 +477,7 @@ func createGeneratorMainFile(generatorDir string, packages []string, modules map
 	}
 
 	mainFilePath := path.Join(generatorDir, mainFileName)
-	mainFileContent := fmt.Sprintf(mainFileTemplate, strings.Join(importLines, "\n"), goMinorVersion, strings.Join(dbtMainLines, "\n"))
+	mainFileContent := fmt.Sprintf(mainFileTemplate, strings.Join(importLines, "\n"), goMajorVersion, goMinorVersion, strings.Join(dbtMainLines, "\n"))
 	util.WriteFile(mainFilePath, []byte(mainFileContent))
 
 	modFilePath := path.Join(generatorDir, modFileName)
