@@ -458,7 +458,7 @@ func createModFileContent(moduleName string, modules map[string]string, pathPref
 	mod := strings.Builder{}
 
 	fmt.Fprintf(&mod, "module %s\n\n", moduleName)
-	fmt.Fprintf(&mod, "go 1.%d\n\n", goMinorVersion)
+	fmt.Fprintf(&mod, "go %d.%d\n\n", goMajorVersion, goMinorVersion)
 
 	for modName := range modules {
 		fmt.Fprintf(&mod, "require %s v0.0.0\n", modName)
