@@ -6,9 +6,21 @@ The Daedalean Build Tool (DBT) provides dependency management and build system f
 
 DBT requires the following tools to be installed on your system:
 
-* go (>= v1.13)
+* go (>= 1.16)
 * git
 * ninja
+
+Go 1.16 can be installed on Ubuntu with the following commands:
+
+```
+sudo apt install golang-1.16
+sudo update-alternatives --install "/usr/bin/go" "go" "/usr/lib/go-1.13/bin/go" 0
+sudo update-alternatives --install "/usr/bin/gofmt" "gofmt" "/usr/lib/go-1.13/bin/gofmt" 0
+sudo update-alternatives --install "/usr/bin/go" "go" "/usr/lib/go-1.16/bin/go" 0
+sudo update-alternatives --install "/usr/bin/gofmt" "gofmt" "/usr/lib/go-1.16/bin/gofmt" 0
+sudo update-alternatives --config go
+sudo update-alternatives --config gofmt
+```
 
 ## Installation
 
