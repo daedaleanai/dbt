@@ -84,7 +84,7 @@ func init() {
 	requiredMajor := uint64(%d)
 	requiredMinor := uint64(%d)
 
-	re := regexp.MustCompile("^go([[:digit:]]+)\\.([[:digit:]]+)$")
+	re := regexp.MustCompile("^go([[:digit:]]+)\\.([[:digit:]]+)(\\.[[:digit:]]+)?$")
 	matches := re.FindStringSubmatch(runtime.Version())
 	if matches == nil {
 		core.Fatal("Failed to determine go version")
