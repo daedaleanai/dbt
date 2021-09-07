@@ -1,8 +1,6 @@
 github.com/alcortesm/tgz v0.0.0-20161220082320-9c5fe88206d7/go.mod h1:6zEj6s6u/ghQa61ZWa/C2Aw3RkjiTBOix7dkqa1VLIs=
 github.com/anmitsu/go-shlex v0.0.0-20161002113705-648efa622239/go.mod h1:2FmKhYUyUczH0OGQWaF5ceTx0UBShxjsH6f8oGKYe2c=
 github.com/armon/go-socks5 v0.0.0-20160902184237-e75332964ef5/go.mod h1:wHh0iHkYZB8zMSxRWpUBQtwG5a7fFgvEO+odwuTv2gs=
-github.com/briandowns/spinner v1.12.0 h1:72O0PzqGJb6G3KgrcIOtL/JAGGZ5ptOMCn9cUHmqsmw=
-github.com/briandowns/spinner v1.12.0/go.mod h1:QOuQk7x+EaDASo80FEXwlwiA+j/PPIcX3FScO+3/ZPQ=
 github.com/creack/pty v1.1.7/go.mod h1:lj5s0c3V2DBrqTV7llrYr5NG6My20zk30Fl46Y7DoTY=
 github.com/daedaleanai/cobra v1.1.2 h1:SrvUq36mr90Nj+mXjnSIXzHJVJwqkLKAWEZx5eBt25M=
 github.com/daedaleanai/cobra v1.1.2/go.mod h1:1d2lKRWt/a1Q0Lb5kTMf+CGRAzzfV3WhfDYYhAOBo+Y=

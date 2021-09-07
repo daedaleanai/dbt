@@ -87,13 +87,11 @@ func SetupModule(mod Module) {
 	}
 
 	log.Log("Running 'go run %s'.\n", setupFilePath)
-	log.Spinner.Start()
 	cmd := exec.Command("go", "run", setupFilePath)
 	cmd.Dir = mod.Path()
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
 	err := cmd.Run()
-	log.Spinner.Stop()
 	if err != nil {
 		log.Fatal("Running SETUP.go failed: %s.\n")
 	}

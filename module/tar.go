@@ -55,8 +55,6 @@ func stripRoot(p string) string {
 // (i.e., the download url) is stored in a ".metadata" file inside the module directory.
 func createTarModule(modulePath, url string) Module {
 	log.Log("Downloading '%s'.\n", url)
-	log.Spinner.Start()
-	defer log.Spinner.Stop()
 
 	response, err := http.Get(url)
 	if err != nil {
