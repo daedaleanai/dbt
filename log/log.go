@@ -4,13 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"time"
-
-	"github.com/briandowns/spinner"
 )
-
-// Spinner is used to signal long-running actions.
-var Spinner = spinner.New(spinner.CharSets[14], 150*time.Millisecond)
 
 // Verbose controls whether debug messages are being printed.
 var Verbose bool

@@ -21,9 +21,7 @@ func createGitModule(modulePath, url string) Module {
 	mod := GitModule{modulePath}
 	util.MkdirAll(modulePath)
 	log.Log("Cloning '%s'.\n", url)
-	log.Spinner.Start()
 	mod.runGitCommand("clone", url, modulePath)
-	log.Spinner.Stop()
 	SetupModule(mod)
 	return mod
 }
@@ -84,13 +82,11 @@ func (m GitModule) runGitCommand(args ...string) string {
 	stderr := bytes.Buffer{}
 	stdout := bytes.Buffer{}
 	log.Debug("Running git command: git %s\n", strings.Join(args, " "))
-	log.Spinner.Start()
 	cmd := exec.Command("git", args...)
 	cmd.Stderr = &stderr
 	cmd.Stdout = &stdout
 	cmd.Dir = m.path
 	err := cmd.Run()
-	log.Spinner.Stop()
 	if err != nil {
 		log.Fatal("Failed to run git command 'git %s':\n%s\n%s\n", strings.Join(args, " "), stderr.String(), err)
 	}
