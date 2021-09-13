@@ -22,7 +22,6 @@ func createGitModule(modulePath, url string) Module {
 	util.MkdirAll(modulePath)
 	log.Log("Cloning '%s'.\n", url)
 	mod.runGitCommand("clone", url, modulePath)
-	SetupModule(mod)
 	return mod
 }
 

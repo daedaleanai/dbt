@@ -1,11 +1,13 @@
 package module
 
 import (
+	"context"
 	"io/ioutil"
 	"os"
 	"os/exec"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/daedaleanai/dbt/log"
 	"github.com/daedaleanai/dbt/util"
@@ -87,11 +89,18 @@ func SetupModule(mod Module) {
 	}
 
 	log.Log("Running 'go run %s'.\n", setupFilePath)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+
 	cmd := exec.Command("go", "run", setupFilePath)
 	cmd.Dir = mod.Path()
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
 	err := cmd.Run()
+
+	if ctx.Err() == context.DeadlineExceeded {
+		log.Fatal("Running SETUP.go timed out.\n")
+	}
 	if err != nil {
 		log.Fatal("Running SETUP.go failed: %s.\n")
 	}

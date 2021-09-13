@@ -113,6 +113,7 @@ func runSync(cmd *cobra.Command, args []string) {
 			// If the dependency module already has the required hash checked out, there is nothing to do.
 			if depMod.Head() == dep.Version.Hash {
 				log.Success("Module version hash matches required version.\n")
+				module.SetupModule(depMod)
 				continue
 			}
 
@@ -130,6 +131,7 @@ func runSync(cmd *cobra.Command, args []string) {
 			if depMod.IsDirty() || depMod.Head() != dep.Version.Hash {
 				log.Fatal("Failed to check out required module version '%s'.\n", dep.Version.Hash)
 			}
+			module.SetupModule(depMod)
 		}
 
 		if changedModuleFile {
