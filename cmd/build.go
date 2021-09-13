@@ -24,6 +24,7 @@ const bashFileName = "build.sh"
 const buildDirName = "BUILD"
 const buildDirNamePrefix = "OUTPUT"
 const buildFileName = "BUILD.go"
+const compileCommandsFileName = "compile_commands.json"
 const dbtRulesDirName = "dbt-rules"
 const generatorDirName = "GENERATOR"
 const generatorOutputFileName = "output.json"
@@ -155,6 +156,21 @@ func runBuild(cmd *cobra.Command, args []string) {
 	bashFilePath := path.Join(genOutput.BuildDir, bashFileName)
 	util.WriteFile(bashFilePath, []byte(genOutput.BashFile))
 
+	// Generate compilation commands database.
+	var stdout bytes.Buffer
+	log.Debug("Generating compile commands database: %s\n", compileCommandsFileName)
+	ninjaCmd := exec.Command("ninja", "-t", "compdb")
+	ninjaCmd.Dir = genOutput.BuildDir
+	ninjaCmd.Stderr = os.Stderr
+	ninjaCmd.Stdout = &stdout
+	err := ninjaCmd.Run()
+	if err != nil {
+		log.Fatal("Running ninja failed: %s\n", err)
+	}
+
+	compileCommandsFilePath := path.Join(genOutput.BuildDir, compileCommandsFileName)
+	util.WriteFile(compileCommandsFilePath, stdout.Bytes())
+
 	log.Debug("Targets: '%s'.\n", strings.Join(targets, "', '"))
 
 	// Get all available targets and flags.
@@ -224,11 +240,11 @@ func runBuild(cmd *cobra.Command, args []string) {
 	}
 
 	log.Debug("Running ninja command: 'ninja %s'\n", strings.Join(ninjaArgs, " "))
-	ninjaCmd := exec.Command("ninja", ninjaArgs...)
+	ninjaCmd = exec.Command("ninja", ninjaArgs...)
 	ninjaCmd.Dir = genOutput.BuildDir
 	ninjaCmd.Stderr = os.Stderr
 	ninjaCmd.Stdout = os.Stdout
-	err := ninjaCmd.Run()
+	err = ninjaCmd.Run()
 	if err != nil {
 		log.Fatal("Running ninja failed: %s\n", err)
 	}

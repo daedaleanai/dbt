@@ -179,7 +179,7 @@ Running `dbt build` without specifying any targets to build will show a list of 
 
 The `dbt clean` command will delete the `BUILD/` directory.
 
-Under the hood, DBT creates a `build.ninja` file to steer the build process. In addition, a `build.sh` file is generated. While this file is not used by DBT itself it contains all commands to build all targets in the workspace and can be used to trigger a full rebuild of all targets when Ninja is not available.
+Under the hood, DBT creates a `build.ninja` file to steer the build process. In addition, DBT generates two files that contain the necessary commands to build all targets in the workspace: `build.sh` a topologically sorted list of all commands; `compilation_commands.json` is the [JSON compilation database](https://clang.llvm.org/docs/JSONCompilationDatabase.html) supported by many langage servers, IDEs and debuggers. These files are not used by DBT itself, but can be used by external tooling or to trigger a full rebuild of all targets when Ninja is not available.
 
 ### Creating custom build rules
 
