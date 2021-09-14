@@ -17,13 +17,15 @@ type GitModule struct {
 
 // createGitModule creates a new GitModule in the given `modulePath`
 // by cloning the repository from `url`.
-func createGitModule(modulePath, url string) Module {
+func createGitModule(modulePath, url string) (Module, error) {
 	mod := GitModule{modulePath}
 	util.MkdirAll(modulePath)
 	log.Log("Cloning '%s'.\n", url)
-	mod.runGitCommand("clone", "--recursive", url, modulePath)
+	if _, _, err := mod.tryRunGitCommand("clone", "--recursive", url, modulePath); err != nil {
+		return nil, err
+	}
 	SetupModule(mod)
-	return mod
+	return mod, nil
 }
 
 // Name returns the name of the module.
@@ -79,6 +81,14 @@ func (m GitModule) Checkout(ref string) {
 }
 
 func (m GitModule) runGitCommand(args ...string) string {
+	stdout, stderr, err := m.tryRunGitCommand(args...)
+	if err != nil {
+		log.Fatal("Failed to run git command 'git %s':\n%s\n%s\n", strings.Join(args, " "), stderr, err)
+	}
+	return stdout
+}
+
+func (m GitModule) tryRunGitCommand(args ...string) (string, string, error) {
 	stderr := bytes.Buffer{}
 	stdout := bytes.Buffer{}
 	log.Debug("Running git command: git %s\n", strings.Join(args, " "))
@@ -88,7 +98,7 @@ func (m GitModule) runGitCommand(args ...string) string {
 	cmd.Dir = m.path
 	err := cmd.Run()
 	if err != nil {
-		log.Fatal("Failed to run git command 'git %s':\n%s\n%s\n", strings.Join(args, " "), stderr.String(), err)
+		return "", "", err
 	}
-	return strings.TrimSuffix(stdout.String(), "\n")
+	return strings.TrimSuffix(stdout.String(), "\n"), strings.TrimSuffix(stderr.String(), "\n"), nil
 }

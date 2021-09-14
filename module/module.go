@@ -58,12 +58,22 @@ func OpenOrCreateModule(modulePath string, url string) Module {
 	log.Debug("Module directory does not exists.\n")
 
 	if strings.HasSuffix(url, ".git") {
-		log.Debug("Module URL ends in '.git'. Trying to create a new GitModule.\n")
-		return createGitModule(modulePath, url)
+		log.Debug("Module URL ends in '.git'. Trying to create a new git module.\n")
+		module, err := createGitModule(modulePath, url)
+		if err != nil {
+			os.RemoveAll(modulePath)
+			log.Fatal("Failed to create git module: %s.\n", err)
+		}
+		return module
 	}
 	if strings.HasSuffix(url, ".tar.gz") {
 		log.Debug("Module URL ends in '.tar.gz'. Trying to create a new TarModule.\n")
-		return createTarModule(modulePath, url)
+		module, err := createTarModule(modulePath, url)
+		if err != nil {
+			os.RemoveAll(modulePath)
+			log.Fatal("Failed to create tar module: %s.\n", err)
+		}
+		return module
 	}
 
 	log.Fatal("Failed to determine module type from dependency url '%s'.\n", url)
