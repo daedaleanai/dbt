@@ -42,8 +42,8 @@ func OpenModule(modulePath string) Module {
 		return TarModule{modulePath}
 	}
 
-	log.Debug("Expecting this to be a LocalModule.\n")
-	return LocalModule{modulePath}
+	log.Fatal("Module appears to be broken. Remove the module directory and rerun 'dbt sync'.\n")
+	return nil
 }
 
 // OpenOrCreateModule tries to open the module in `modulePath`. If the `modulePath` directory does
