@@ -10,24 +10,24 @@ import (
 	"github.com/daedaleanai/cobra"
 )
 
-var updateCmd = &cobra.Command{
+var oldUpdateCmd = &cobra.Command{
 	Use:   "update MODULES",
 	Short: "Updates dependency version hashes the MODULE file of the current module",
 	Long: `Updates dependency version hashes in MODULE file of the current module.
 By default all modules in each MODULE file will be updated.
 If a list of modules is supplied to the command only the hashes of the listed modules will be updated.
 If the --all flag is provided, the MODULE files of all modules are updated.`,
-	Run: runUpdate,
+	Run: runOldUpdate,
 }
 
 var allModules bool
 
 func init() {
-	updateCmd.Flags().BoolVar(&allModules, "all", false, "Update all modules")
-	depCmd.AddCommand(updateCmd)
+	oldUpdateCmd.Flags().BoolVar(&allModules, "all", false, "Update all modules")
+	depCmd.AddCommand(oldUpdateCmd)
 }
 
-func runUpdate(cmd *cobra.Command, args []string) {
+func runOldUpdate(cmd *cobra.Command, args []string) {
 	if allModules {
 		workspaceRoot := util.GetWorkspaceRoot()
 		log.Log("Current workspace is '%s'.\n", workspaceRoot)
