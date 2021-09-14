@@ -19,6 +19,7 @@ type Dependency struct {
 }
 
 type ModuleFile struct {
+	Version      uint
 	Dependencies []Dependency
 }
 
@@ -34,11 +35,16 @@ func ReadModuleFile(modulePath string) ModuleFile {
 
 	util.ReadYaml(moduleFilePath, &moduleFile)
 
+	// Check MODULE file version.
+	if moduleFile.Version != util.DbtVersion.Major {
+		log.Warning("%s file '%s' has version %d, which is incompatible with this version of DBT. Proceed with caution.\n", util.ModuleFileName, moduleFilePath, moduleFile.Version)
+	}
+
 	// Check that there are no duplicate names.
 	names := map[string]bool{}
 	for _, dep := range moduleFile.Dependencies {
 		if _, exists := names[dep.Name]; exists {
-			log.Fatal("%s file '%s' contains duplicate dependency name '%s'. Please clean up the file manually and try again.\n", util.ModuleFileName, moduleFilePath, dep.Name)
+			log.Fatal("%s file '%s' contains multiple dependencies with name '%s'. Please clean up the file and try again.\n", util.ModuleFileName, moduleFilePath, dep.Name)
 		}
 		names[dep.Name] = true
 	}
@@ -48,6 +54,7 @@ func ReadModuleFile(modulePath string) ModuleFile {
 
 // WriteModuleFile serializes and writes a Module's Dependencies to a MODULE file.
 func WriteModuleFile(modulePath string, moduleFile ModuleFile) {
+	moduleFile.Version = util.DbtVersion.Major
 	moduleFilePath := path.Join(modulePath, util.ModuleFileName)
 	util.WriteYaml(moduleFilePath, moduleFile)
 }

@@ -3,6 +3,8 @@ package cmd
 import (
 	"os"
 
+	"github.com/daedaleanai/dbt/util"
+
 	"github.com/daedaleanai/dbt/log"
 
 	"github.com/daedaleanai/cobra"
@@ -14,6 +16,7 @@ var rootCmd = &cobra.Command{
 	Long: `The Daedalean Build Tool (dbt) helps setting up workspaces consisting
 of multiple modules (git repositories), managing dependencies between modules, and
 building build targets defined in those modules.`,
+	Version: util.DbtVersion.String(),
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
