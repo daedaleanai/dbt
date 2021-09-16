@@ -16,9 +16,6 @@ import (
 	"github.com/daedaleanai/dbt/util"
 )
 
-// TarDefaultVersion is the default version for all TarModules.
-const TarDefaultVersion = "master"
-
 const tarMetadataFileName = ".metadata"
 
 const defaultDirMode = 0770
@@ -158,16 +155,6 @@ func createTarModule(modulePath, url string) (Module, error) {
 	return TarModule{modulePath}, nil
 }
 
-// Name returns the name of the module.
-func (m TarModule) Name() string {
-	return path.Base(m.path)
-}
-
-// Path returns the on-disk path of the module.
-func (m TarModule) Path() string {
-	return m.path
-}
-
 // URL returns the url of the underlying tar archive.
 func (m TarModule) URL() string {
 	var metadata metadataFile
@@ -183,10 +170,7 @@ func (m TarModule) Head() string {
 }
 
 // RevParse returns the default version for all TarModules.
-func (m TarModule) RevParse(ref string) string {
-	if ref != TarDefaultVersion {
-		log.Fatal("Failed to parse version '%s': TarModule only has '%s' version.\n", ref, TarDefaultVersion)
-	}
+func (m TarModule) RevParse(rev string) string {
 	return m.Head()
 }
 

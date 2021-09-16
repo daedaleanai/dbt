@@ -3,7 +3,6 @@ package module
 import (
 	"bytes"
 	"os/exec"
-	"path"
 	"strings"
 
 	"github.com/daedaleanai/dbt/log"
@@ -24,18 +23,7 @@ func createGitModule(modulePath, url string) (Module, error) {
 	if _, _, err := mod.tryRunGitCommand("clone", "--recursive", url, modulePath); err != nil {
 		return nil, err
 	}
-	SetupModule(mod)
 	return mod, nil
-}
-
-// Name returns the name of the module.
-func (m GitModule) Name() string {
-	return path.Base(m.Path())
-}
-
-// Path returns the on-disk path of the module.
-func (m GitModule) Path() string {
-	return m.path
 }
 
 // URL returns the url of the underlying git repository.
@@ -83,7 +71,7 @@ func (m GitModule) Checkout(ref string) {
 func (m GitModule) runGitCommand(args ...string) string {
 	stdout, stderr, err := m.tryRunGitCommand(args...)
 	if err != nil {
-		log.Fatal("Failed to run git command 'git %s':\n%s\n%s\n", strings.Join(args, " "), stderr, err)
+		log.Fatal("Failed to run git command 'git %s':\n%s\n%s\n%s\n", strings.Join(args, " "), stderr, stdout, err)
 	}
 	return stdout
 }

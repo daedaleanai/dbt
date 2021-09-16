@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"path"
 	"regexp"
 
 	"github.com/daedaleanai/cobra"
@@ -10,9 +11,11 @@ import (
 )
 
 var (
-	nameRegexp = regexp.MustCompile(`^[a-z0-9_\-.]+$`)
-	urlRegexp  = regexp.MustCompile(`/([A-Za-z0-9_\-.]+)(\.git|\.tar\.gz)$`)
-	revRegexp  = regexp.MustCompile(`^[A-Za-z0-9_\-.]+$`)
+	nameRegexp    = regexp.MustCompile(`^[a-z0-9_\-.]+$`)
+	urlRegexp     = regexp.MustCompile(`/([A-Za-z0-9_\-.]+)(\.git|\.tar\.gz)$`)
+	versionRegexp = regexp.MustCompile(`^[A-Za-z0-9_\-./]+$`)
+
+	defaultVersion = "origin/master"
 )
 
 var (
@@ -22,20 +25,12 @@ var (
 	}
 
 	addCmd = &cobra.Command{
-		Use:   "add [NAME] --url=URL [--version=VERSION]",
-		Args:  cobra.RangeArgs(0, 1),
-		Short: "Adds a dependency to the MODULE file of the current module",
-		Long:  `Adds a dependency to the MODULE file of the current module.`,
-		Run:   runAdd,
-	}
-
-	updateCmd = &cobra.Command{
-		Use:               "update NAME [--url=URL] [--version=VERSION]",
-		Args:              cobra.RangeArgs(1, 1),
-		Short:             "Updates a dependency in the MODULE file of the current module",
-		Long:              `Updates a dependency in the MODULE file of the current module.`,
+		Use:               "add [NAME] --url=URL [--version=VERSION]",
+		Args:              cobra.RangeArgs(0, 1),
+		Short:             "Adds a dependency to the MODULE file of the current module",
+		Long:              `Adds a dependency to the MODULE file of the current module.`,
+		Run:               runAdd,
 		ValidArgsFunction: completeDepArgs,
-		Run:               runUpdate,
 	}
 
 	removeCmd = &cobra.Command{
@@ -55,94 +50,67 @@ func init() {
 
 	depCmd.AddCommand(addCmd)
 	addCmd.Flags().StringVar(&url, "url", "", "Dependency URL")
-	addCmd.Flags().StringVar(&version, "version", "master", "Dependency version")
-
-	depCmd.AddCommand(updateCmd)
-	updateCmd.Flags().StringVar(&url, "url", "", "Dependency URL")
-	updateCmd.Flags().StringVar(&version, "version", "", "Dependency version")
+	addCmd.Flags().StringVar(&version, "version", defaultVersion, "Dependency version")
 
 	depCmd.AddCommand(removeCmd)
 }
 
 func runAdd(cmd *cobra.Command, args []string) {
 	moduleRoot := util.GetModuleRoot()
-	log.Debug("Current module is '%s'.\n", moduleRoot)
-	moduleFile := module.ReadModuleFile(moduleRoot)
+	moduleName := path.Base(moduleRoot)
+	log.Debug("Module: %s.\n", moduleRoot)
 
-	checkUrl(url)
-	checkRev(version)
+	moduleFile := module.ReadModuleFile(moduleRoot)
 
 	var name string
 	if len(args) == 0 {
+		checkUrl(url)
 		name = urlRegexp.FindStringSubmatch(url)[1]
 	} else {
 		name = args[0]
 	}
 	checkName(name)
 
-	for _, dep := range moduleFile.Dependencies {
-		if dep.Name == name {
-			log.Fatal("Dependency '%s' already exists. Try 'dbt dep update'.\n", name)
-		}
+	dep, exists := moduleFile.Dependencies[name]
+	if url != "" {
+		dep.URL = url
+	}
+	if version != "" {
+		dep.Version = version
 	}
 
-	moduleFile.Dependencies = append(moduleFile.Dependencies, module.Dependency{
-		Name:    name,
-		URL:     url,
-		Version: module.Version{Rev: version, Hash: ""},
-	})
+	checkUrl(dep.URL)
+	checkVersion(dep.Version)
+
+	moduleFile.Dependencies[name] = dep
 	module.WriteModuleFile(moduleRoot, moduleFile)
-	log.Success("Added dependency '%s'.\n", name)
-	log.Debug("Added dependency '%s': URL='%s', version='%s'.\n", name, url, version)
-}
 
-func runUpdate(cmd *cobra.Command, args []string) {
-	moduleRoot := util.GetModuleRoot()
-	log.Debug("Current module is '%s'.\n", moduleRoot)
-
-	moduleFile := module.ReadModuleFile(moduleRoot)
-	name := args[0]
-	checkName(name)
-
-	for idx, dep := range moduleFile.Dependencies {
-		if dep.Name != name {
-			continue
-		}
-		if url != "" {
-			checkUrl(url)
-			moduleFile.Dependencies[idx].URL = url
-		}
-		if version != "" {
-			checkRev(version)
-			moduleFile.Dependencies[idx].Version = module.Version{Rev: version}
-		}
-		module.WriteModuleFile(moduleRoot, moduleFile)
-		log.Success("Updated dependency '%s'.\n", name)
-		return
+	if exists {
+		log.Success("Updated dependency '%s' to module '%s'.\n", name, moduleName)
+		log.Debug("Updated dependency '%s' to module '%s': URL='%s', version='%s'.\n", name, moduleName, url, version)
+	} else {
+		log.Success("Added dependency '%s' to module '%s'.\n", name, moduleName)
+		log.Debug("Added dependency '%s' to module '%s': URL='%s', version='%s'.\n", name, moduleName, url, version)
 	}
-
-	log.Warning("Module has no dependency '%s'.\n", name)
 }
 
 func runRemove(cmd *cobra.Command, args []string) {
 	moduleRoot := util.GetModuleRoot()
-	log.Debug("Current module is '%s'.\n", moduleRoot)
+	moduleName := path.Base(moduleRoot)
+	log.Debug("Module: '%s'.\n", moduleRoot)
 
 	moduleFile := module.ReadModuleFile(moduleRoot)
 	name := args[0]
 	checkName(name)
 
-	for idx, dep := range moduleFile.Dependencies {
-		if dep.Name != name {
-			continue
-		}
-		moduleFile.Dependencies = append(moduleFile.Dependencies[:idx], moduleFile.Dependencies[idx+1:]...)
-		module.WriteModuleFile(moduleRoot, moduleFile)
-		log.Success("Removed dependency '%s'.\n", name)
+	if _, exists := moduleFile.Dependencies[name]; !exists {
+		log.Warning("Module '%s' has no dependency on module '%s'.\n", moduleName, name)
 		return
 	}
 
-	log.Warning("Module has no dependency on module '%s'.\n", name)
+	delete(moduleFile.Dependencies, name)
+	module.WriteModuleFile(moduleRoot, moduleFile)
+	log.Success("Removed dependency '%s' from module '%s'.\n", name, moduleName)
 }
 
 func checkName(name string) {
@@ -157,9 +125,9 @@ func checkUrl(url string) {
 	}
 }
 
-func checkRev(rev string) {
-	if !revRegexp.MatchString(rev) {
-		log.Fatal("Version '%s' does not match the expected format.\n", rev)
+func checkVersion(version string) {
+	if !versionRegexp.MatchString(version) {
+		log.Fatal("Version '%s' does not match the expected format.\n", version)
 	}
 }
 
@@ -168,8 +136,8 @@ func completeDepArgs(cmd *cobra.Command, args []string, toComplete string) ([]st
 	if len(args) == 0 {
 		moduleRoot := util.GetModuleRoot()
 		moduleFile := module.ReadModuleFile(moduleRoot)
-		for _, dep := range moduleFile.Dependencies {
-			completions = append(completions, dep.Name)
+		for name := range moduleFile.Dependencies {
+			completions = append(completions, name)
 		}
 	}
 	return completions, cobra.ShellCompDirectiveNoFileComp

@@ -24,6 +24,7 @@ func init() {
 
 func runClean(cmd *cobra.Command, args []string) {
 	workspaceRoot := util.GetModuleRoot()
+	log.Debug("Workspace: %s.\n", workspaceRoot)
 	buildDir := path.Join(workspaceRoot, buildDirName)
 	log.Debug("Removing %s diectory '%s'.\n", buildDirName, buildDir)
 	os.RemoveAll(buildDir)

@@ -1,11 +1,13 @@
 package module
 
 import (
+	"context"
 	"io/ioutil"
 	"os"
 	"os/exec"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/daedaleanai/dbt/log"
 	"github.com/daedaleanai/dbt/util"
@@ -16,12 +18,10 @@ const setupSentinelFileName = ".setup"
 
 // Module represents a checked-out module.
 type Module interface {
-	Name() string
-	Path() string
 	URL() string
 
 	Head() string
-	RevParse(ref string) string
+	RevParse(rev string) string
 	IsDirty() bool
 
 	Fetch() bool
@@ -64,6 +64,7 @@ func OpenOrCreateModule(modulePath string, url string) Module {
 			os.RemoveAll(modulePath)
 			log.Fatal("Failed to create git module: %s.\n", err)
 		}
+		SetupModule(modulePath)
 		return module
 	}
 	if strings.HasSuffix(url, ".tar.gz") {
@@ -73,6 +74,7 @@ func OpenOrCreateModule(modulePath string, url string) Module {
 			os.RemoveAll(modulePath)
 			log.Fatal("Failed to create tar module: %s.\n", err)
 		}
+		SetupModule(modulePath)
 		return module
 	}
 
@@ -81,34 +83,30 @@ func OpenOrCreateModule(modulePath string, url string) Module {
 }
 
 // SetupModule runs the SETUP.go file in the root directory of `mod` (it if exists).
-func SetupModule(mod Module) {
-	log.Debug("Trying to set up module '%s'.\n", mod.Name())
-
-	setupSentinelFilePath := path.Join(mod.Path(), setupSentinelFileName)
-	if util.FileExists(setupSentinelFilePath) {
-		log.Debug("%s file already exists in module directory. Nothing to do.\n", setupSentinelFileName)
-		return
-	}
-
-	setupFilePath := path.Join(mod.Path(), setupFileName)
+func SetupModule(modulePath string) {
+	setupFilePath := path.Join(modulePath, setupFileName)
 	if !util.FileExists(setupFilePath) {
-		log.Debug("Module has no SETUP.go file. Nothing to do.\n")
+		log.Debug("Module has no %s file. Nothing to do.\n", setupFileName)
 		return
 	}
 
-	log.Log("Running 'go run %s'.\n", setupFilePath)
+	log.Debug("Running 'go run %s'.\n", setupFilePath)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
 	cmd := exec.Command("go", "run", setupFilePath)
-	cmd.Dir = mod.Path()
+	cmd.Dir = modulePath
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
 	err := cmd.Run()
+
+	if ctx.Err() == context.DeadlineExceeded {
+		log.Fatal("Running %s timed out: %s.\n: %s.\n", setupFileName, ctx.Err())
+	}
 	if err != nil {
-		log.Fatal("Running SETUP.go failed: %s.\n")
+		log.Fatal("Running %s failed: %s.\n", setupFileName, err)
 	}
 	log.Success("Module is set up.\n")
-
-	log.Debug("Creating sentinel file.\n")
-	util.WriteFile(setupSentinelFilePath, []byte{})
 }
 
 // GetAllModulePaths returns all the names and paths of all modules in the workspace.
