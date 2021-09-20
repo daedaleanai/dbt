@@ -26,6 +26,7 @@ const buildDirNamePrefix = "OUTPUT"
 const buildFileName = "BUILD.go"
 const dbtRulesDirName = "dbt-rules"
 const generatorDirName = "GENERATOR"
+const generatorInputFileName = "input.json"
 const generatorOutputFileName = "output.json"
 const initFileName = "init.go"
 const mainFileName = "main.go"
@@ -117,7 +118,17 @@ type flag struct {
 	Value         string
 }
 
+type generatorInput struct {
+	Version         uint
+	SourceDir       string
+	WorkingDir      string
+	BuildDirPrefix  string
+	BuildFlags      map[string]string
+	CompletionsOnly bool
+}
+
 type generatorOutput struct {
+	Version   uint
 	NinjaFile string
 	BashFile  string
 	Targets   map[string]target
@@ -146,7 +157,7 @@ func runBuild(cmd *cobra.Command, args []string) {
 	}
 
 	targets, flags := parseArgs(args)
-	genOutput := runGenerator("buildFiles", flags)
+	genOutput := runGenerator(generatorInput{BuildFlags: flags})
 
 	// Write the build files.
 	ninjaFilePath := path.Join(genOutput.BuildDir, ninjaFileName)
@@ -235,7 +246,7 @@ func runBuild(cmd *cobra.Command, args []string) {
 }
 
 func completeBuildArgs(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-	genOutput := runGenerator("completion", []string{})
+	genOutput := runGenerator(generatorInput{CompletionsOnly: true})
 
 	if strings.Contains(toComplete, "=") {
 		suggestions := []string{}
@@ -261,15 +272,16 @@ func completeBuildArgs(cmd *cobra.Command, args []string, toComplete string) ([]
 	return suggestions, cobra.ShellCompDirectiveNoFileComp
 }
 
-func parseArgs(args []string) ([]string, []string) {
+func parseArgs(args []string) ([]string, map[string]string) {
 	targets := []string{}
-	flags := []string{}
+	flags := map[string]string{}
 
 	// Split all args into two categories: If they contain a "= they are considered
 	// build flags, otherwise a target to be built.
 	for _, arg := range args {
 		if strings.Contains(arg, "=") {
-			flags = append(flags, arg)
+			parts := strings.SplitN(arg, "=", 2)
+			flags[parts[0]] = parts[1]
 		} else {
 			targets = append(targets, normalizeTarget(arg))
 		}
@@ -296,14 +308,15 @@ func normalizeTarget(target string) string {
 	return strings.TrimLeft(target, "/")
 }
 
-func runGenerator(mode string, flags []string) generatorOutput {
+func runGenerator(input generatorInput) generatorOutput {
+	input.Version = 2
 	workspaceRoot := util.GetWorkspaceRoot()
-	sourceDir := path.Join(workspaceRoot, util.DepsDirName)
-	workingDir := util.GetWorkingDir()
-	generatorDir := path.Join(workspaceRoot, buildDirName, generatorDirName)
-	buildDirPrefix := path.Join(workspaceRoot, buildDirName, buildDirNamePrefix)
+	input.SourceDir = path.Join(workspaceRoot, util.DepsDirName)
+	input.WorkingDir = util.GetWorkingDir()
+	input.BuildDirPrefix = path.Join(workspaceRoot, buildDirName, buildDirNamePrefix)
 
 	// Remove all existing buildfiles.
+	generatorDir := path.Join(workspaceRoot, buildDirName, generatorDirName)
 	util.RemoveDir(generatorDir)
 
 	// Copy all BUILD.go files and RULES/ files from the source directory.
@@ -318,10 +331,12 @@ func runGenerator(mode string, flags []string) generatorOutput {
 	createGeneratorMainFile(generatorDir, packages, modules)
 	createSumGoFile(generatorDir)
 
-	cmdArgs := append([]string{"run", mainFileName, mode, sourceDir, buildDirPrefix, workingDir}, flags...)
-	cmd := exec.Command("go", cmdArgs...)
+	generatorInputPath := path.Join(generatorDir, generatorInputFileName)
+	util.WriteJson(generatorInputPath, &input)
+
+	cmd := exec.Command("go", "run", mainFileName)
 	cmd.Dir = generatorDir
-	if mode != "completion" {
+	if !input.CompletionsOnly {
 		cmd.Stderr = os.Stderr
 		cmd.Stdout = os.Stdout
 	}
