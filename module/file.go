@@ -7,47 +7,82 @@ import (
 	"github.com/daedaleanai/dbt/util"
 )
 
-type Version struct {
+type Dependency struct {
+	URL     string
+	Version string
+}
+
+type PinnedDependency struct {
+	URL     string
+	Version string
+	Hash    string
+}
+
+type ModuleFile struct {
+	Version            uint
+	Dependencies       map[string]Dependency
+	PinnedDependencies map[string]PinnedDependency
+}
+
+type moduleFileVersion struct {
+	Version uint
+}
+
+type legacyVersion struct {
 	Rev  string
 	Hash string
 }
 
-type Dependency struct {
+type legacyDependency struct {
 	Name    string
 	URL     string
-	Version Version
+	Version legacyVersion
 }
 
-type ModuleFile struct {
-	Dependencies []Dependency
+type legacyModuleFile struct {
+	Dependencies []legacyDependency
 }
 
 // ReadModuleFile reads and parses module Dependencies from a MODULE file.
 func ReadModuleFile(modulePath string) ModuleFile {
-	var moduleFile ModuleFile
+	moduleFile := ModuleFile{
+		Version:            util.DbtVersion[0],
+		Dependencies:       map[string]Dependency{},
+		PinnedDependencies: map[string]PinnedDependency{},
+	}
 
 	moduleFilePath := path.Join(modulePath, util.ModuleFileName)
 	if !util.FileExists(moduleFilePath) {
-		log.Debug("Module has no '%s' file.\n", util.ModuleFileName)
+		log.Debug("Module has no %s file.\n", util.ModuleFileName)
 		return moduleFile
 	}
 
-	util.ReadYaml(moduleFilePath, &moduleFile)
-
-	// Check that there are no duplicate names.
-	names := map[string]bool{}
-	for _, dep := range moduleFile.Dependencies {
-		if _, exists := names[dep.Name]; exists {
-			log.Fatal("%s file '%s' contains duplicate dependency name '%s'. Please clean up the file manually and try again.\n", util.ModuleFileName, moduleFilePath, dep.Name)
+	// Check MODULE file version.
+	var moduleFileVersion moduleFileVersion
+	util.ReadYaml(moduleFilePath, &moduleFileVersion)
+	if moduleFileVersion.Version == util.DbtVersion[0] {
+		util.ReadYaml(moduleFilePath, &moduleFile)
+	} else {
+		var legacyModuleFile legacyModuleFile
+		util.ReadYaml(moduleFilePath, &legacyModuleFile)
+		for _, legacyDep := range legacyModuleFile.Dependencies {
+			dep := Dependency{URL: legacyDep.URL, Version: legacyDep.Version.Rev}
+			moduleFile.Dependencies[legacyDep.Name] = dep
+			if legacyDep.Version.Hash != "" {
+				moduleFile.PinnedDependencies[legacyDep.Name] = PinnedDependency{
+					URL:     dep.URL,
+					Version: dep.Version,
+					Hash:    legacyDep.Version.Hash,
+				}
+			}
 		}
-		names[dep.Name] = true
 	}
-
 	return moduleFile
 }
 
 // WriteModuleFile serializes and writes a Module's Dependencies to a MODULE file.
 func WriteModuleFile(modulePath string, moduleFile ModuleFile) {
+	moduleFile.Version = util.DbtVersion[0]
 	moduleFilePath := path.Join(modulePath, util.ModuleFileName)
 	util.WriteYaml(moduleFilePath, moduleFile)
 }

@@ -32,7 +32,7 @@ go get github.com/daedaleanai/dbt
 ## General remarks
 
 * All DBT commands have a `-v` / `--verbose` flag to enable debug output.
-* The `dbt version` command prints the current version of the tool.
+* `dbt --version` prints the current version of the tool.
 * DBT supports shell completion for `bash`, `zsh`, and `fish` shells. Run `dbt completion bash|zsh|fish` to get the respective completion script.
 * The auto-generated Go documentation for this repository can be found [here](https://pkg.go.dev/github.com/daedaleanai/dbt).
 * The auto-generated Go documentation for the `dbt-rules` repository can be found [here](https://pkg.go.dev/github.com/daedaleanai/dbt-rules).
@@ -41,11 +41,11 @@ go get github.com/daedaleanai/dbt
 
 In DBT, dependency management is centered around the concept of modules. DBT currently supports two types of modules: Git repositories and `.tar.gz` archives.
 
-Each module contains a `MODULE` file in its root directory to declare its dependencies on other modules. Modules always depend on a _named version_ of another module. In case of a Git dependency, this can be a branch name, tag or commit hash. `.tar.gz` archive dependencies only have a single version called `master`.
+Each module contains a `MODULE` file in its root directory to declare its dependencies on other modules. Modules always depend on a _named version_ of another module. In case of a Git dependency, this can be a branch name, tag or commit hash. `.tar.gz` archive dependencies only have a single version called `master`. When depending on a Git branch, the dependency should be against the remote branch (e.g., `origin/some-banch`) to ensure updates to the branch are considered by DBT.
 
-When a dependency is resolved for the first time (e.g., when running the `dbt sync` command), the dependency version is resolved to a hash that uniquely identifies a snapshot of the dependency. For Git dependencies this is the commit hash, for `.tar.gz` archives this is the `sha256` hash of the archives content.
+When a dependency is pinned for the first time (i.e., when running the `dbt sync` command), the dependency version (as specified in the `MODULE` file of the dependent module) is resolved to a hash that uniquely identifies a snapshot of the dependency. For Git dependencies this is the commit hash, for `.tar.gz` archives this is the `sha256` hash of the archives content.
 
-The resolved hash is then added to the `MODULE` file of the dependent module. To guarantee reproducible builds, DBT will always use the hash from the `MODULE` file to resolve a dependency, if it is available. In order to update these hashes (e.g., when a dependency on a Git branch should reflect new commits), the `dbt dep update` [command](#updating-dependency-version-hashes) must be used.
+The resolved hash is then added to the `MODULE` file of the dependent module. To guarantee reproducible builds, DBT will always use the hash from the `MODULE` file to resolve a dependency, if it is available. In order to update these hashes (e.g., when a dependency on a Git branch should reflect new commits), use `dbt sync ---update`.
 
 ## Directory structure
 
@@ -58,57 +58,30 @@ The following commands always act on the `MODULE` file of the current module (ac
 
 #### Adding a dependency
 
-To add a Git repository dependency to the current module run:
+To add a dependency to the current module run:
 ```
-dbt dep add git [NAME] URL VERSION
-```
-
-To add a `.tar.gz` archive dependency to the current module run:
-```
-dbt dep add tar [NAME] URL
+dbt dep add [NAME] --url=URL --version=VERSION
 ```
 
 The `NAME` parameter determines the name of the module directory inside the `DEPS/` directory. It is derived from the `URL` if omitted.
-In order to change the version of the dependency (e.g., to depend on another branch of a dependency), simply rerun the command. 
+In order to change the version of the dependency (e.g., to depend on another version of a dependency), simply rerun the `dbt dep add` command.
 
 #### Removing a dependency
 
 To remove a dependency from the current module run:
 ```
-dbt dep remove NAME|URL
+dbt dep remove NAME
 ```
-
-#### Updating dependency version hashes
-
-Once a dependency version is resolved to a hash (i.e., after running `dbt sync`), that dependency is then fixed to that version hash until it is explicitly updated. That means, dependencies on Git branches will not automatically resolve to the tip of that branch.
-
-The `dbt dep update [--all] [MODULES...]` command can be used to re-run the resolution of _named_ versions to hashes. The command will only update dependency entries to `MODULES`. If no `MODULES` are spedified, all dependency entries are updated.
-
-By default, the command will only execute on the current module. If the `--all` flag is specified, the command will execute on all modules in the workspace.
-
-Examples:
-* `dbt dep update` will update all dependency entries of the current module
-* `dbt dep update moduleA moduleB` will update the dependency entries for dependencies to modules `moduleA` and `moduleB` for the current module
-* `dbt dep update --all` will update all dependency entries of all modules in the workspace
-* `dbt dep update --all moduleC` will update the dependency entries for dependencies to module `moduleC` for all modules in the workspace
 
 ### Module initialization
 
-If a module has a `SETUP.go` file in its root directory, DBT will run the `SETUP.go` file when the module is initially cloned or downloaded. This mechanism can be be used to initialize modules (e.g. install git hooks).
+If a module has a `SETUP.go` file in its root directory, DBT will run the `SETUP.go` whenever a new snapshot of the module is checked out. This mechanism can be be used to initialize modules (e.g. install git hooks). The `SETUP.go` scripts should thus be written in an idempotent way. DBT enforces a 10 second time limit on `SETUP.go` scripts.
 
 ### The sync command
 
-The `dbt sync [--master]` command recursively clones, downloads and updates modules to satisfy the dependencies declared in the `MODULE` files starting from the top-level module. All dependencies to a module must resolve to the same version hash. If DBT encounters any conflicting version hashes for the same dependency across `MODULE` files, the sync operation fails.
+The `dbt sync [--update] [--ignore-errors]` command recursively clones, downloads and updates modules to satisfy the dependencies declared in the `MODULE` files starting from the top-level module. All dependencies to a module must resolve to the same version. If DBT encounters any conflicting version hashes for the same dependency across `MODULE` files, the sync operation fails. If the `--ignore-errors` flag is used, errors related to mismatcing dependency URLs or versions will be ignored.
 
-If the `--master` flag is specified, DBT will ignore all versions specified in `MODULE` files and use `master` as the version for all dependencies.
-
-### The fetch command
-
-`dbt fetch` will run `git fetch` in all Git modules in the workspace. Modules that have uncommited changes will be skipped. This is mostly useful in combination with the `git dep update` command.
-
-### The status command
-
-The `dbt status` command prints a summary of all currently available modules and their current versions, and reports any unsatisied dependencies. The command will never perform any changes on any module. 
+If the `--update` flag is used, DBT will ignore all previously resolved dependency hashes.
 
 ## Build System
 
@@ -116,11 +89,11 @@ The `dbt status` command prints a summary of all currently available modules and
 
 In order to use the build system features of DBT the `dbt-rules` module must be available. The easiest way to achieve this is to add the following dependency:
 ```
-dbt dep add git https://github.com/daedaleanai/dbt-rules.git origin/master
+dbt dep add dbt-rules --url=https://github.com/daedaleanai/dbt-rules.git --version=origin/master
 dbt sync
 ```
 
-### Defining build targets 
+### Defining build targets
 
 DBT uses Go for both build target declarations and build rule definitions. DBT thus brings all the advantages and expressivness of a full, strongly-typed programming language to the build system.
 

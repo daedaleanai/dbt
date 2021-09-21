@@ -13,6 +13,8 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
+var DbtVersion = []uint{2, 0, 0}
+
 // ModuleFileName is the name of the file describing each module.
 const ModuleFileName = "MODULE"
 
