@@ -191,10 +191,13 @@ func runBuild(args []string, runTargets bool, runArgs []string) {
 		regexps = append(regexps, re)
 	}
 	targets := []string{}
-	for target := range genOutput.Targets {
+	for name, target := range genOutput.Targets {
+		if runTargets && !target.Runnable {
+			continue
+		}
 		for _, re := range regexps {
-			if re.MatchString(target) {
-				targets = append(targets, target)
+			if re.MatchString(name) {
+				targets = append(targets, name)
 				break
 			}
 		}
