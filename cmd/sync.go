@@ -21,13 +21,11 @@ declared in the MODULE files of each module, starting from the top-level MODULE 
 	Run: runSync,
 }
 
-var master bool
 var update bool
 var ignoreErrors bool
 
 func init() {
 	// Whether to use 'master' instead of the version specified in the MODULE file.
-	syncCmd.Flags().BoolVar(&master, "latest", false, "Use 'origin/master' as the version for all dependencies.")
 	syncCmd.Flags().BoolVar(&update, "update", false, "Remove all pinned dependencies.")
 	syncCmd.Flags().BoolVar(&ignoreErrors, "ignore-errors", false, "Ignore all errors while pinning and checking dependencies.")
 	rootCmd.AddCommand(syncCmd)
@@ -50,7 +48,7 @@ func runSync(cmd *cobra.Command, args []string) {
 	}
 
 	workspaceModuleFile := module.ReadModuleFile(workspaceRoot)
-	if update || master {
+	if update {
 		// Remove all pinned dependencies to start pinning dependencies from scratch.
 		workspaceModuleFile.PinnedDependencies = map[string]module.PinnedDependency{}
 	}
@@ -99,15 +97,11 @@ func runSync(cmd *cobra.Command, args []string) {
 			log.IndentationLevel = 2
 
 			dep := moduleFile.Dependencies[name]
-
-			if master {
-				dep.Version = masterVersion
-			}
-
 			pinnedDep := workspaceModuleFile.PinnedDependencies[name]
 			if _, exists := workspaceModuleFile.PinnedDependencies[name]; !exists {
 				log.Debug("Dependency pinned to URL '%s', version '%s'.\n", dep.URL, dep.Version)
-				pinnedDep.Dependency = dep
+				pinnedDep.URL = dep.URL
+				pinnedDep.Version = dep.Version
 			}
 			if dep.URL != pinnedDep.URL {
 				errorFunc("Dependency requires URL '%s', but URL has been pinned to '%s'.\n", dep.URL, pinnedDep.URL)

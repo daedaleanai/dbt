@@ -13,8 +13,9 @@ type Dependency struct {
 }
 
 type PinnedDependency struct {
-	Dependency
-	Hash string
+	URL     string
+	Version string
+	Hash    string
 }
 
 type ModuleFile struct {
@@ -68,7 +69,11 @@ func ReadModuleFile(modulePath string) ModuleFile {
 			dep := Dependency{URL: legacyDep.URL, Version: legacyDep.Version.Rev}
 			moduleFile.Dependencies[legacyDep.Name] = dep
 			if legacyDep.Version.Hash != "" {
-				moduleFile.PinnedDependencies[legacyDep.Name] = PinnedDependency{Dependency: dep, Hash: legacyDep.Version.Hash}
+				moduleFile.PinnedDependencies[legacyDep.Name] = PinnedDependency{
+					URL:     dep.URL,
+					Version: dep.Version,
+					Hash:    legacyDep.Version.Hash,
+				}
 			}
 		}
 	}
