@@ -46,7 +46,7 @@ type legacyModuleFile struct {
 // ReadModuleFile reads and parses module Dependencies from a MODULE file.
 func ReadModuleFile(modulePath string) ModuleFile {
 	moduleFile := ModuleFile{
-		Version:            util.DbtVersion[0],
+		Version:            util.DbtVersion[1],
 		Dependencies:       map[string]Dependency{},
 		PinnedDependencies: map[string]PinnedDependency{},
 	}
@@ -60,7 +60,7 @@ func ReadModuleFile(modulePath string) ModuleFile {
 	// Check MODULE file version.
 	var moduleFileVersion moduleFileVersion
 	util.ReadYaml(moduleFilePath, &moduleFileVersion)
-	if moduleFileVersion.Version == util.DbtVersion[0] {
+	if moduleFileVersion.Version == util.DbtVersion[1] {
 		util.ReadYaml(moduleFilePath, &moduleFile)
 	} else {
 		var legacyModuleFile legacyModuleFile
@@ -82,7 +82,7 @@ func ReadModuleFile(modulePath string) ModuleFile {
 
 // WriteModuleFile serializes and writes a Module's Dependencies to a MODULE file.
 func WriteModuleFile(modulePath string, moduleFile ModuleFile) {
-	moduleFile.Version = util.DbtVersion[0]
+	moduleFile.Version = util.DbtVersion[1]
 	moduleFilePath := path.Join(modulePath, util.ModuleFileName)
 	util.WriteYaml(moduleFilePath, moduleFile)
 }
