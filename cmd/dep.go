@@ -14,9 +14,9 @@ var (
 	nameRegexp    = regexp.MustCompile(`^[a-z0-9_\-.]+$`)
 	urlRegexp     = regexp.MustCompile(`/([A-Za-z0-9_\-.]+)(\.git|\.tar\.gz)$`)
 	versionRegexp = regexp.MustCompile(`^[A-Za-z0-9_\-./]+$`)
-
-	defaultVersion = "origin/master"
 )
+
+const masterVersion = "origin/master"
 
 var (
 	depCmd = &cobra.Command{
@@ -50,7 +50,7 @@ func init() {
 
 	depCmd.AddCommand(addCmd)
 	addCmd.Flags().StringVar(&url, "url", "", "Dependency URL")
-	addCmd.Flags().StringVar(&version, "version", defaultVersion, "Dependency version")
+	addCmd.Flags().StringVar(&version, "version", masterVersion, "Dependency version")
 
 	depCmd.AddCommand(removeCmd)
 }

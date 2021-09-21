@@ -12,8 +12,6 @@ import (
 	"github.com/daedaleanai/cobra"
 )
 
-const latestVersion = "master"
-
 var syncCmd = &cobra.Command{
 	Use:   "sync",
 	Args:  cobra.NoArgs,
@@ -23,13 +21,13 @@ declared in the MODULE files of each module, starting from the top-level MODULE 
 	Run: runSync,
 }
 
-var latest bool
+var master bool
 var update bool
 var ignoreErrors bool
 
 func init() {
 	// Whether to use 'master' instead of the version specified in the MODULE file.
-	syncCmd.Flags().BoolVar(&latest, "latest", false, "Use the lastest ('origin/master') version for all dependencies.")
+	syncCmd.Flags().BoolVar(&master, "latest", false, "Use 'origin/master' as the version for all dependencies.")
 	syncCmd.Flags().BoolVar(&update, "update", false, "Remove all pinned dependencies.")
 	syncCmd.Flags().BoolVar(&ignoreErrors, "ignore-errors", false, "Ignore all errors while pinning and checking dependencies.")
 	rootCmd.AddCommand(syncCmd)
@@ -52,7 +50,7 @@ func runSync(cmd *cobra.Command, args []string) {
 	}
 
 	workspaceModuleFile := module.ReadModuleFile(workspaceRoot)
-	if update || latest {
+	if update || master {
 		// Remove all pinned dependencies to start pinning dependencies from scratch.
 		workspaceModuleFile.PinnedDependencies = map[string]module.PinnedDependency{}
 	}
@@ -102,8 +100,8 @@ func runSync(cmd *cobra.Command, args []string) {
 
 			dep := moduleFile.Dependencies[name]
 
-			if latest {
-				dep.Version = defaultVersion
+			if master {
+				dep.Version = masterVersion
 			}
 
 			pinnedDep := workspaceModuleFile.PinnedDependencies[name]
