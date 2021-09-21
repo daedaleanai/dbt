@@ -79,11 +79,9 @@ If a module has a `SETUP.go` file in its root directory, DBT will run the `SETUP
 
 ### The sync command
 
-The `dbt sync [--update] [--master] [--ignore-errors]` command recursively clones, downloads and updates modules to satisfy the dependencies declared in the `MODULE` files starting from the top-level module. All dependencies to a module must resolve to the same version. If DBT encounters any conflicting version hashes for the same dependency across `MODULE` files, the sync operation fails. If the `--ignore-errors` flag is used, errors related to mismatcing dependency URLs or versions will be ignored.
+The `dbt sync [--update] [--ignore-errors]` command recursively clones, downloads and updates modules to satisfy the dependencies declared in the `MODULE` files starting from the top-level module. All dependencies to a module must resolve to the same version. If DBT encounters any conflicting version hashes for the same dependency across `MODULE` files, the sync operation fails. If the `--ignore-errors` flag is used, errors related to mismatcing dependency URLs or versions will be ignored.
 
 If the `--update` flag is used, DBT will ignore all previously resolved dependency hashes.
-If the `--master` flag is used, DBT will ignore the versions specified in `MODULE` files and use `origin/master` as the version for all dependencies.
-`--master` imples `--update`.
 
 ## Build System
 
