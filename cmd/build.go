@@ -6,10 +6,12 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"io"
 	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -20,12 +22,15 @@ import (
 	"github.com/daedaleanai/cobra"
 )
 
-const bashFileName = "build.sh"
 const buildDirName = "BUILD"
 const buildDirNamePrefix = "OUTPUT"
 const buildFileName = "BUILD.go"
+const compileCommandsDbFileName = "compile_commands.json"
+const compileCommandsFileName = "compile_commands.sh"
 const dbtRulesDirName = "dbt-rules"
+const dependencyGraphFileName = "graph.dot"
 const generatorDirName = "GENERATOR"
+const generatorInputFileName = "input.json"
 const generatorOutputFileName = "output.json"
 const initFileName = "init.go"
 const mainFileName = "main.go"
@@ -108,6 +113,7 @@ func main() {
 
 type target struct {
 	Description string
+	Runnable    bool
 }
 
 type flag struct {
@@ -117,50 +123,93 @@ type flag struct {
 	Value         string
 }
 
+type generatorInput struct {
+	Version         uint
+	SourceDir       string
+	WorkingDir      string
+	BuildDirPrefix  string
+	BuildFlags      map[string]string
+	CompletionsOnly bool
+	RunArgs         []string
+}
+
 type generatorOutput struct {
+	Version   uint
 	NinjaFile string
-	BashFile  string
 	Targets   map[string]target
 	Flags     map[string]flag
 	BuildDir  string
 }
 
 var buildCmd = &cobra.Command{
-	Use:                   "build [targets] [build flags]",
-	Short:                 "Builds the targets",
-	Long:                  `Builds the targets.`,
-	Run:                   runBuild,
-	ValidArgsFunction:     completeBuildArgs,
+	Use:   "build [patterns] [build flags] [--commands] [--compdb] [--graph]",
+	Short: "Builds the targets",
+	Long:  `Builds the targets.`,
+	Run: func(cmd *cobra.Command, args []string) {
+		runBuild(args, false, []string{})
+	},
+	ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		return completeBuildArgs(toComplete, false), cobra.ShellCompDirectiveNoFileComp
+	},
 	DisableFlagsInUseLine: true,
 }
 
+var (
+	commandList     bool
+	commandDb       bool
+	dependencyGraph bool
+)
+
 func init() {
 	rootCmd.AddCommand(buildCmd)
+	buildCmd.Flags().BoolVar(&commandList, "commands", false, "Create compile commands list")
+	buildCmd.Flags().BoolVar(&commandDb, "compdb", false, "Create compile commands JSON database")
+	buildCmd.Flags().BoolVar(&dependencyGraph, "graph", false, "Create dependency graph")
 }
 
-func runBuild(cmd *cobra.Command, args []string) {
+func runBuild(args []string, runTargets bool, runArgs []string) {
 	dbtRulesDir := path.Join(util.GetWorkspaceRoot(), util.DepsDirName, dbtRulesDirName)
 	if !util.DirExists(dbtRulesDir) {
 		log.Fatal("You are running 'dbt build' without '%s' being available. Add that dependency, run 'dbt sync' and try again.\n", dbtRulesDirName)
 		return
 	}
 
-	targets, flags := parseArgs(args)
-	genOutput := runGenerator("buildFiles", flags)
+	patterns, flags := parseArgs(args)
+	genOutput := runGenerator(generatorInput{
+		BuildFlags: flags,
+		RunArgs:    runArgs,
+	})
 
-	// Write the build files.
+	// Determine the set of targets to be built.
+	log.Debug("Target patterns: '%s'.\n", strings.Join(patterns, "', '"))
+	regexps := []*regexp.Regexp{}
+	for _, pattern := range patterns {
+		re, err := regexp.Compile(fmt.Sprintf("^%s$", pattern))
+		if err != nil {
+			log.Fatal("Target pattern '%s' is not a valid regular expression: %s.\n", pattern, err)
+		}
+		regexps = append(regexps, re)
+	}
+	targets := []string{}
+	for name, target := range genOutput.Targets {
+		if runTargets && !target.Runnable {
+			continue
+		}
+		for _, re := range regexps {
+			if re.MatchString(name) {
+				targets = append(targets, name)
+				break
+			}
+		}
+	}
+
+	// Write the Ninja build file.
 	ninjaFilePath := path.Join(genOutput.BuildDir, ninjaFileName)
 	util.WriteFile(ninjaFilePath, []byte(genOutput.NinjaFile))
+	log.Debug("Ninja file: %s.\n", ninjaFilePath)
 
-	bashFilePath := path.Join(genOutput.BuildDir, bashFileName)
-	util.WriteFile(bashFilePath, []byte(genOutput.BashFile))
-
-	log.Debug("Targets: '%s'.\n", strings.Join(targets, "', '"))
-
-	// Get all available targets and flags.
-	if len(targets) == 0 {
-		log.Debug("No targets specified.\n")
-
+	// Print all available targets and flags if there is nothing to build.
+	if !commandList && !commandDb && !dependencyGraph && len(targets) == 0 {
 		targetNames := []string{}
 		for name := range genOutput.Targets {
 			targetNames = append(targetNames, name)
@@ -170,6 +219,9 @@ func runBuild(cmd *cobra.Command, args []string) {
 		fmt.Println("\nAvailable targets:")
 		for _, name := range targetNames {
 			target := genOutput.Targets[name]
+			if runTargets && !target.Runnable {
+				continue
+			}
 			fmt.Printf("  //%s", name)
 			if target.Description != "" {
 				fmt.Printf("  //%s (%s)", name, target.Description)
@@ -191,51 +243,59 @@ func runBuild(cmd *cobra.Command, args []string) {
 		return
 	}
 
-	expandedTargets := map[string]struct{}{}
-	for _, target := range targets {
-		if !strings.HasSuffix(target, "...") {
-			if _, exists := genOutput.Targets[target]; !exists {
-				log.Fatal("Target '%s' does not exist.\n", target)
-			}
-			expandedTargets[target] = struct{}{}
-			continue
+	if len(targets) > 0 {
+		ninjaArgs := []string{}
+		if log.Verbose {
+			ninjaArgs = []string{"-v", "-d", "explain"}
 		}
 
-		targetPrefix := strings.TrimSuffix(target, "...")
-		found := false
-		for availableTarget := range genOutput.Targets {
-			if strings.HasPrefix(availableTarget, targetPrefix) {
-				found = true
-				expandedTargets[availableTarget] = struct{}{}
+		for _, target := range targets {
+			if runTargets {
+				ninjaArgs = append(ninjaArgs, target+"#run")
+			} else {
+				ninjaArgs = append(ninjaArgs, target)
 			}
 		}
-		if !found {
-			log.Fatal("No target is matching pattern '%s'.\n", target)
-		}
+		runNinja(genOutput.BuildDir, os.Stdout, ninjaArgs)
 	}
 
-	// Run ninja.
-	ninjaArgs := []string{}
-	if log.Verbose {
-		ninjaArgs = append(ninjaArgs, "-v", "-d", "explain")
+	if commandList {
+		args := append([]string{"-t", "commands"}, targets...)
+		printNinjaOutput(genOutput.BuildDir, compileCommandsFileName, "Compile commands", args)
 	}
-	for target := range expandedTargets {
-		ninjaArgs = append(ninjaArgs, target)
+	if commandDb {
+		printNinjaOutput(genOutput.BuildDir, compileCommandsDbFileName, "Compile commands database", []string{"-t", "compdb"})
 	}
+	if dependencyGraph {
+		args := append([]string{"-t", "graph"}, targets...)
+		printNinjaOutput(genOutput.BuildDir, dependencyGraphFileName, "Dependency graph", args)
+	}
+}
 
-	log.Debug("Running ninja command: 'ninja %s'\n", strings.Join(ninjaArgs, " "))
-	ninjaCmd := exec.Command("ninja", ninjaArgs...)
-	ninjaCmd.Dir = genOutput.BuildDir
+func runNinja(dir string, stdout io.Writer, args []string) {
+	log.Debug("Running ninja command: 'ninja %s'\n", strings.Join(args, " "))
+	ninjaCmd := exec.Command("ninja", args...)
+	ninjaCmd.Dir = dir
 	ninjaCmd.Stderr = os.Stderr
-	ninjaCmd.Stdout = os.Stdout
+	ninjaCmd.Stdout = stdout
 	err := ninjaCmd.Run()
 	if err != nil {
 		log.Fatal("Running ninja failed: %s\n", err)
 	}
 }
 
-func completeBuildArgs(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-	genOutput := runGenerator("completion", []string{})
+func printNinjaOutput(dir, fileName, label string, args []string) {
+	var stdout bytes.Buffer
+	runNinja(dir, &stdout, args)
+	absPath := path.Join(dir, fileName)
+	relPath, _ := filepath.Rel(util.GetWorkingDir(), absPath)
+	util.WriteFile(absPath, stdout.Bytes())
+	log.Log("\n%s: %s\n", label, relPath)
+
+}
+
+func completeBuildArgs(toComplete string, runTargets bool) []string {
+	genOutput := runGenerator(generatorInput{CompletionsOnly: true})
 
 	if strings.Contains(toComplete, "=") {
 		suggestions := []string{}
@@ -243,39 +303,44 @@ func completeBuildArgs(cmd *cobra.Command, args []string, toComplete string) ([]
 		for _, value := range genOutput.Flags[flag].AllowedValues {
 			suggestions = append(suggestions, fmt.Sprintf("%s=%s", flag, value))
 		}
-		return suggestions, cobra.ShellCompDirectiveNoFileComp
+		return suggestions
 	}
 
 	suggestions := []string{}
 	targetToComplete := normalizeTarget(toComplete)
 	for name, target := range genOutput.Targets {
-		if strings.HasPrefix(name, targetToComplete) {
-			suggestions = append(suggestions, fmt.Sprintf("%s%s\t%s", toComplete, strings.TrimPrefix(name, targetToComplete), target.Description))
+		if !strings.HasPrefix(name, targetToComplete) {
+			continue
 		}
+		if runTargets && !target.Runnable {
+			continue
+		}
+		suggestions = append(suggestions, fmt.Sprintf("%s%s\t%s", toComplete, strings.TrimPrefix(name, targetToComplete), target.Description))
 	}
 
 	for name, flag := range genOutput.Flags {
 		suggestions = append(suggestions, fmt.Sprintf("%s=\t%s", name, flag.Description))
 	}
 
-	return suggestions, cobra.ShellCompDirectiveNoFileComp
+	return suggestions
 }
 
-func parseArgs(args []string) ([]string, []string) {
-	targets := []string{}
-	flags := []string{}
+func parseArgs(args []string) ([]string, map[string]string) {
+	patterns := []string{}
+	flags := map[string]string{}
 
 	// Split all args into two categories: If they contain a "= they are considered
-	// build flags, otherwise a target to be built.
+	// build flags, otherwise a target pattern to be built.
 	for _, arg := range args {
 		if strings.Contains(arg, "=") {
-			flags = append(flags, arg)
+			parts := strings.SplitN(arg, "=", 2)
+			flags[parts[0]] = parts[1]
 		} else {
-			targets = append(targets, normalizeTarget(arg))
+			patterns = append(patterns, normalizeTarget(arg))
 		}
 	}
 
-	return targets, flags
+	return patterns, flags
 }
 
 func normalizeTarget(target string) string {
@@ -296,14 +361,15 @@ func normalizeTarget(target string) string {
 	return strings.TrimLeft(target, "/")
 }
 
-func runGenerator(mode string, flags []string) generatorOutput {
+func runGenerator(input generatorInput) generatorOutput {
+	input.Version = 2
 	workspaceRoot := util.GetWorkspaceRoot()
-	sourceDir := path.Join(workspaceRoot, util.DepsDirName)
-	workingDir := util.GetWorkingDir()
-	generatorDir := path.Join(workspaceRoot, buildDirName, generatorDirName)
-	buildDirPrefix := path.Join(workspaceRoot, buildDirName, buildDirNamePrefix)
+	input.SourceDir = path.Join(workspaceRoot, util.DepsDirName)
+	input.WorkingDir = util.GetWorkingDir()
+	input.BuildDirPrefix = path.Join(workspaceRoot, buildDirName, buildDirNamePrefix)
 
 	// Remove all existing buildfiles.
+	generatorDir := path.Join(workspaceRoot, buildDirName, generatorDirName)
 	util.RemoveDir(generatorDir)
 
 	// Copy all BUILD.go files and RULES/ files from the source directory.
@@ -318,10 +384,12 @@ func runGenerator(mode string, flags []string) generatorOutput {
 	createGeneratorMainFile(generatorDir, packages, modules)
 	createSumGoFile(generatorDir)
 
-	cmdArgs := append([]string{"run", mainFileName, mode, sourceDir, buildDirPrefix, workingDir}, flags...)
-	cmd := exec.Command("go", cmdArgs...)
+	generatorInputPath := path.Join(generatorDir, generatorInputFileName)
+	util.WriteJson(generatorInputPath, &input)
+
+	cmd := exec.Command("go", "run", mainFileName)
 	cmd.Dir = generatorDir
-	if mode != "completion" {
+	if !input.CompletionsOnly {
 		cmd.Stderr = os.Stderr
 		cmd.Stdout = os.Stdout
 	}

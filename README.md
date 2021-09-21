@@ -133,26 +133,48 @@ var example = cc.Binary{
 }
 ```
 
-### Running builds
+### Building targets
 
-The `dbt build [TARGETS...] [BUILDFLAGS...]` build one or multiple targets.
+The `dbt build [TARGETS...] [BUILDFLAGS...]` command builds one or multiple targets.
 Build targets are identified by the file path to the directory that contains the `BUILD.go` file plus the variable name of the target within the `BUILD.go` file.
-Build targets can be specified to the `sbt build` command either relative to the current working directory or relative to the workspace root. In the latter case the target must be prefixed with `//`.
+Build targets can be specified to the `dbt build` command either relative to the current working directory or relative to the workspace root. In the latter case the target must be prefixed with `//`.
 
 For an example, assume the `BUILD.go` file above was located at `moduleA/path/to/example/BUILD.go` in a workspace. The `example` binary could then be built by running:
 * `dbt build //moduleA/path/to/example/example` from any directory inside the workspace.
 * `dbt build path/to/example/example` from the `moduleA/` directory.
 * `dbt build example/example` from the `moduleA/path/to/` directory.
 
-Multiple build targets can be referenced by using the `...` suffix. For example, `dbt build //moduleA/path/to/...` will build all target that match the prefix `//moduleA/path/to/` (i.e., all targets defined in the `moduleA/path/to/` directory).
+Multiple build targets can be referenced by using regular expressions. For example, `dbt build //moduleA/path/to/.*` will build all targets defined in the `moduleA/path/to/` directory.
 
 Build flags can be specified using `name=value` syntax. For details see the [relevant section](#build-configuration)].
 
 Running `dbt build` without specifying any targets to build will show a list of all available build targets, as well as all build flags and their current values.
 
-The `dbt clean` command will delete the `BUILD/` directory.
+The `dbt clean` command will delete the `BUILD/` directory, which contains all build outputs and intermediate files.
 
 Under the hood, DBT creates a `build.ninja` file to steer the build process. In addition, a `build.sh` file is generated. While this file is not used by DBT itself it contains all commands to build all targets in the workspace and can be used to trigger a full rebuild of all targets when Ninja is not available.
+
+The `dbt build` command supports the following three flags to output additional information about the compilation process:
+* `--commands` produces a file that list all commands executed to produce the targets
+* `--graph` produces a GraphWiz file with the dependency graph of all produced targets
+* `--compdb` produces a [JSON compilation database](https://clang.llvm.org/docs/JSONCompilationDatabase.html) for all targets
+The path of the file containing the output is printed by `dbt build` when the respective flag is activated.
+
+### Running targets
+
+The `dbt run [TARGETS...] [BUILDFLAGS...] : [RUNARGS...]` build and runs one or multiple targets.
+The targets that are to be built and run must be specified as for the `dbt build` command.
+
+In order for a target to be runnable, its build rule must implement the `Run` interface:
+```
+type Run interface {
+	Run(args []string) string
+}
+```
+
+The command returned from the `Run` method will be executed by DBT when `dbt run` is called on a target.
+
+Additional arguments can be passed from the command-line to the `Run` method. These arguments must be separated from the targets and build flags with a colon.
 
 ### Creating custom build rules
 
