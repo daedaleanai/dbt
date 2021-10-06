@@ -77,6 +77,14 @@ func ReadModuleFile(modulePath string) ModuleFile {
 			}
 		}
 	}
+	// YAML decoding can nil maps if the key is present in the yaml file
+	// with no entries. Restore them if this happens.
+	if moduleFile.Dependencies == nil {
+		moduleFile.Dependencies = map[string]Dependency{}
+	}
+	if moduleFile.PinnedDependencies == nil {
+		moduleFile.PinnedDependencies = map[string]PinnedDependency{}
+	}
 	return moduleFile
 }
 
