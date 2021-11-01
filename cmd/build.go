@@ -208,6 +208,10 @@ func runBuild(args []string, runTargets bool, runArgs []string) {
 	util.WriteFile(ninjaFilePath, []byte(genOutput.NinjaFile))
 	log.Debug("Ninja file: %s.\n", ninjaFilePath)
 
+	if len(patterns) > 0 && len(targets) == 0 {
+		fmt.Println("No target matches the specified target pattern(s).")
+	}
+
 	// Print all available targets and flags if there is nothing to build.
 	if !commandList && !commandDb && !dependencyGraph && len(targets) == 0 {
 		targetNames := []string{}
@@ -222,11 +226,11 @@ func runBuild(args []string, runTargets bool, runArgs []string) {
 			if runTargets && !target.Runnable {
 				continue
 			}
-			fmt.Printf("  //%s", name)
 			if target.Description != "" {
-				fmt.Printf("  //%s (%s)", name, target.Description)
+				fmt.Printf("  //%s (%s)\n", name, target.Description)
+			} else {
+				fmt.Printf("  //%s\n", name)
 			}
-			fmt.Println()
 		}
 
 		fmt.Println("\nAvailable flags:")
