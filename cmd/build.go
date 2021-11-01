@@ -111,9 +111,18 @@ func main() {
 }
 `
 
+type mode uint
+
+const (
+	modeBuild mode = 1
+	modeRun   mode = 2
+	modeTest  mode = 3
+)
+
 type target struct {
 	Description string
 	Runnable    bool
+	Testable    bool
 }
 
 type flag struct {
@@ -131,6 +140,7 @@ type generatorInput struct {
 	BuildFlags      map[string]string
 	CompletionsOnly bool
 	RunArgs         []string
+	TestArgs        []string
 }
 
 type generatorOutput struct {
@@ -146,10 +156,10 @@ var buildCmd = &cobra.Command{
 	Short: "Builds the targets",
 	Long:  `Builds the targets.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		runBuild(args, false, []string{})
+		runBuild(args, modeBuild, nil)
 	},
 	ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-		return completeBuildArgs(toComplete, false), cobra.ShellCompDirectiveNoFileComp
+		return completeBuildArgs(toComplete, modeBuild), cobra.ShellCompDirectiveNoFileComp
 	},
 	DisableFlagsInUseLine: true,
 }
@@ -167,7 +177,7 @@ func init() {
 	buildCmd.Flags().BoolVar(&dependencyGraph, "graph", false, "Create dependency graph")
 }
 
-func runBuild(args []string, runTargets bool, runArgs []string) {
+func runBuild(args []string, mode mode, modeArgs []string) {
 	dbtRulesDir := path.Join(util.GetWorkspaceRoot(), util.DepsDirName, dbtRulesDirName)
 	if !util.DirExists(dbtRulesDir) {
 		log.Fatal("You are running 'dbt build' without '%s' being available. Add that dependency, run 'dbt sync' and try again.\n", dbtRulesDirName)
@@ -175,10 +185,14 @@ func runBuild(args []string, runTargets bool, runArgs []string) {
 	}
 
 	patterns, flags := parseArgs(args)
-	genOutput := runGenerator(generatorInput{
-		BuildFlags: flags,
-		RunArgs:    runArgs,
-	})
+	genInput := generatorInput{BuildFlags: flags}
+	switch mode {
+	case modeRun:
+		genInput.RunArgs = modeArgs
+	case modeTest:
+		genInput.TestArgs = modeArgs
+	}
+	genOutput := runGenerator(genInput)
 
 	// Determine the set of targets to be built.
 	log.Debug("Target patterns: '%s'.\n", strings.Join(patterns, "', '"))
@@ -192,7 +206,7 @@ func runBuild(args []string, runTargets bool, runArgs []string) {
 	}
 	targets := []string{}
 	for name, target := range genOutput.Targets {
-		if runTargets && !target.Runnable {
+		if skipTarget(mode, target) {
 			continue
 		}
 		for _, re := range regexps {
@@ -219,7 +233,7 @@ func runBuild(args []string, runTargets bool, runArgs []string) {
 		fmt.Println("\nAvailable targets:")
 		for _, name := range targetNames {
 			target := genOutput.Targets[name]
-			if runTargets && !target.Runnable {
+			if skipTarget(mode, target) {
 				continue
 			}
 			fmt.Printf("  //%s", name)
@@ -249,12 +263,15 @@ func runBuild(args []string, runTargets bool, runArgs []string) {
 			ninjaArgs = []string{"-v", "-d", "explain"}
 		}
 
+		suffix := ""
+		switch mode {
+		case modeRun:
+			suffix = "#run"
+		case modeTest:
+			suffix = "#test"
+		}
 		for _, target := range targets {
-			if runTargets {
-				ninjaArgs = append(ninjaArgs, target+"#run")
-			} else {
-				ninjaArgs = append(ninjaArgs, target)
-			}
+			ninjaArgs = append(ninjaArgs, target+suffix)
 		}
 		runNinja(genOutput.BuildDir, os.Stdout, ninjaArgs)
 	}
@@ -294,7 +311,7 @@ func printNinjaOutput(dir, fileName, label string, args []string) {
 
 }
 
-func completeBuildArgs(toComplete string, runTargets bool) []string {
+func completeBuildArgs(toComplete string, mode mode) []string {
 	genOutput := runGenerator(generatorInput{CompletionsOnly: true})
 
 	if strings.Contains(toComplete, "=") {
@@ -312,7 +329,7 @@ func completeBuildArgs(toComplete string, runTargets bool) []string {
 		if !strings.HasPrefix(name, targetToComplete) {
 			continue
 		}
-		if runTargets && !target.Runnable {
+		if skipTarget(mode, target) {
 			continue
 		}
 		suggestions = append(suggestions, fmt.Sprintf("%s%s\t%s", toComplete, strings.TrimPrefix(name, targetToComplete), target.Description))
@@ -564,4 +581,14 @@ func createSumGoFile(generatorDir string) {
 	if err != nil {
 		log.Fatal("Failed to run 'go mod download': %s.\n", err)
 	}
+}
+
+func skipTarget(mode mode, target target) bool {
+	switch mode {
+	case modeRun:
+		return !target.Runnable
+	case modeTest:
+		return !target.Testable
+	}
+	return false
 }

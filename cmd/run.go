@@ -10,7 +10,7 @@ var runCmd = &cobra.Command{
 	Long:  `Builds and runs the targets.`,
 	Run:   runRun,
 	ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-		return completeBuildArgs(toComplete, true), cobra.ShellCompDirectiveNoFileComp
+		return completeBuildArgs(toComplete, modeRun), cobra.ShellCompDirectiveNoFileComp
 	},
 	DisableFlagsInUseLine: true,
 }
@@ -29,5 +29,5 @@ func runRun(cmd *cobra.Command, args []string) {
 			break
 		}
 	}
-	runBuild(buildArgs, true, runArgs)
+	runBuild(buildArgs, modeRun, runArgs)
 }
