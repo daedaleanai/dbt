@@ -176,6 +176,22 @@ The command returned from the `Run` method will be executed by DBT when `dbt run
 
 Additional arguments can be passed from the command-line to the `Run` method. These arguments must be separated from the targets and build flags with a colon.
 
+### Testing targets
+
+The `dbt test [TARGETS...] [BUILDFLAGS...] : [TESTARGS...]` build and tests one or multiple targets.
+The targets that are to be built and tested must be specified as for the `dbt build` command.
+
+In order for a target to be testable, its build rule must implement the `Test` interface:
+```
+type Test interface {
+	Test(args []string) string
+}
+```
+
+The command returned from the `Test` method will be executed by DBT when `dbt test` is called on a target.
+
+Additional arguments can be passed from the command-line to the `Test` method. These arguments must be separated from the targets and build flags with a colon.
+
 ### Creating custom build rules
 
 The `dbt-rules` module provides some basic build rules. However, it is easy to extend DBT with custom rules.
