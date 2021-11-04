@@ -17,6 +17,7 @@ var runCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(runCmd)
+	runCmd.Flags().SetInterspersed(false)
 }
 
 func runRun(cmd *cobra.Command, args []string) {

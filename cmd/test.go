@@ -17,6 +17,7 @@ var testCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(testCmd)
+	testCmd.Flags().SetInterspersed(false)
 }
 
 func runTest(cmd *cobra.Command, args []string) {
