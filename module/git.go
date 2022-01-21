@@ -85,8 +85,5 @@ func (m GitModule) tryRunGitCommand(args ...string) (string, string, error) {
 	cmd.Stdout = &stdout
 	cmd.Dir = m.path
 	err := cmd.Run()
-	if err != nil {
-		return "", "", err
-	}
-	return strings.TrimSuffix(stdout.String(), "\n"), strings.TrimSuffix(stderr.String(), "\n"), nil
+	return strings.TrimSuffix(stdout.String(), "\n"), strings.TrimSuffix(stderr.String(), "\n"), err
 }
