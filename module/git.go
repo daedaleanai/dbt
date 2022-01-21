@@ -54,7 +54,7 @@ func (m GitModule) Fetch() bool {
 		return false
 	}
 
-	return len(m.runGitCommand("fetch")) > 0
+	return len(m.runGitCommand("fetch", "--all", "--tags")) > 0
 }
 
 // Checkout changes the current module's version to `ref`.
