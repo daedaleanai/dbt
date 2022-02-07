@@ -238,7 +238,7 @@ func runBuild(args []string, mode mode, modeArgs []string) {
 			}
 			fmt.Printf("  //%s", name)
 			if target.Description != "" {
-				fmt.Printf("  //%s (%s)", name, target.Description)
+				fmt.Printf("  (%s)", target.Description)
 			}
 			fmt.Println()
 		}
