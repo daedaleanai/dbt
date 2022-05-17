@@ -79,7 +79,7 @@ import (
 	"regexp"
 	"runtime"
 	"strconv"
-	
+
 	"dbt-rules/RULES/core"
 )
 
@@ -168,6 +168,7 @@ var (
 	commandList     bool
 	commandDb       bool
 	dependencyGraph bool
+	numThreads      int
 )
 
 func init() {
@@ -175,6 +176,7 @@ func init() {
 	buildCmd.Flags().BoolVar(&commandList, "commands", false, "Create compile commands list")
 	buildCmd.Flags().BoolVar(&commandDb, "compdb", false, "Create compile commands JSON database")
 	buildCmd.Flags().BoolVar(&dependencyGraph, "graph", false, "Create dependency graph")
+	buildCmd.Flags().IntVarP(&numThreads, "threads", "j", -1, "Run N jobs in parallel")
 }
 
 func runBuild(args []string, mode mode, modeArgs []string) {
@@ -261,6 +263,9 @@ func runBuild(args []string, mode mode, modeArgs []string) {
 		ninjaArgs := []string{}
 		if log.Verbose {
 			ninjaArgs = []string{"-v", "-d", "explain"}
+		}
+		if numThreads >= 0 {
+			ninjaArgs = append(ninjaArgs, fmt.Sprintf("-j%d", numThreads))
 		}
 
 		suffix := ""
