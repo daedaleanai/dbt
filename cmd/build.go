@@ -415,13 +415,14 @@ func completeBuildArgs(toComplete string, mode mode) []string {
 	suggestions := []string{}
 	targetToComplete := normalizeTarget(toComplete)
 	for name, target := range genOutput.Targets {
-		if !strings.HasPrefix(name, targetToComplete) {
-			continue
-		}
 		if skipTarget(mode, target) {
 			continue
 		}
-		suggestions = append(suggestions, fmt.Sprintf("%s%s\t%s", toComplete, strings.TrimPrefix(name, targetToComplete), target.Description))
+		if strings.Contains(name, toComplete) {
+			suggestions = append(suggestions, fmt.Sprintf("//%s\t%s", name, target.Description))
+		} else if strings.HasPrefix(name, targetToComplete) {
+			suggestions = append(suggestions, fmt.Sprintf("%s%s\t%s", toComplete, strings.TrimPrefix(name, targetToComplete), target.Description))
+		}
 	}
 
 	for name, flag := range genOutput.Flags {
