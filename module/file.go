@@ -22,6 +22,7 @@ type ModuleFile struct {
 	Version            uint
 	Dependencies       map[string]Dependency
 	PinnedDependencies map[string]PinnedDependency
+	Flags              map[string]string
 }
 
 type moduleFileVersion struct {
