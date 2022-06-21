@@ -35,19 +35,23 @@ func runSync(cmd *cobra.Command, args []string) {
 	workspaceRoot := util.GetWorkspaceRoot()
 	log.Debug("Workspace: %s.\n", workspaceRoot)
 
+	workspaceModuleFile := module.ReadModuleFile(workspaceRoot)
+
 	// Create the DEPS/ subdirectory and create a symlink to the top-level module.
 	workspaceModuleName := path.Base(workspaceRoot)
-	workspaceModuleSymlink := path.Join(workspaceRoot, util.DepsDirName, workspaceModuleName)
-	if !util.DirExists(workspaceModuleSymlink) {
-		log.Debug("Creating symlink for the workspace module: '%s/%s' -> '%s'.\n", util.DepsDirName, workspaceModuleName, workspaceRoot)
-		util.MkdirAll(path.Dir(workspaceModuleSymlink))
-		err := os.Symlink("..", workspaceModuleSymlink)
-		if err != nil {
-			log.Fatal("Failed to create symlink for workspace module: %s.\n", err)
+
+	if workspaceModuleFile.Layout != "cpp" {
+		workspaceModuleSymlink := path.Join(workspaceRoot, util.DepsDirName, workspaceModuleName)
+		if !util.DirExists(workspaceModuleSymlink) {
+			log.Debug("Creating symlink for the workspace module: '%s/%s' -> '%s'.\n", util.DepsDirName, workspaceModuleName, workspaceRoot)
+			util.MkdirAll(path.Dir(workspaceModuleSymlink))
+			err := os.Symlink("..", workspaceModuleSymlink)
+			if err != nil {
+				log.Fatal("Failed to create symlink for workspace module: %s.\n", err)
+			}
 		}
 	}
 
-	workspaceModuleFile := module.ReadModuleFile(workspaceRoot)
 	if update {
 		// Remove all pinned dependencies to start pinning dependencies from scratch.
 		workspaceModuleFile.PinnedDependencies = map[string]module.PinnedDependency{}

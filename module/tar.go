@@ -155,6 +155,10 @@ func createTarModule(modulePath, url string) (Module, error) {
 	return TarModule{modulePath}, nil
 }
 
+func (m TarModule) RootPath() string {
+	return m.path
+}
+
 // URL returns the url of the underlying tar archive.
 func (m TarModule) URL() string {
 	var metadata metadataFile

@@ -20,6 +20,7 @@ type PinnedDependency struct {
 
 type ModuleFile struct {
 	Version            uint
+	Layout             string
 	Dependencies       map[string]Dependency
 	PinnedDependencies map[string]PinnedDependency
 }
