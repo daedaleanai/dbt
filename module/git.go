@@ -26,6 +26,10 @@ func createGitModule(modulePath, url string) (Module, error) {
 	return mod, nil
 }
 
+func (m GitModule) RootPath() string {
+	return m.path
+}
+
 // URL returns the url of the underlying git repository.
 func (m GitModule) URL() string {
 	return m.runGitCommand("config", "--get", "remote.origin.url")
