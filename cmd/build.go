@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"sort"
 	"strings"
@@ -658,4 +659,15 @@ func skipTarget(mode mode, target target) bool {
 		return !target.Testable && !target.Report
 	}
 	return false
+}
+
+func sortMapKeys(m interface{}) []string {
+	keys := reflect.ValueOf(m).MapKeys()
+	keyList := []string{}
+
+	for _, key := range keys {
+		keyList = append(keyList, key.Interface().(string))
+	}
+	sort.Strings(keyList)
+	return keyList
 }
