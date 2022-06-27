@@ -150,7 +150,7 @@ type generatorInput struct {
 	TestArgs        []string
 	Layout          string
 
-	// These fields are used by dbt-rules <= 1.6.0 and must be kept for backward compatibility
+	// These fields are used by dbt-rules < v1.10.0 and must be kept for backward compatibility
 	Version        uint
 	BuildDirPrefix string
 	BuildFlags     map[string]string
@@ -161,7 +161,7 @@ type generatorOutput struct {
 	Targets   map[string]target
 	Flags     map[string]flag
 
-	// This field is set by dbt-rules <= 1.6.0 and must be kept for backward compatibility
+	// This field is set by dbt-rules < v1.10.0 and must be kept for backward compatibility
 	BuildDir string
 }
 
@@ -238,7 +238,7 @@ func runBuild(args []string, mode mode, modeArgs []string) {
 	}
 	genOutput := runGenerator(genInput)
 
-	// dbt-rules <= 1.6.0 will compute the build directory based on flag values and return
+	// dbt-rules < v1.10.0 will compute the build directory based on flag values and return
 	// the build directory to be used by DBT.
 	if genOutput.BuildDir != "" {
 		genInput.OutputDir = genOutput.BuildDir
@@ -384,7 +384,7 @@ func completeBuildArgs(toComplete string, mode mode) []string {
 		DbtVersion:      util.DbtVersion,
 		CompletionsOnly: true,
 
-		// Legacy field expected by dbt-rules <= 1.6.0.
+		// Legacy field expected by dbt-rules < v1.10.0.
 		Version: 2,
 	})
 
