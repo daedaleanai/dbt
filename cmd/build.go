@@ -23,11 +23,11 @@ import (
 )
 
 const buildDirName = "BUILD"
-const buildDirNamePrefix = "OUTPUT"
 const buildFileName = "BUILD.go"
 const compileCommandsDbFileName = "compile_commands.json"
 const compileCommandsFileName = "compile_commands.sh"
 const dbtRulesDirName = "dbt-rules"
+const defaultOutputDir = "OUTPUT"
 const dependencyGraphFileName = "graph.dot"
 const generatorDirName = "GENERATOR"
 const generatorInputFileName = "input.json"
@@ -36,6 +36,7 @@ const initFileName = "init.go"
 const mainFileName = "main.go"
 const modFileName = "go.mod"
 const ninjaFileName = "build.ninja"
+const outputDirFlagName = "output-dir"
 const rulesDirName = "RULES"
 
 const goMajorVersion = 1
@@ -138,23 +139,30 @@ type flag struct {
 }
 
 type generatorInput struct {
-	Version         uint
+	DbtVersion      [3]uint
 	SourceDir       string
 	WorkingDir      string
-	BuildDirPrefix  string
-	BuildFlags      map[string]string
+	OutputDir       string
+	CmdlineFlags    map[string]string
+	WorkspaceFlags  map[string]string
 	CompletionsOnly bool
 	RunArgs         []string
 	TestArgs        []string
 	Layout          string
+
+	// These fields are used by dbt-rules < v1.10.0 and must be kept for backward compatibility
+	Version        uint
+	BuildDirPrefix string
+	BuildFlags     map[string]string
 }
 
 type generatorOutput struct {
-	Version   uint
 	NinjaFile string
 	Targets   map[string]target
 	Flags     map[string]flag
-	BuildDir  string
+
+	// This field is set by dbt-rules < v1.10.0 and must be kept for backward compatibility
+	BuildDir string
 }
 
 var buildCmd = &cobra.Command{
@@ -186,14 +194,42 @@ func init() {
 }
 
 func runBuild(args []string, mode mode, modeArgs []string) {
-	dbtRulesDir := path.Join(util.GetWorkspaceRoot(), util.DepsDirName, dbtRulesDirName)
+	workspaceRoot := util.GetWorkspaceRoot()
+	dbtRulesDir := path.Join(workspaceRoot, util.DepsDirName, dbtRulesDirName)
 	if !util.DirExists(dbtRulesDir) {
 		log.Fatal("You are running 'dbt build' without '%s' being available. Add that dependency, run 'dbt sync' and try again.\n", dbtRulesDirName)
 		return
 	}
 
-	patterns, flags := parseArgs(args)
-	genInput := generatorInput{BuildFlags: flags}
+	workspaceFlags := module.ReadModuleFile(workspaceRoot).Flags
+	patterns, cmdlineFlags := parseArgs(args)
+	_, legacyFlags := parseArgs(args)
+
+	outputDir := defaultOutputDir
+	if workspaceOutputDir, exists := workspaceFlags[outputDirFlagName]; exists {
+		outputDir = workspaceOutputDir
+		delete(workspaceFlags, outputDirFlagName)
+	}
+	if cmdlineOutputDir, exists := cmdlineFlags[outputDirFlagName]; exists {
+		outputDir = cmdlineOutputDir
+		delete(cmdlineFlags, outputDirFlagName)
+	}
+
+	if !strings.HasPrefix(outputDir, "/") {
+		outputDir = path.Join(workspaceRoot, buildDirName, outputDir)
+	}
+	log.Debug("Output directory: %s.\n", outputDir)
+	genInput := generatorInput{
+		DbtVersion:     util.DbtVersion,
+		OutputDir:      outputDir,
+		CmdlineFlags:   cmdlineFlags,
+		WorkspaceFlags: workspaceFlags,
+
+		// Legacy fields
+		Version:        2,
+		BuildDirPrefix: outputDir,
+		BuildFlags:     legacyFlags,
+	}
 	switch mode {
 	case modeRun:
 		genInput.RunArgs = modeArgs
@@ -201,6 +237,12 @@ func runBuild(args []string, mode mode, modeArgs []string) {
 		genInput.TestArgs = modeArgs
 	}
 	genOutput := runGenerator(genInput)
+
+	// dbt-rules < v1.10.0 will compute the build directory based on flag values and return
+	// the build directory to be used by DBT.
+	if genOutput.BuildDir != "" {
+		genInput.OutputDir = genOutput.BuildDir
+	}
 
 	// Determine the set of targets to be built.
 	log.Debug("Target patterns: '%s'.\n", strings.Join(patterns, "', '"))
@@ -226,9 +268,9 @@ func runBuild(args []string, mode mode, modeArgs []string) {
 	}
 
 	// Write the Ninja build file.
-	ninjaFilePath := path.Join(genOutput.BuildDir, ninjaFileName)
-	util.WriteFile(ninjaFilePath, []byte(genOutput.NinjaFile))
+	ninjaFilePath := path.Join(genInput.OutputDir, ninjaFileName)
 	log.Debug("Ninja file: %s.\n", ninjaFilePath)
+	util.WriteFile(ninjaFilePath, []byte(genOutput.NinjaFile))
 
 	// Print all available targets and flags if there is nothing to build.
 	if !commandList && !commandDb && !dependencyGraph && len(targets) == 0 {
@@ -251,8 +293,23 @@ func runBuild(args []string, mode mode, modeArgs []string) {
 			fmt.Println()
 		}
 
+		// Add the output directory flag.
+		genOutput.Flags[outputDirFlagName] = flag{
+			Description: "Output directory",
+			Type:        "string",
+			Value:       outputDir,
+		}
+
+		// Sort flags alphabetically.
+		flagNames := []string{}
+		for name := range genOutput.Flags {
+			flagNames = append(flagNames, name)
+		}
+		sort.Strings(flagNames)
+
 		fmt.Println("\nAvailable flags:")
-		for name, flag := range genOutput.Flags {
+		for _, name := range flagNames {
+			flag := genOutput.Flags[name]
 			fmt.Printf("  %s='%s' [%s]", name, flag.Value, flag.Type)
 			if len(flag.AllowedValues) > 0 {
 				fmt.Printf(" ('%s')", strings.Join(flag.AllowedValues, "', '"))
@@ -284,19 +341,19 @@ func runBuild(args []string, mode mode, modeArgs []string) {
 		for _, target := range targets {
 			ninjaArgs = append(ninjaArgs, target+suffix)
 		}
-		runNinja(genOutput.BuildDir, os.Stdout, ninjaArgs)
+		runNinja(genInput.OutputDir, os.Stdout, ninjaArgs)
 	}
 
 	if commandList {
 		args := append([]string{"-t", "commands"}, targets...)
-		printNinjaOutput(genOutput.BuildDir, compileCommandsFileName, "Compile commands", args)
+		printNinjaOutput(genInput.OutputDir, compileCommandsFileName, "Compile commands", args)
 	}
 	if commandDb {
-		printNinjaOutput(genOutput.BuildDir, compileCommandsDbFileName, "Compile commands database", []string{"-t", "compdb"})
+		printNinjaOutput(genInput.OutputDir, compileCommandsDbFileName, "Compile commands database", []string{"-t", "compdb"})
 	}
 	if dependencyGraph {
 		args := append([]string{"-t", "graph"}, targets...)
-		printNinjaOutput(genOutput.BuildDir, dependencyGraphFileName, "Dependency graph", args)
+		printNinjaOutput(genInput.OutputDir, dependencyGraphFileName, "Dependency graph", args)
 	}
 }
 
@@ -323,7 +380,13 @@ func printNinjaOutput(dir, fileName, label string, args []string) {
 }
 
 func completeBuildArgs(toComplete string, mode mode) []string {
-	genOutput := runGenerator(generatorInput{CompletionsOnly: true})
+	genOutput := runGenerator(generatorInput{
+		DbtVersion:      util.DbtVersion,
+		CompletionsOnly: true,
+
+		// Legacy field expected by dbt-rules < v1.10.0.
+		Version: 2,
+	})
 
 	if strings.Contains(toComplete, "=") {
 		suggestions := []string{}
@@ -390,12 +453,10 @@ func normalizeTarget(target string) string {
 }
 
 func runGenerator(input generatorInput) generatorOutput {
-	input.Version = 2
 	workspaceRoot := util.GetWorkspaceRoot()
 	input.Layout = module.ReadModuleFile(workspaceRoot).Layout
 	input.SourceDir = path.Join(workspaceRoot, util.DepsDirName)
 	input.WorkingDir = util.GetWorkingDir()
-	input.BuildDirPrefix = path.Join(workspaceRoot, buildDirName, buildDirNamePrefix)
 
 	// Remove all existing buildfiles.
 	generatorDir := path.Join(workspaceRoot, buildDirName, generatorDirName)

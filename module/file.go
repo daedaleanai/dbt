@@ -23,6 +23,7 @@ type ModuleFile struct {
 	Layout             string
 	Dependencies       map[string]Dependency
 	PinnedDependencies map[string]PinnedDependency
+	Flags              map[string]string
 }
 
 type moduleFileVersion struct {

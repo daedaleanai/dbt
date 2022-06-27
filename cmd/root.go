@@ -22,7 +22,7 @@ building build targets defined in those modules.`,
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
-	rootCmd.PersistentFlags().BoolVarP(&log.Verbose, "verbose", "v", false, "Print debug output")
+	rootCmd.PersistentFlags().BoolVarP(&log.Verbose, "verbose", "v", false, "print debug output")
 	if rootCmd.Execute() != nil {
 		os.Exit(1)
 	}
