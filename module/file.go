@@ -87,7 +87,7 @@ func ReadModuleFile(modulePath string) ModuleFile {
 	case util.DbtVersion[1]:
 		return readV3ModuleFile(moduleFilePath)
 	default:
-		log.Fatal("MODULE file has version %d that required a newer version of dbt\n", moduleFileVersion.Version)
+		log.Fatal("MODULE file has version %d that requires a newer version of dbt\n", moduleFileVersion.Version)
 		return ModuleFile{}
 	}
 }
