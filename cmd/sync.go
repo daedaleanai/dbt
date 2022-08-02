@@ -96,6 +96,7 @@ func runSync(cmd *cobra.Command, args []string) {
 		if len(moduleFile.Dependencies) == 0 {
 			log.IndentationLevel = 1
 			log.Log("Has no dependencies\n\n")
+			continue
 		}
 
 		for _, name := range dependencyNames(moduleFile) {
@@ -174,7 +175,7 @@ func runSync(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	// updated MODULE file
+	// Updated the MODULE file.
 	for name, dep := range workspaceModuleFile.Dependencies {
 		dep.Hash = pinnedHashes[name]
 		workspaceModuleFile.Dependencies[name] = dep
