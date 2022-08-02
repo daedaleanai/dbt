@@ -21,26 +21,36 @@ declared in the MODULE files of each module, starting from the top-level MODULE 
 	Run: runSync,
 }
 
+type pinnedDependency struct {
+	url  string
+	hash string
+}
+
 var update bool
 var ignoreErrors bool
+var strict bool
 
 func init() {
 	// Whether to use 'master' instead of the version specified in the MODULE file.
-	syncCmd.Flags().BoolVar(&update, "update", false, "Remove all pinned dependencies.")
+	syncCmd.Flags().BoolVar(&update, "update", false, "Recompute all dependency hashes based on the version string.")
 	syncCmd.Flags().BoolVar(&ignoreErrors, "ignore-errors", false, "Ignore all errors while pinning and checking dependencies.")
+	syncCmd.Flags().BoolVar(&strict, "strict", false, "Check that all dependency hashes are present and the chosen commit is an ancestor of the commit described by version string.")
 	rootCmd.AddCommand(syncCmd)
 }
 
 func runSync(cmd *cobra.Command, args []string) {
+	if update && strict {
+		log.Fatal("--update and --strict can not be used together.\n")
+	}
+
 	workspaceRoot := util.GetWorkspaceRoot()
 	log.Debug("Workspace: %s.\n", workspaceRoot)
 
 	workspaceModuleFile := module.ReadModuleFile(workspaceRoot)
-
-	// Create the DEPS/ subdirectory and create a symlink to the top-level module.
 	workspaceModuleName := path.Base(workspaceRoot)
 
 	if workspaceModuleFile.Layout != "cpp" {
+		// Create the DEPS/ subdirectory and create a symlink to the top-level module.
 		workspaceModuleSymlink := path.Join(workspaceRoot, util.DepsDirName, workspaceModuleName)
 		if !util.DirExists(workspaceModuleSymlink) {
 			log.Debug("Creating symlink for the workspace module: '%s/%s' -> '%s'.\n", util.DepsDirName, workspaceModuleName, workspaceRoot)
@@ -52,20 +62,6 @@ func runSync(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	if update {
-		// Remove all pinned dependencies to start pinning dependencies from scratch.
-		workspaceModuleFile.PinnedDependencies = map[string]module.PinnedDependency{}
-	}
-
-	// Modules that have been processed.
-	done := map[string]bool{}
-
-	// Modules that have been processed.
-	fetched := map[string]bool{}
-
-	// Modules that still need to be processed.
-	queue := []string{workspaceRoot}
-
 	errorFunc := func(format string, a ...interface{}) {
 		log.Error(format, a...)
 		log.Fatal("Use --ignore-errors to ignore this error.\n")
@@ -74,17 +70,30 @@ func runSync(cmd *cobra.Command, args []string) {
 		errorFunc = log.Warning
 	}
 
+	// Modules that have been processed.
+	done := map[string]bool{}
+
+	// Modules that have been fetched.
+	fetched := map[string]bool{}
+
+	// Modules that still need to be processed.
+	queue := []string{workspaceRoot}
+
+	// Pinned dependency URLs / hashes.
+	pinnedUrls := map[string]string{}
+	pinnedHashes := map[string]string{}
+
 	for len(queue) > 0 {
 		modulePath := queue[0]
-		moduleName := path.Base(modulePath)
 		queue = queue[1:]
 		if done[modulePath] {
 			continue
 		}
 		done[modulePath] = true
 
+		moduleName := path.Base(modulePath)
 		log.IndentationLevel = 0
-		log.Log("Updating %s\n", moduleName)
+		log.Log("Processing %s\n", moduleName)
 		log.IndentationLevel = 1
 
 		moduleFile := module.ReadModuleFile(modulePath)
@@ -92,7 +101,6 @@ func runSync(cmd *cobra.Command, args []string) {
 		if len(moduleFile.Dependencies) == 0 {
 			log.IndentationLevel = 1
 			log.Log("Has no dependencies\n\n")
-			continue
 		}
 
 		for _, name := range dependencyNames(moduleFile) {
@@ -101,48 +109,81 @@ func runSync(cmd *cobra.Command, args []string) {
 			log.IndentationLevel = 2
 
 			dep := moduleFile.Dependencies[name]
-			pinnedDep := workspaceModuleFile.PinnedDependencies[name]
-			if _, exists := workspaceModuleFile.PinnedDependencies[name]; !exists {
-				log.Debug("Dependency pinned to URL '%s', version '%s'.\n", dep.URL, dep.Version)
-				pinnedDep.URL = dep.URL
-				pinnedDep.Version = dep.Version
-			}
-			if dep.URL != pinnedDep.URL {
-				errorFunc("Dependency requires URL '%s', but URL has been pinned to '%s'.\n", dep.URL, pinnedDep.URL)
-			}
-			if dep.Version != pinnedDep.Version {
-				errorFunc("Dependency requires version '%s', but version has been pinned to '%s'.\n", dep.Version, pinnedDep.Version)
-			}
-
 			depModulePath := path.Join(workspaceRoot, util.DepsDirName, name)
 			queue = append(queue, depModulePath)
 
+			// Check that the dependency URL matches the pinned URL for that module.
+			if _, isUrlPinned := pinnedUrls[name]; !isUrlPinned {
+				pinnedUrls[name] = dep.URL
+				log.Debug("Pinning URL to '%s'.\n", dep.URL)
+			}
+			if dep.URL != pinnedUrls[name] {
+				errorFunc("Dependency requires URL '%s', but URL has been pinned to '%s'.\n", dep.URL, pinnedUrls[name])
+			}
+
+			// Check that the on-disk module has the same URL.
 			depModule := module.OpenOrCreateModule(depModulePath, dep.URL)
-			if _, exists := fetched[depModulePath]; !exists {
+			if depModule.URL() != dep.URL {
+				errorFunc("Dependency requires URL '%s', but the on-disk module has URL '%s'.\n", dep.URL, depModule.URL())
+			}
+
+			// Make sure we have the latest changes and the working tree is clean.
+			if _, hasBeenFetched := fetched[depModulePath]; !hasBeenFetched {
 				depModule.Fetch()
 				fetched[depModulePath] = true
 			}
 			if depModule.IsDirty() {
 				errorFunc("The exiting module has local changes.\n")
 			}
-			if depModule.URL() != pinnedDep.URL {
-				errorFunc("Dependency requires URL '%s', but the on-disk module has URL '%s'.\n", pinnedDep.URL, depModule.URL())
-			}
-			if pinnedDep.Hash == "" {
-				pinnedDep.Hash = depModule.RevParse(pinnedDep.Version)
-			}
-			log.Log("Resolved dependency version '%s' to hash '%s...'\n", pinnedDep.Version, pinnedDep.Hash[:10])
-			if depModule.Head() != pinnedDep.Hash {
-				log.Log("Checking out hash '%s'\n", pinnedDep.Hash[:10])
-				depModule.Checkout(pinnedDep.Hash)
-				module.SetupModule(depModulePath)
+
+			// Determine the commit hash for this dependency.
+
+			// In --strict mode all hashes must be set in the MODULE file.
+			if strict && dep.Hash == "" {
+				errorFunc("Hash must not be empty in --strict mode.\n")
 			}
 
-			workspaceModuleFile.PinnedDependencies[name] = pinnedDep
+			// Resolve the version string to a hash if we are currently processsing the
+			// workspace module (only one module is "done") and the hash is not set yet or
+			// --update is used to force re-resolution of the version string to a hash.
+			if (update || dep.Hash == "") && len(done) == 1 {
+				dep.Hash = depModule.RevParse(dep.Version)
+				log.Debug("Resolved dependency version '%s' to hash '%s'.\n", dep.Version, dep.Hash[:7])
+			}
+
+			log.Log("Using hash '%s' for version '%s'.\n", dep.Hash[:7], dep.Version)
+
+			// Check that the dependency hash is part of the tree that is referenced by the version string.
+			if !depModule.IsAncestor(dep.Hash, dep.Version) {
+				errorFunc(
+					"The dependency hash ('%s') is not an ancestor of the commit ('%s') the version string ('%s') currently resolves to.\n",
+					dep.Hash[:7], depModule.RevParse(dep.Version)[:7], dep.Version)
+			}
+
+			// Check the dependency hash agains the fixed hash for that module.
+			if _, isHashPinned := pinnedHashes[name]; !isHashPinned {
+				pinnedHashes[name] = dep.Hash
+			}
+			pinnedHash := pinnedHashes[name]
+			if dep.Hash != pinnedHash {
+				errorFunc("Dependency requires hash '%s', but hash has been pinned to '%s'.\n", dep.Hash[:7], pinnedHash[:7])
+			}
+
+			// Check out the pinned hash.
+			if depModule.Head() != pinnedHash {
+				log.Log("Checking out '%s'.\n", pinnedHash[:7])
+				depModule.Checkout(pinnedHash)
+				module.SetupModule(depModulePath)
+			}
 			log.Log("\n")
 		}
 	}
 
+	// updated MODULE file
+	for name, dep := range workspaceModuleFile.Dependencies {
+		dep.Hash = pinnedHashes[name]
+		workspaceModuleFile.Dependencies[name] = dep
+	}
 	module.WriteModuleFile(workspaceRoot, workspaceModuleFile)
 
 	log.IndentationLevel = 0
