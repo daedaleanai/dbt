@@ -21,11 +21,6 @@ declared in the MODULE files of each module, starting from the top-level MODULE 
 	Run: runSync,
 }
 
-type pinnedDependency struct {
-	url  string
-	hash string
-}
-
 var update bool
 var ignoreErrors bool
 var strict bool
