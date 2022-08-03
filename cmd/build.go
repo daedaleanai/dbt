@@ -123,12 +123,14 @@ const (
 	modeBuild mode = 1
 	modeRun   mode = 2
 	modeTest  mode = 3
+	modeCoverage  mode = 4
 )
 
 type target struct {
 	Description string
 	Runnable    bool
 	Testable    bool
+	Report bool
 }
 
 type flag struct {
@@ -149,6 +151,7 @@ type generatorInput struct {
 	RunArgs         []string
 	TestArgs        []string
 	Layout          string
+	SelectedTargets []string
 
 	// These fields are used by dbt-rules < v1.10.0 and must be kept for backward compatibility
 	Version        uint
@@ -235,6 +238,8 @@ func runBuild(args []string, mode mode, modeArgs []string) {
 		genInput.RunArgs = modeArgs
 	case modeTest:
 		genInput.TestArgs = modeArgs
+	case modeCoverage:
+		genInput.TestArgs = modeArgs
 	}
 	genOutput := runGenerator(genInput)
 
@@ -255,10 +260,12 @@ func runBuild(args []string, mode mode, modeArgs []string) {
 		regexps = append(regexps, re)
 	}
 	targets := []string{}
+
 	for name, target := range genOutput.Targets {
 		if skipTarget(mode, target) {
 			continue
 		}
+
 		for _, re := range regexps {
 			if re.MatchString(name) {
 				targets = append(targets, name)
@@ -266,6 +273,13 @@ func runBuild(args []string, mode mode, modeArgs []string) {
 			}
 		}
 	}
+
+	if mode == modeCoverage {
+		// Second pass with all targets
+		genInput.SelectedTargets = targets
+		genOutput = runGenerator(genInput)
+	}
+
 
 	// Write the Ninja build file.
 	ninjaFilePath := path.Join(genInput.OutputDir, ninjaFileName)
@@ -338,6 +352,7 @@ func runBuild(args []string, mode mode, modeArgs []string) {
 		case modeTest:
 			suffix = "#test"
 		}
+
 		for _, target := range targets {
 			ninjaArgs = append(ninjaArgs, target+suffix)
 		}
@@ -638,6 +653,8 @@ func skipTarget(mode mode, target target) bool {
 		return !target.Runnable
 	case modeTest:
 		return !target.Testable
+	case modeCoverage:
+		return !target.Testable && !target.Report
 	}
 	return false
 }
