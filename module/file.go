@@ -123,6 +123,7 @@ func readV2ModuleFile(path string) ModuleFile {
 
 	moduleFile := ModuleFile{
 		Version:      util.DbtVersion[1],
+		Layout:       v2ModuleFile.Layout,
 		Dependencies: map[string]Dependency{},
 	}
 	for name, dep := range v2ModuleFile.Dependencies {
