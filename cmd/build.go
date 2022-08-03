@@ -130,7 +130,7 @@ type target struct {
 	Description string
 	Runnable    bool
 	Testable    bool
-	Report bool
+	Report 		bool
 }
 
 type flag struct {
