@@ -156,7 +156,7 @@ func runSync(cmd *cobra.Command, args []string) {
 					dep.Hash[:7], depModule.RevParse(dep.Version)[:7], dep.Version)
 			}
 
-			// Check the dependency hash agains the fixed hash for that module.
+			// Check the dependency hash against the fixed hash for that module.
 			if _, isHashPinned := pinnedHashes[name]; !isHashPinned {
 				pinnedHashes[name] = dep.Hash
 			}
