@@ -184,6 +184,10 @@ func (m TarModule) IsDirty() bool {
 	return false
 }
 
+func (m TarModule) IsAncestor(ancestor, rev string) bool {
+	return true
+}
+
 // Fetch does nothing on TarModules and reports that no changes have been fetched.
 func (m TarModule) Fetch() bool {
 	return false

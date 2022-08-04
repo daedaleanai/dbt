@@ -41,6 +41,7 @@ type Module interface {
 	Head() string
 	RevParse(rev string) string
 	IsDirty() bool
+	IsAncestor(ancestor, rev string) bool
 
 	Fetch() bool
 	Checkout(hash string)

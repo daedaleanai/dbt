@@ -50,6 +50,12 @@ func (m GitModule) IsDirty() bool {
 	return len(m.runGitCommand("status", "-s")) > 0
 }
 
+// IsAncestor returns whether ancestor is an ancestor of rev in the commit tree.
+func (m GitModule) IsAncestor(ancestor, rev string) bool {
+	_, _, err := m.tryRunGitCommand("merge-base", "--is-ancestor", ancestor, rev)
+	return err == nil
+}
+
 // Fetch fetches changes from the default remote and reports whether any updates have been fetched.
 func (m GitModule) Fetch() bool {
 	if m.IsDirty() {
