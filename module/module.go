@@ -301,12 +301,16 @@ func OpenModule(modulePath string) Module {
 
 	if util.DirExists(path.Join(modulePath, ".git")) {
 		log.Debug("Found '.git' directory. Expecting this to be a GitModule.\n")
-		return GitModule{modulePath}
+		module := GitModule{path: modulePath}
+		mirror, _ := getOrCreateGitMirror(module.URL())
+		return GitModule{path: modulePath, mirror: mirror}
 	}
 
 	if util.FileExists(path.Join(modulePath, tarMetadataFileName)) {
 		log.Debug("Found '%s' file. Expecting this to be a TarModule.\n", tarMetadataFileName)
-		return TarModule{modulePath}
+		module := TarModule{path: modulePath}
+		mirror, _ := getOrCreateTarMirror(module.URL())
+		return TarModule{path: modulePath, mirror: mirror}
 	}
 
 	log.Fatal("Module appears to be broken. Remove the module directory and rerun 'dbt sync'.\n")
@@ -326,7 +330,7 @@ func OpenOrCreateModule(modulePath string, url string) Module {
 
 	if strings.HasSuffix(url, ".git") {
 		log.Debug("Module URL ends in '.git'. Trying to create a new git module.\n")
-		module, err := createGitModule(modulePath, url)
+		module, err := CreateGitModule(modulePath, url)
 		if err != nil {
 			os.RemoveAll(modulePath)
 			log.Fatal("Failed to create git module: %s.\n", err)

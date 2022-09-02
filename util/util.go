@@ -8,6 +8,7 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/daedaleanai/dbt/log"
 	"gopkg.in/yaml.v2"
@@ -15,7 +16,7 @@ import (
 
 // DbtVersion is the current version of DBT. The minor version
 // is also used as the MODULE file version.
-var DbtVersion = [3]uint{1, 3, 0}
+var DbtVersion = [3]uint{1, 3, 1}
 
 // ModuleFileName is the name of the file describing each module.
 const ModuleFileName = "MODULE"
@@ -106,6 +107,47 @@ func WriteYaml(filePath string, v interface{}) {
 
 func CopyFile(sourceFile, destFile string) {
 	WriteFile(destFile, ReadFile(sourceFile))
+}
+
+// Copies a directory recursing into its inner directories
+func CopyDirRecursively(sourceDir, destDir string) error {
+	var wg sync.WaitGroup
+	err := copyDirRecursivelyInner(sourceDir, destDir, &wg)
+	wg.Wait()
+
+	return err
+}
+
+func copyDirRecursivelyInner(sourceDir, destDir string, wg *sync.WaitGroup) error {
+	stat, err := os.Stat(sourceDir)
+	if err != nil {
+		return err
+	}
+
+	if !stat.IsDir() {
+		return fmt.Errorf("'%s' is not a directory", sourceDir)
+	}
+
+	MkdirAll(destDir)
+
+	fileInfos, err := ioutil.ReadDir(sourceDir)
+	for _, fileInfo := range fileInfos {
+		if fileInfo.IsDir() {
+			err = copyDirRecursivelyInner(path.Join(sourceDir, fileInfo.Name()), path.Join(destDir, fileInfo.Name()), wg)
+			if err != nil {
+				return err
+			}
+		} else {
+			wg.Add(1)
+
+			go func(source, dest string) {
+				defer wg.Done()
+				CopyFile(source, dest)
+			}(path.Join(sourceDir, fileInfo.Name()), path.Join(destDir, fileInfo.Name()))
+		}
+	}
+
+	return nil
 }
 
 func getModuleRoot(p string) (string, error) {
