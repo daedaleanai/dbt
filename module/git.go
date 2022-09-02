@@ -2,27 +2,72 @@ package module
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"fmt"
 	"os/exec"
+	"path"
 	"strings"
 
+	"github.com/daedaleanai/dbt/config"
 	"github.com/daedaleanai/dbt/log"
 	"github.com/daedaleanai/dbt/util"
 )
 
 // GitModule is a module backed by a git repository.
 type GitModule struct {
+	path   string
+	mirror *GitMirror
+}
+
+// GitMirror is a bare repository that backs a GitModule
+type GitMirror struct {
 	path string
+}
+
+// Obtains a mirror for a git repository if the global mirror directory has been set up
+func getOrCreateGitMirror(url string) (*GitMirror, error) {
+	configuration := config.GetConfig()
+	if configuration.Mirror == "" {
+		log.Debug("Mirrors are not configured.\n")
+		return nil, nil
+	}
+
+	urlHash := sha256.Sum256([]byte(url))
+	urlHashString := fmt.Sprintf("git-%x", urlHash[:])
+	mirrorPath := path.Join(configuration.Mirror, urlHashString)
+
+	log.Debug("Looking for mirror of '%s' in directory '%s'.\n", url, mirrorPath)
+
+	if util.DirExists(mirrorPath) {
+		log.Debug("Mirror found at '%s'.\n", mirrorPath)
+		return &GitMirror{path: mirrorPath}, nil
+	}
+
+	util.MkdirAll(mirrorPath)
+	mod := GitModule{mirrorPath, nil}
+	if err := mod.clone(url, true); err != nil {
+		return nil, err
+	}
+	log.Debug("Mirror cloned at '%s'.\n", mirrorPath)
+
+	return &GitMirror{path: mirrorPath}, nil
 }
 
 // createGitModule creates a new GitModule in the given `modulePath`
 // by cloning the repository from `url`.
-func createGitModule(modulePath, url string) (Module, error) {
-	mod := GitModule{modulePath}
-	util.MkdirAll(modulePath)
-	log.Log("Cloning '%s'.\n", url)
-	if _, _, err := mod.tryRunGitCommand("clone", "--recursive", url, modulePath); err != nil {
+func CreateGitModule(modulePath, url string) (Module, error) {
+	// Figure out if there is a local mirror for it
+	mirror, err := getOrCreateGitMirror(url)
+	if err != nil {
 		return nil, err
 	}
+
+	mod := GitModule{modulePath, mirror}
+	util.MkdirAll(modulePath)
+	if err := mod.clone(url, false); err != nil {
+		return nil, err
+	}
+
 	return mod, nil
 }
 
@@ -33,6 +78,11 @@ func (m GitModule) RootPath() string {
 // URL returns the url of the underlying git repository.
 func (m GitModule) URL() string {
 	return m.runGitCommand("config", "--get", "remote.origin.url")
+}
+
+// Mirror returns the path of the mirror
+func (m GitModule) Mirror() *GitMirror {
+	return m.mirror
 }
 
 // Head returns the commit hash of the HEAD of the underlying git repository.
@@ -78,6 +128,8 @@ func (m GitModule) Checkout(ref string) {
 	m.runGitCommand("checkout", ref)
 }
 
+// Runs a git command with the specified arguments, exiting with an error message if the command
+// could not be executed
 func (m GitModule) runGitCommand(args ...string) string {
 	stdout, stderr, err := m.tryRunGitCommand(args...)
 	if err != nil {
@@ -86,6 +138,8 @@ func (m GitModule) runGitCommand(args ...string) string {
 	return stdout
 }
 
+// Tries to run a git subcommand and return stdout, stderr and an error if the process exited with
+// an exit code != 0
 func (m GitModule) tryRunGitCommand(args ...string) (string, string, error) {
 	stderr := bytes.Buffer{}
 	stdout := bytes.Buffer{}
@@ -96,4 +150,26 @@ func (m GitModule) tryRunGitCommand(args ...string) (string, string, error) {
 	cmd.Dir = m.path
 	err := cmd.Run()
 	return strings.TrimSuffix(stdout.String(), "\n"), strings.TrimSuffix(stderr.String(), "\n"), err
+}
+
+// Clones a module from the given url at the specfied path location. If asMirror is passed, then a
+// mirror is created instead of a regular git repository.
+// If the git module has a mirror assigned, it will be used as the reference for the new git repository.
+func (m GitModule) clone(url string, asMirror bool) error {
+	var err error
+	if asMirror {
+		log.Debug("Cloning '%s' as mirror '%s'.\n", url, m.path)
+		_, _, err = m.tryRunGitCommand("clone", "--mirror", url, m.path)
+	} else if m.mirror != nil {
+		log.Log("Cloning '%s' using mirror '%s'.\n", url, m.mirror.path)
+		_, _, err = m.tryRunGitCommand("clone", "--recursive", "--reference", m.mirror.path, url, m.path)
+	} else {
+		log.Log("Cloning '%s'.\n", url)
+		_, _, err = m.tryRunGitCommand("clone", "--recursive", url, m.path)
+	}
+	if err != nil {
+		// Leave clean state so that the operation can be retried
+		util.RemoveDir(m.path)
+	}
+	return err
 }
