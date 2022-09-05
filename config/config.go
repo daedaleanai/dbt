@@ -2,12 +2,12 @@ package config
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path"
 	"strings"
 
 	"github.com/daedaleanai/dbt/log"
-	"github.com/daedaleanai/dbt/util"
 	"gopkg.in/yaml.v2"
 )
 
@@ -58,7 +58,13 @@ func loadConfiguration() Config {
 	}
 
 	configFilePath := path.Join(configDir, configFileName)
-	err := yaml.Unmarshal(util.ReadFile(configFilePath), &config)
+	configFileData, err := ioutil.ReadFile(configFilePath)
+	if err != nil {
+		log.Debug("Failed to read file '%s': %s.\n", configFilePath, err.Error())
+		return config
+	}
+
+	err = yaml.Unmarshal(configFileData, &config)
 	if err != nil {
 		log.Debug("Error reading configuration file at `%s`: `%s`. Using default configuration\n", configFilePath, err)
 		return config
