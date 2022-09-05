@@ -137,13 +137,20 @@ func copyDirRecursivelyInner(sourceDir, destDir string, wg *sync.WaitGroup) erro
 			if err != nil {
 				return err
 			}
+
+			if err := os.Chmod(path.Join(destDir, fileInfo.Name()), fileInfo.Mode()); err != nil {
+				return err
+			}
 		} else {
 			wg.Add(1)
 
-			go func(source, dest string) {
+			go func(source, dest string, sourceFileInfo os.FileInfo) {
 				defer wg.Done()
 				CopyFile(source, dest)
-			}(path.Join(sourceDir, fileInfo.Name()), path.Join(destDir, fileInfo.Name()))
+				if err := os.Chmod(dest, sourceFileInfo.Mode()); err != nil {
+					log.Fatal("failed to change filemode: ", err)
+				}
+			}(path.Join(sourceDir, fileInfo.Name()), path.Join(destDir, fileInfo.Name()), fileInfo)
 		}
 	}
 
