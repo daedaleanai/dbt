@@ -36,6 +36,7 @@ type GoModule struct {
 
 // Module represents a checked-out module.
 type Module interface {
+	Name() string
 	URL() string
 
 	Head() string
@@ -301,6 +302,13 @@ func OpenModule(modulePath string) Module {
 
 	if util.DirExists(path.Join(modulePath, ".git")) {
 		log.Debug("Found '.git' directory. Expecting this to be a GitModule.\n")
+		module := GitModule{path: modulePath}
+		mirror, _ := getOrCreateGitMirror(module.URL())
+		return GitModule{path: modulePath, mirror: mirror}
+	}
+
+	if util.FileExists(path.Join(modulePath, ".git")) {
+		log.Debug("Found '.git' worktree file. Expecting this to be a GitModule.\n")
 		module := GitModule{path: modulePath}
 		mirror, _ := getOrCreateGitMirror(module.URL())
 		return GitModule{path: modulePath, mirror: mirror}

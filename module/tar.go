@@ -104,6 +104,10 @@ func createTarModule(modulePath, url string) (Module, error) {
 	return module, err
 }
 
+func (m TarModule) Name() string {
+	return path.Base(m.RootPath())
+}
+
 func (m TarModule) RootPath() string {
 	return m.path
 }

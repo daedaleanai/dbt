@@ -42,7 +42,8 @@ func runSync(cmd *cobra.Command, args []string) {
 	log.Debug("Workspace: %s.\n", workspaceRoot)
 
 	workspaceModuleFile := module.ReadModuleFile(workspaceRoot)
-	workspaceModuleName := path.Base(workspaceRoot)
+	workspaceModuleName := module.OpenModule(workspaceRoot).Name()
+	log.Debug("Workspace module name: '%s\n", workspaceModuleName)
 
 	if workspaceModuleFile.Layout != "cpp" {
 		// Create the DEPS/ subdirectory and create a symlink to the top-level module.
