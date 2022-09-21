@@ -120,17 +120,17 @@ func main() {
 type mode uint
 
 const (
-	modeBuild mode = 1
-	modeRun   mode = 2
-	modeTest  mode = 3
-	modeCoverage  mode = 4
+	modeBuild    mode = 1
+	modeRun      mode = 2
+	modeTest     mode = 3
+	modeCoverage mode = 4
 )
 
 type target struct {
 	Description string
 	Runnable    bool
 	Testable    bool
-	Report 		bool
+	Report      bool
 }
 
 type flag struct {
@@ -274,12 +274,9 @@ func runBuild(args []string, mode mode, modeArgs []string) {
 		}
 	}
 
-	if mode == modeCoverage {
-		// Second pass with all targets
-		genInput.SelectedTargets = targets
-		genOutput = runGenerator(genInput)
-	}
-
+	// Second pass with all targets
+	genInput.SelectedTargets = targets
+	genOutput = runGenerator(genInput)
 
 	// Write the Ninja build file.
 	ninjaFilePath := path.Join(genInput.OutputDir, ninjaFileName)
