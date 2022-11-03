@@ -161,9 +161,10 @@ type generatorInput struct {
 }
 
 type generatorOutput struct {
-	NinjaFile string
-	Targets   map[string]target
-	Flags     map[string]flag
+	NinjaFile   string
+	Targets     map[string]target
+	Flags       map[string]flag
+	CompDbRules []string
 
 	// This field is set by dbt-rules < v1.10.0 and must be kept for backward compatibility
 	BuildDir string
@@ -362,7 +363,10 @@ func runBuild(args []string, mode mode, modeArgs []string) {
 		printNinjaOutput(genInput.OutputDir, compileCommandsFileName, "Compile commands", args)
 	}
 	if commandDb {
-		printNinjaOutput(genInput.OutputDir, compileCommandsDbFileName, "Compile commands database", []string{"-t", "compdb"})
+		printNinjaOutput(genInput.OutputDir,
+			compileCommandsDbFileName,
+			"Compile commands database",
+			append([]string{"-t", "compdb"}, genOutput.CompDbRules...))
 	}
 	if dependencyGraph {
 		args := append([]string{"-t", "graph"}, targets...)
