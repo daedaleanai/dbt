@@ -109,6 +109,21 @@ func CopyFile(sourceFile, destFile string) {
 	WriteFile(destFile, ReadFile(sourceFile))
 }
 
+func IsSourceFileNewer(sourceFile, destFile string) bool {
+	sourceInfo, err := os.Stat(sourceFile)
+	if err != nil {
+		log.Fatal("Error obtaining stat for ", sourceFile)
+	}
+
+	destInfo, err := os.Stat(destFile)
+	if err != nil {
+		// Possibly the destination does not exist
+		return true
+	}
+
+	return sourceInfo.ModTime().After(destInfo.ModTime())
+}
+
 // Copies a directory recursing into its inner directories
 func CopyDirRecursively(sourceDir, destDir string) error {
 	var wg sync.WaitGroup

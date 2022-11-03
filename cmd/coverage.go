@@ -22,6 +22,8 @@ func init() {
 
 func runCoverage(cmd *cobra.Command, args []string) {
 	numThreads = 1
+	forceRegenerate = true
+
 	testArgs := []string{}
 	buildArgs := args
 	for idx, arg := range args {

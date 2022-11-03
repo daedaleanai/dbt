@@ -31,6 +31,7 @@ const dbtRulesDirName = "dbt-rules"
 const defaultOutputDir = "OUTPUT"
 const dependencyGraphFileName = "graph.dot"
 const generatorDirName = "GENERATOR"
+const completionGeneratorDirName = "GENERATOR-COMP"
 const generatorInputFileName = "input.json"
 const generatorOutputFileName = "output.json"
 const initFileName = "init.go"
@@ -121,10 +122,11 @@ func main() {
 type mode uint
 
 const (
-	modeBuild    mode = 1
-	modeRun      mode = 2
-	modeTest     mode = 3
-	modeCoverage mode = 4
+	modeBuild mode = iota
+	modeRun
+	modeTest
+	modeCoverage
+	modeAnalyze
 )
 
 type target struct {
@@ -187,6 +189,7 @@ var (
 	commandDb       bool
 	dependencyGraph bool
 	numThreads      int
+	forceRegenerate bool
 )
 
 func init() {
@@ -195,6 +198,7 @@ func init() {
 	buildCmd.Flags().BoolVar(&commandDb, "compdb", false, "Create compile commands JSON database")
 	buildCmd.Flags().BoolVar(&dependencyGraph, "graph", false, "Create dependency graph")
 	buildCmd.Flags().IntVarP(&numThreads, "threads", "j", -1, "Run N jobs in parallel")
+	buildCmd.Flags().BoolVarP(&forceRegenerate, "force-regenerate", "f", false, "forces regeneration of the generator")
 }
 
 func runBuild(args []string, mode mode, modeArgs []string) {
@@ -234,6 +238,8 @@ func runBuild(args []string, mode mode, modeArgs []string) {
 		BuildDirPrefix: outputDir,
 		BuildFlags:     legacyFlags,
 	}
+	genInput.TestArgs = []string{}
+	genInput.RunArgs = []string{}
 	switch mode {
 	case modeRun:
 		genInput.RunArgs = modeArgs
@@ -241,8 +247,10 @@ func runBuild(args []string, mode mode, modeArgs []string) {
 		genInput.TestArgs = modeArgs
 	case modeCoverage:
 		genInput.TestArgs = modeArgs
+	case modeAnalyze:
+		genInput.RunArgs = modeArgs
 	}
-	genOutput := runGenerator(genInput)
+	genOutput := runGenerator(genInput, generatorDirName, forceRegenerate)
 
 	// dbt-rules < v1.10.0 will compute the build directory based on flag values and return
 	// the build directory to be used by DBT.
@@ -275,9 +283,13 @@ func runBuild(args []string, mode mode, modeArgs []string) {
 		}
 	}
 
-	// Second pass with all targets
-	genInput.SelectedTargets = targets
-	genOutput = runGenerator(genInput)
+	// Do a second pass on the generator if we are either doing static analysis or building coverage reports
+	// Otherwise we can get away with a single run
+	if mode == modeCoverage || mode == modeAnalyze {
+		// Second pass with all targets
+		genInput.SelectedTargets = targets
+		genOutput = runGenerator(genInput, generatorDirName, forceRegenerate)
+	}
 
 	// Write the Ninja build file.
 	ninjaFilePath := path.Join(genInput.OutputDir, ninjaFileName)
@@ -399,7 +411,7 @@ func completeBuildArgs(toComplete string, mode mode) []string {
 
 		// Legacy field expected by dbt-rules < v1.10.0.
 		Version: 2,
-	})
+	}, completionGeneratorDirName, false)
 
 	if strings.Contains(toComplete, "=") {
 		suggestions := []string{}
@@ -466,29 +478,54 @@ func normalizeTarget(target string) string {
 	return strings.TrimLeft(target, "/")
 }
 
-func runGenerator(input generatorInput) generatorOutput {
+func runGenerator(input generatorInput, generatorDirName string, forceRegenerate bool) generatorOutput {
 	workspaceRoot := util.GetWorkspaceRoot()
 	input.Layout = module.ReadModuleFile(workspaceRoot).Layout
 	input.SourceDir = path.Join(workspaceRoot, util.DepsDirName)
 	input.WorkingDir = util.GetWorkingDir()
 
-	// Remove all existing buildfiles.
 	generatorDir := path.Join(workspaceRoot, buildDirName, generatorDirName)
-	util.RemoveDir(generatorDir)
+	generatorInputPath := path.Join(generatorDir, generatorInputFileName)
+	generatorOutputPath := path.Join(generatorDir, generatorOutputFileName)
+
+	if forceRegenerate {
+		util.RemoveDir(generatorDir)
+	}
 
 	// Copy all BUILD.go files and RULES/ files from the source directory.
+	mustRebuild := false
 	modules := module.GetAllModules(workspaceRoot)
 	packages := []string{}
 	for modName, module := range modules {
 		modBuildfilesDir := path.Join(generatorDir, modName)
-		modulePackages := copyBuildAndRuleFiles(modName, module.RootPath(), modBuildfilesDir, modules)
+		changedFiles, modulePackages := copyBuildAndRuleFiles(modName, module.RootPath(), modBuildfilesDir, modules)
+		if changedFiles {
+			mustRebuild = true
+		}
 		packages = append(packages, modulePackages...)
+	}
+
+	// TODO(ja): Verify no BUILD.go have been removed or actually remove them and trigger a build anyway
+
+	if !mustRebuild && util.FileExists(generatorOutputPath) {
+		// We possibly don't need to run it again, check the inputs, if they are the same we can
+		// return as is without building again
+		var lastInput generatorInput
+		util.ReadJson(generatorInputPath, &lastInput)
+
+		if reflect.DeepEqual(lastInput, input) {
+			var output generatorOutput
+			util.ReadJson(generatorOutputPath, &output)
+			log.Debug("Using cached generator ouptut\n")
+			return output
+		} else {
+			log.Debug("inputs don't match!!!!!\n")
+		}
 	}
 
 	createGeneratorMainFile(generatorDir, packages, modules)
 	createSumGoFile(generatorDir)
 
-	generatorInputPath := path.Join(generatorDir, generatorInputFileName)
 	util.WriteJson(generatorInputPath, &input)
 
 	cmd := exec.Command("go", "run", mainFileName)
@@ -502,12 +539,12 @@ func runGenerator(input generatorInput) generatorOutput {
 		log.Fatal("Failed to run generator: %s.\n", err)
 	}
 	var output generatorOutput
-	generatorOutputPath := path.Join(generatorDir, generatorOutputFileName)
 	util.ReadJson(generatorOutputPath, &output)
 	return output
 }
 
-func copyBuildAndRuleFiles(moduleName, modulePath, buildFilesDir string, modules map[string]module.Module) []string {
+func copyBuildAndRuleFiles(moduleName, modulePath, buildFilesDir string, modules map[string]module.Module) (bool, []string) {
+	processedAnyNewFiles := false
 	packages := []string{}
 
 	log.Debug("Processing module '%s'.\n", moduleName)
@@ -524,20 +561,29 @@ func copyBuildAndRuleFiles(moduleName, modulePath, buildFilesDir string, modules
 
 	for _, buildFile := range buildFiles {
 		relativeDirPath := strings.TrimSuffix(path.Dir(buildFile.CopyPath), "/")
-
 		packages = append(packages, relativeDirPath)
-		packageName, vars := parseBuildFile(buildFile.SourcePath)
-		varLines := []string{}
-		for _, varName := range vars {
-			varLines = append(varLines, fmt.Sprintf("    vars[in(\"%s\").Relative()] = &%s", varName, varName))
-		}
 
-		initFileContent := fmt.Sprintf(initFileTemplate, packageName, strings.Join(varLines, "\n"), path.Dir(buildFile.SourcePath))
-		initFilePath := path.Join(goFilesDir, relativeDirPath, initFileName)
-		util.WriteFile(initFilePath, []byte(initFileContent))
-
+		// Check if the file is already in the output and it is not newer
+		// If so, we don't need to copybuild it again
 		copyFilePath := path.Join(goFilesDir, buildFile.CopyPath)
-		util.CopyFile(buildFile.SourcePath, copyFilePath)
+		if util.IsSourceFileNewer(buildFile.SourcePath, copyFilePath) {
+			log.Debug("Source file %s is newer than %s\n", buildFile.SourcePath, copyFilePath)
+			processedAnyNewFiles = true
+
+			packageName, vars := parseBuildFile(buildFile.SourcePath)
+			varLines := []string{}
+			for _, varName := range vars {
+				varLines = append(varLines, fmt.Sprintf("    vars[in(\"%s\").Relative()] = &%s", varName, varName))
+			}
+
+			initFileContent := fmt.Sprintf(initFileTemplate, packageName, strings.Join(varLines, "\n"), path.Dir(buildFile.SourcePath))
+			initFilePath := path.Join(goFilesDir, relativeDirPath, initFileName)
+			util.WriteFile(initFilePath, []byte(initFileContent))
+
+			util.CopyFile(buildFile.SourcePath, copyFilePath)
+		} else {
+			log.Debug("Source file %s is NOT newer than %s\n", buildFile.SourcePath, copyFilePath)
+		}
 	}
 
 	for _, ruleFile := range module.ListRules(modules[moduleName]) {
@@ -545,7 +591,7 @@ func copyBuildAndRuleFiles(moduleName, modulePath, buildFilesDir string, modules
 		util.CopyFile(ruleFile.SourcePath, copyFilePath)
 	}
 
-	return packages
+	return processedAnyNewFiles, packages
 }
 
 func parseBuildFile(buildFilePath string) (string, []string) {

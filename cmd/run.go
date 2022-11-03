@@ -18,6 +18,7 @@ var runCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(runCmd)
 	runCmd.Flags().SetInterspersed(false)
+	runCmd.Flags().BoolVarP(&forceRegenerate, "force-regenerate", "f", false, "forces regeneration of the generator")
 }
 
 func runRun(cmd *cobra.Command, args []string) {
