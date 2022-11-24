@@ -121,10 +121,11 @@ func main() {
 type mode uint
 
 const (
-	modeBuild    mode = 1
-	modeRun      mode = 2
-	modeTest     mode = 3
-	modeCoverage mode = 4
+	modeBuild mode = iota
+	modeRun
+	modeTest
+	modeCoverage
+	modeAnalyze
 )
 
 type target struct {
@@ -142,17 +143,18 @@ type flag struct {
 }
 
 type generatorInput struct {
-	DbtVersion      [3]uint
-	SourceDir       string
-	WorkingDir      string
-	OutputDir       string
-	CmdlineFlags    map[string]string
-	WorkspaceFlags  map[string]string
-	CompletionsOnly bool
-	RunArgs         []string
-	TestArgs        []string
-	Layout          string
-	SelectedTargets []string
+	DbtVersion           [3]uint
+	SourceDir            string
+	WorkingDir           string
+	OutputDir            string
+	CmdlineFlags         map[string]string
+	WorkspaceFlags       map[string]string
+	CompletionsOnly      bool
+	RunArgs              []string
+	TestArgs             []string
+	Layout               string
+	SelectedTargets      []string
+	BuildAnalyzerTargets bool
 
 	// These fields are used by dbt-rules < v1.10.0 and must be kept for backward compatibility
 	Version        uint
@@ -225,10 +227,13 @@ func runBuild(args []string, mode mode, modeArgs []string) {
 	}
 	log.Debug("Output directory: %s.\n", outputDir)
 	genInput := generatorInput{
-		DbtVersion:     util.DbtVersion,
-		OutputDir:      outputDir,
-		CmdlineFlags:   cmdlineFlags,
-		WorkspaceFlags: workspaceFlags,
+		DbtVersion:           util.DbtVersion,
+		OutputDir:            outputDir,
+		CmdlineFlags:         cmdlineFlags,
+		WorkspaceFlags:       workspaceFlags,
+		TestArgs:             []string{},
+		RunArgs:              []string{},
+		BuildAnalyzerTargets: false,
 
 		// Legacy fields
 		Version:        2,
@@ -242,6 +247,8 @@ func runBuild(args []string, mode mode, modeArgs []string) {
 		genInput.TestArgs = modeArgs
 	case modeCoverage:
 		genInput.TestArgs = modeArgs
+	case modeAnalyze:
+		genInput.BuildAnalyzerTargets = true
 	}
 	genOutput := runGenerator(genInput)
 
@@ -276,6 +283,7 @@ func runBuild(args []string, mode mode, modeArgs []string) {
 		}
 	}
 
+	// TODO(ja): Do the second pass only with the analyze and coverage commands
 	// Second pass with all targets
 	genInput.SelectedTargets = targets
 	genOutput = runGenerator(genInput)
