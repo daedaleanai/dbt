@@ -12,7 +12,8 @@ import (
 )
 
 type Config struct {
-	Mirror string
+	Mirror       string
+	PersistFlags bool `yaml:"persist-flags"`
 }
 
 var environment map[string]string
@@ -49,7 +50,9 @@ func getDbtConfigDir() (string, error) {
 }
 
 func loadConfiguration() Config {
-	var config Config
+	config := Config{
+		PersistFlags: true,
+	}
 
 	configDir, err := getDbtConfigDir()
 	if err != nil {

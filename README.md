@@ -301,7 +301,7 @@ Flag values can be set via the command-line (see [here](#running-builds) for det
 
 If a flag is not specified on the command-line and has no persisted previous value, the `DefaultFn` will be called to get a default value. If the `DefaultFn` is also not provided, no value can be determined for the flag. In that case DBT will abort the build, since all flags must have a defined value.
 
-DBT will create a separate `BUILD/OUTPUT-XXXXXX` directory for each build configuration (i.e., set of build flag values). This allows for intermediate build results to be reused even when switching back-and-forth between different build configurations.
+To disable the storage of persistent flags across dbt invokations, the user can set the `persist-flag` option to `false` in `~/.config/dbt/config.yaml`. This is a global setting that affects all dbt repositories.
 
 ### C/C++ rules and cross-compilation
 
