@@ -16,6 +16,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/daedaleanai/dbt/config"
 	"github.com/daedaleanai/dbt/log"
 	"github.com/daedaleanai/dbt/module"
 	"github.com/daedaleanai/dbt/util"
@@ -155,6 +156,7 @@ type generatorInput struct {
 	Layout               string
 	SelectedTargets      []string
 	BuildAnalyzerTargets bool
+	PersistFlags         bool
 
 	// These fields are used by dbt-rules < v1.10.0 and must be kept for backward compatibility
 	Version        uint
@@ -234,6 +236,7 @@ func runBuild(args []string, mode mode, modeArgs []string) {
 		TestArgs:             []string{},
 		RunArgs:              []string{},
 		BuildAnalyzerTargets: false,
+		PersistFlags:         config.GetConfig().PersistFlags,
 
 		// Legacy fields
 		Version:        2,
