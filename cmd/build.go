@@ -286,10 +286,11 @@ func runBuild(args []string, mode mode, modeArgs []string) {
 		}
 	}
 
-	// TODO(ja): Do the second pass only with the analyze and coverage commands
 	// Second pass with all targets
-	genInput.SelectedTargets = targets
-	genOutput = runGenerator(genInput)
+	if mode == modeAnalyze || mode == modeCoverage {
+		genInput.SelectedTargets = targets
+		genOutput = runGenerator(genInput)
+	}
 
 	// Write the Ninja build file.
 	ninjaFilePath := path.Join(genInput.OutputDir, ninjaFileName)
