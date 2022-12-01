@@ -33,6 +33,36 @@ go get github.com/daedaleanai/dbt
 go install github.com/daedaleanai/dbt@latest
 ```
 
+### Setting up a local mirror
+
+DBT can read a configuration file located at:
+- `$DBT_CONFIG_DIR/config.yaml`, if `$DBT_CONFIG_DIR` is set.
+- `$XDG_CONFIG_DIR/dbt/config.yaml`, if `$XDG_CONFIG_DIR` is set.
+- `$HOME/.config/dbt/config.yaml`, if `$HOME` is set.
+- Otherwise no configuration is loaded.
+
+This configuration file allows the user to configure a DBT local mirror with the following line:
+
+```yaml
+mirror: "<PATH_TO_YOUR_LOCAL_MIRROR>"
+```
+
+Replace `<PATH_TO_YOUR_LOCAL_MIRROR>` by a full path in your system where your user has read and
+write permissions. Note that this path MUST exist for the mirror to be used by DBT.
+
+With a local mirror configured, DBT will reduce the amount of bandwidth required to sync dependencies.
+In particular, its behavior is different between archives and git repositories:
+- Compressed archives (`*.tar.gz`): they get downloaded first into the local mirror and then
+copied to your project's dependency folder. If they are already available in your local mirror, they
+are simply copied over to your dependency folder, so no network access is required.
+- Git repositories: they get cloned with the `--mirror` flag in the mirror directory. In your dependency
+folder, they get cloned using the url and a `--reference` flag pointing to the local mirror. For them,
+some network access might be required (e.g., if the branch has updates), but the bulk of fetching
+all git objects can be done from the local mirror.
+
+Note that the data in the mirror is never deleted/freed by DBT. It is the user's responsibility 
+to manage it and delete old checkouts that are not required anymore when disk usage gets too large.
+
 ## General remarks
 
 * All DBT commands have a `-v` / `--verbose` flag to enable debug output.
@@ -339,34 +369,3 @@ val KernelBinary = cc.Binary{
 	Toolchain: kernelToolchain,
 }
 ```
-
-
-## Set up a local mirror
-
-DBT can read a configuration file located at:
-- `$DBT_CONFIG_DIR/config.yaml`, if `$DBT_CONFIG_DIR` is set.
-- `$XDG_CONFIG_DIR/dbt/config.yaml`, if `$XDG_CONFIG_DIR` is set.
-- `$HOME/.config/dbt/config.yaml`, if `$HOME` is set.
-- Otherwise no configuration is loaded.
-
-This configuration file allows the user to configure a DBT local mirror with the following line:
-
-```yaml
-mirror: "<PATH_TO_YOUR_LOCAL_MIRROR>"
-```
-
-Replace `<PATH_TO_YOUR_LOCAL_MIRROR>` by a full path in your system where your user has read and
-write permissions. Note that this path MUST exist for the mirror to be used by DBT.
-
-With a local mirror configured, DBT will reduce the amount of bandwidth required to sync dependencies.
-In particular, its behavior is different between archives and git repositories:
-- Compressed archives (`*.tar.gz`): they get downloaded first into the local mirror and then
-copied to your project's dependency folder. If they are already available in your local mirror, they
-are simply copied over to your dependency folder, so no network access is required.
-- Git repositories: they get cloned with the `--mirror` flag in the mirror directory. In your dependency
-folder, they get cloned using the url and a `--reference` flag pointing to the local mirror. For them,
-some network access might be required (e.g., if the branch has updates), but the bulk of fetching
-all git objects can be done from the local mirror.
-
-Note that the data in the mirror is never deleted/freed by DBT. It is the user's responsibility 
-to manage it and delete old checkouts that are not required anymore when disk usage gets too large.
