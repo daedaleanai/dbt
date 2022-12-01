@@ -33,6 +33,12 @@ go get github.com/daedaleanai/dbt
 go install github.com/daedaleanai/dbt@latest
 ```
 
+DBT supports caching dependencies locally. If you want to take advantage of that:
+1. Create a config directory for DBT (e.g. `~/dbt`)
+2. Point the `DBT_CONFIG_DIR` environment variable at this config directory.
+3. Create a `cache` subdirectory inside the config directory
+4. Place a `config.yaml` file with the following content into the config directory: `mirror: /path/to/dbt/cache`.
+
 ## General remarks
 
 * All DBT commands have a `-v` / `--verbose` flag to enable debug output.
