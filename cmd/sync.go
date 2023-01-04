@@ -1,6 +1,9 @@
 package cmd
 
 import (
+	"errors"
+	"io/fs"
+	"io/ioutil"
 	"os"
 	"path"
 	"sort"
@@ -176,6 +179,25 @@ func runSync(cmd *cobra.Command, args []string) {
 		}
 	}
 
+	log.IndentationLevel = 0
+
+	// Delete everything in the DEPS folder that does not belong there
+	depsDir := path.Join(workspaceRoot, util.DepsDirName)
+	content, err := ioutil.ReadDir(depsDir)
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		log.Fatal("%v", err)
+	}
+
+	if content != nil {
+		for _, info := range content {
+			fullPath := path.Join(depsDir, info.Name())
+			if !done[fullPath] {
+				log.Log("Deleting '%s'\n", fullPath)
+				os.RemoveAll(fullPath)
+			}
+		}
+	}
+
 	// Updated the MODULE file.
 	for name, dep := range workspaceModuleFile.Dependencies {
 		dep.Hash = pinnedHashes[name]
@@ -183,7 +205,6 @@ func runSync(cmd *cobra.Command, args []string) {
 	}
 	module.WriteModuleFile(workspaceRoot, workspaceModuleFile)
 
-	log.IndentationLevel = 0
 	log.Success("Done.\n")
 }
 
