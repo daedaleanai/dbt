@@ -48,9 +48,10 @@ func runSync(cmd *cobra.Command, args []string) {
 	workspaceModuleName := module.OpenModule(workspaceRoot).Name()
 	log.Debug("Workspace module name: '%s\n", workspaceModuleName)
 
+	workspaceModuleSymlink := ""
 	if workspaceModuleFile.Layout != "cpp" {
 		// Create the DEPS/ subdirectory and create a symlink to the top-level module.
-		workspaceModuleSymlink := path.Join(workspaceRoot, util.DepsDirName, workspaceModuleName)
+		workspaceModuleSymlink = path.Join(workspaceRoot, util.DepsDirName, workspaceModuleName)
 		if !util.DirExists(workspaceModuleSymlink) {
 			log.Debug("Creating symlink for the workspace module: '%s/%s' -> '%s'.\n", util.DepsDirName, workspaceModuleName, workspaceRoot)
 			util.MkdirAll(path.Dir(workspaceModuleSymlink))
@@ -191,7 +192,7 @@ func runSync(cmd *cobra.Command, args []string) {
 	if content != nil {
 		for _, info := range content {
 			fullPath := path.Join(depsDir, info.Name())
-			if !done[fullPath] {
+			if !done[fullPath] && fullPath != workspaceModuleSymlink {
 				log.Log("Deleting '%s'\n", fullPath)
 				os.RemoveAll(fullPath)
 			}
