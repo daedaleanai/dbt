@@ -16,7 +16,7 @@ import (
 
 // DbtVersion is the current version of DBT. The minor version
 // is also used as the MODULE file version.
-var DbtVersion = [3]uint{1, 3, 7}
+var DbtVersion = [3]uint{1, 3, 8}
 
 // ModuleFileName is the name of the file describing each module.
 const ModuleFileName = "MODULE"
