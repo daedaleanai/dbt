@@ -38,14 +38,14 @@ func parseNetrc() {
 		}
 	}
 	if homeEnvVar == "" {
-		log.Warning("Unable to find HOME environment variable. netrc not parsed")
+		log.Warning("Unable to find HOME environment variable. netrc not parsed.\n")
 		return
 	}
 
 	netrcPath := path.Join(homeEnvVar, ".netrc")
 	netrcContents, err := os.ReadFile(netrcPath)
 	if err != nil {
-		log.Warning("Error reading %q", netrcPath)
+		log.Warning("Error reading %q.\n", netrcPath)
 		return
 	}
 
@@ -89,7 +89,7 @@ func parseNetrc() {
 func GetAuthForUrl(urlString string) *BasicAuth {
 	url, err := url.Parse(urlString)
 	if err != nil {
-		log.Warning("Invalid URL %q", urlString)
+		log.Warning("Invalid URL %q.\n", urlString)
 		return nil
 	}
 
