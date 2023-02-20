@@ -325,9 +325,38 @@ func OpenModule(modulePath string) Module {
 	return nil
 }
 
+type ModuleType uint
+
+const (
+	GitModuleType ModuleType = iota
+	TarGzModuleType
+)
+
+func determineModuleType(url, moduleTypeString string) ModuleType {
+	if moduleTypeString == "git" {
+		return GitModuleType
+	} else if moduleTypeString == "tar.gz" {
+		return TarGzModuleType
+	} else if moduleTypeString != "" {
+		log.Fatal("Invalid module type '%s'.\n", moduleTypeString)
+	}
+
+	if strings.HasSuffix(url, ".git") {
+		log.Debug("Module URL ends in '.git'. Trying to create a new git module.\n")
+		return GitModuleType
+	}
+	if strings.HasSuffix(url, ".tar.gz") {
+		log.Debug("Module URL ends in '.tar.gz'. Trying to create a new TarModule.\n")
+		return TarGzModuleType
+	}
+
+	log.Fatal("Failed to determine module type from dependency url '%s'.\n", url)
+	return GitModuleType // Just because golang is not clever enough to notice that this is unreachable.
+}
+
 // OpenOrCreateModule tries to open the module in `modulePath`. If the `modulePath` directory does
 // not yet exists, it tries to create a new module by cloning / downloading the module from `url`.
-func OpenOrCreateModule(modulePath string, url string) Module {
+func OpenOrCreateModule(modulePath string, url string, moduleTypeString string) Module {
 	log.Debug("Opening or creating module '%s' from url '%s'.\n", modulePath, url)
 	if util.DirExists(modulePath) {
 		log.Debug("Module directory exists.\n")
@@ -336,8 +365,9 @@ func OpenOrCreateModule(modulePath string, url string) Module {
 
 	log.Debug("Module directory does not exists.\n")
 
-	if strings.HasSuffix(url, ".git") {
-		log.Debug("Module URL ends in '.git'. Trying to create a new git module.\n")
+	moduleType := determineModuleType(url, moduleTypeString)
+
+	if moduleType == GitModuleType {
 		module, err := CreateGitModule(modulePath, url)
 		if err != nil {
 			os.RemoveAll(modulePath)
@@ -345,9 +375,7 @@ func OpenOrCreateModule(modulePath string, url string) Module {
 		}
 		SetupModule(modulePath)
 		return module
-	}
-	if strings.HasSuffix(url, ".tar.gz") {
-		log.Debug("Module URL ends in '.tar.gz'. Trying to create a new TarModule.\n")
+	} else if moduleType == TarGzModuleType {
 		module, err := createTarModule(modulePath, url)
 		if err != nil {
 			os.RemoveAll(modulePath)
@@ -357,7 +385,7 @@ func OpenOrCreateModule(modulePath string, url string) Module {
 		return module
 	}
 
-	log.Fatal("Failed to determine module type from dependency url '%s'.\n", url)
+	log.Fatal("Unhandled module type %v\n", moduleType)
 	return nil
 }
 

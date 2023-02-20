@@ -119,7 +119,7 @@ func runSync(cmd *cobra.Command, args []string) {
 			}
 
 			// Check that the on-disk module has the same URL.
-			depModule := module.OpenOrCreateModule(depModulePath, dep.URL)
+			depModule := module.OpenOrCreateModule(depModulePath, dep.URL, dep.Type)
 			if depModule.URL() != dep.URL {
 				errorFunc("Dependency requires URL '%s', but the on-disk module has URL '%s'.\n", dep.URL, depModule.URL())
 			}
