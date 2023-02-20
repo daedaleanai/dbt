@@ -17,6 +17,7 @@ type Dependency struct {
 	URL     string
 	Version string
 	Hash    string
+	Type    string
 }
 
 type ModuleFile struct {
