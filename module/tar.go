@@ -14,6 +14,7 @@ import (
 
 	"github.com/daedaleanai/dbt/config"
 	"github.com/daedaleanai/dbt/log"
+	"github.com/daedaleanai/dbt/netrc"
 	"github.com/daedaleanai/dbt/util"
 )
 
@@ -176,7 +177,17 @@ func (m TarModule) clone(url string) error {
 func (m TarModule) download(url string) error {
 	log.Log("Downloading '%s'.\n", url)
 
-	response, err := http.Get(url)
+	request, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return fmt.Errorf("failed to construct HTTP request to download archive: %s", err)
+	}
+
+	if auth := netrc.GetAuthForUrl(url); auth != nil {
+		log.Debug("Using netrc auth for url %q\n", url)
+		request.SetBasicAuth(auth.User, auth.Password)
+	}
+
+	response, err := http.DefaultClient.Do(request)
 	if err != nil {
 		return fmt.Errorf("failed to download archive: %s", err)
 	}
