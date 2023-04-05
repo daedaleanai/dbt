@@ -344,6 +344,7 @@ func runBuild(args []string, mode mode, modeArgs []string) {
 			}
 			fmt.Println()
 		}
+		log.Fatal("The target is either not specified or is invalid.\n")
 		return
 	}
 
