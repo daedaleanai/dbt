@@ -56,12 +56,12 @@ func listGoModules(module Module, moduleFile ModuleFile) []GoModule {
 
 	deps := []string{}
 
-	for depName, _ := range moduleFile.Dependencies {
+	for depName := range moduleFile.Dependencies {
 		deps = append(deps, depName)
 	}
 
 	return []GoModule{
-		GoModule{
+		{
 			Name: moduleName,
 			Deps: deps,
 		},
@@ -74,7 +74,7 @@ func listGoModulesCpp(module Module, moduleFile ModuleFile) []GoModule {
 
 	deps := []string{}
 
-	for depName, _ := range moduleFile.Dependencies {
+	for depName := range moduleFile.Dependencies {
 		deps = append(deps, depName)
 	}
 
