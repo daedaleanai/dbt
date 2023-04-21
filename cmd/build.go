@@ -554,11 +554,17 @@ func copyBuildAndRuleFiles(moduleName, modulePath, buildFilesDir string, modules
 		util.WriteFile(initFilePath, []byte(initFileContent))
 
 		copyFilePath := path.Join(goFilesDir, buildFile.CopyPath)
+		for util.FileExists(copyFilePath) {
+			log.Fatal("BUILD.go file provided by more than one dbt module: %s\n", copyFilePath)
+		}
 		util.CopyFile(buildFile.SourcePath, copyFilePath)
 	}
 
 	for _, ruleFile := range module.ListRules(modules[moduleName]) {
 		copyFilePath := path.Join(goFilesDir, ruleFile.CopyPath)
+		if util.FileExists(copyFilePath) {
+			log.Fatal("Rule file provided by more than one dbt module: %s\n", copyFilePath)
+		}
 		util.CopyFile(ruleFile.SourcePath, copyFilePath)
 	}
 
