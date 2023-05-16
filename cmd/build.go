@@ -123,10 +123,11 @@ type mode uint
 
 const (
 	modeBuild mode = iota
+	modeAnalyze
+	modeCoverage
+	modeList
 	modeRun
 	modeTest
-	modeCoverage
-	modeAnalyze
 )
 
 type target struct {
@@ -244,14 +245,18 @@ func runBuild(args []string, mode mode, modeArgs []string) {
 		BuildFlags:     legacyFlags,
 	}
 	switch mode {
+	case modeBuild:
+		// do nothing
+	case modeAnalyze:
+		genInput.BuildAnalyzerTargets = true
+	case modeCoverage:
+		genInput.TestArgs = modeArgs
+	case modeList:
+		// do nothing
 	case modeRun:
 		genInput.RunArgs = modeArgs
 	case modeTest:
 		genInput.TestArgs = modeArgs
-	case modeCoverage:
-		genInput.TestArgs = modeArgs
-	case modeAnalyze:
-		genInput.BuildAnalyzerTargets = true
 	}
 	genOutput := runGenerator(genInput)
 
@@ -271,17 +276,19 @@ func runBuild(args []string, mode mode, modeArgs []string) {
 		}
 		regexps = append(regexps, re)
 	}
+
 	targets := []string{}
+	if mode != modeList {
+		for name, target := range genOutput.Targets {
+			if skipTarget(mode, target) {
+				continue
+			}
 
-	for name, target := range genOutput.Targets {
-		if skipTarget(mode, target) {
-			continue
-		}
-
-		for _, re := range regexps {
-			if re.MatchString(name) {
-				targets = append(targets, name)
-				break
+			for _, re := range regexps {
+				if re.MatchString(name) {
+					targets = append(targets, name)
+					break
+				}
 			}
 		}
 	}
@@ -298,25 +305,11 @@ func runBuild(args []string, mode mode, modeArgs []string) {
 	util.WriteFile(ninjaFilePath, []byte(genOutput.NinjaFile))
 
 	// Print all available targets and flags if there is nothing to build.
-	if !commandList && !commandDb && !dependencyGraph && len(targets) == 0 {
-		targetNames := []string{}
-		for name := range genOutput.Targets {
-			targetNames = append(targetNames, name)
-		}
-		sort.Strings(targetNames)
-
+	if mode == modeList {
+		printTargets(genOutput, mode)
+	} else if !commandList && !commandDb && !dependencyGraph && len(targets) == 0 {
 		fmt.Println("\nAvailable targets:")
-		for _, name := range targetNames {
-			target := genOutput.Targets[name]
-			if skipTarget(mode, target) {
-				continue
-			}
-			fmt.Printf("  //%s", name)
-			if target.Description != "" {
-				fmt.Printf("  (%s)", target.Description)
-			}
-			fmt.Println()
-		}
+		printTargets(genOutput, mode)
 
 		// Add the output directory flag.
 		genOutput.Flags[outputDirFlagName] = flag{
@@ -524,6 +517,27 @@ func runGenerator(input generatorInput) generatorOutput {
 	return output
 }
 
+func printTargets(genOutput generatorOutput, mode mode) {
+	targetNames := []string{}
+	for name := range genOutput.Targets {
+		targetNames = append(targetNames, name)
+	}
+	sort.Strings(targetNames)
+
+	for _, name := range targetNames {
+		target := genOutput.Targets[name]
+		if skipTarget(mode, target) {
+			continue
+		}
+		fmt.Printf("  //%s", name)
+		if target.Description != "" {
+			fmt.Printf("  (%s)", target.Description)
+		}
+		fmt.Println()
+	}
+
+}
+
 func copyBuildAndRuleFiles(moduleName, modulePath, buildFilesDir string, modules map[string]module.Module) []string {
 	packages := []string{}
 
@@ -671,12 +685,12 @@ func createSumGoFile(generatorDir string) {
 
 func skipTarget(mode mode, target target) bool {
 	switch mode {
+	case modeCoverage:
+		return !target.Testable && !target.Report
 	case modeRun:
 		return !target.Runnable
 	case modeTest:
 		return !target.Testable
-	case modeCoverage:
-		return !target.Testable && !target.Report
 	}
 	return false
 }
