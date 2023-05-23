@@ -444,7 +444,7 @@ func completeBuildArgs(toComplete string, mode mode) []string {
 	}
 
 	suggestions := []string{}
-	toComplete, isNegative := strings.CutPrefix(toComplete, negativeRulePrefix)
+	toComplete, isNegative := util.CutPrefix(toComplete, negativeRulePrefix)
 	prefix := ""
 	if isNegative {
 		prefix = negativeRulePrefix
@@ -482,7 +482,7 @@ func parseArgs(args []string) ([]string, []string, map[string]string) {
 			parts := strings.SplitN(arg, "=", 2)
 			flags[parts[0]] = parts[1]
 		} else {
-			trimmedArg, isNegativePattern := strings.CutPrefix(arg, negativeRulePrefix)
+			trimmedArg, isNegativePattern := util.CutPrefix(arg, negativeRulePrefix)
 
 			if isNegativePattern {
 				negativePatterns = append(negativePatterns, normalizeTarget(trimmedArg))

@@ -16,7 +16,7 @@ import (
 
 // DbtVersion is the current version of DBT. The minor version
 // is also used as the MODULE file version.
-var DbtVersion = [3]uint{1, 3, 11}
+var DbtVersion = [3]uint{1, 3, 12}
 
 // ModuleFileName is the name of the file describing each module.
 const ModuleFileName = "MODULE"
@@ -26,6 +26,14 @@ const DepsDirName = "DEPS"
 
 const fileMode = 0664
 const dirMode = 0775
+
+// Reimplementation of CutPrefix for backwards compatibility with versions < 1.20
+func CutPrefix(str string, prefix string) (string, bool) {
+	if strings.HasPrefix(str, prefix) {
+		return str[len(prefix):], true
+	}
+	return str, false
+}
 
 // FileExists checks whether some file exists.
 func FileExists(file string) bool {
