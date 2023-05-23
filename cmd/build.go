@@ -40,6 +40,7 @@ const modFileName = "go.mod"
 const ninjaFileName = "build.ninja"
 const outputDirFlagName = "output-dir"
 const rulesDirName = "RULES"
+const negativeRulePrefix = "negative:"
 
 const goMajorVersion = 1
 const goMinorVersion = 16
@@ -212,8 +213,8 @@ func runBuild(args []string, mode mode, modeArgs []string) {
 	}
 
 	workspaceFlags := module.ReadModuleFile(workspaceRoot).Flags
-	patterns, cmdlineFlags := parseArgs(args)
-	_, legacyFlags := parseArgs(args)
+	positivePatterns, negativePatterns, cmdlineFlags := parseArgs(args)
+	_, _, legacyFlags := parseArgs(args)
 
 	outputDir := defaultOutputDir
 	if workspaceOutputDir, exists := workspaceFlags[outputDirFlagName]; exists {
@@ -267,14 +268,23 @@ func runBuild(args []string, mode mode, modeArgs []string) {
 	}
 
 	// Determine the set of targets to be built.
-	log.Debug("Target patterns: '%s'.\n", strings.Join(patterns, "', '"))
-	regexps := []*regexp.Regexp{}
-	for _, pattern := range patterns {
+	log.Debug("Target patterns: '%s'. Negative patterns: '%s'\n", strings.Join(positivePatterns, "', '"), strings.Join(negativePatterns, "', '"))
+	positiveRegexps := []*regexp.Regexp{}
+	for _, pattern := range positivePatterns {
 		re, err := regexp.Compile(fmt.Sprintf("^%s$", pattern))
 		if err != nil {
-			log.Fatal("Target pattern '%s' is not a valid regular expression: %s.\n", pattern, err)
+			log.Fatal("Positive target pattern '%s' is not a valid regular expression: %s.\n", pattern, err)
 		}
-		regexps = append(regexps, re)
+		positiveRegexps = append(positiveRegexps, re)
+	}
+
+	negativeRegexps := []*regexp.Regexp{}
+	for _, pattern := range negativePatterns {
+		re, err := regexp.Compile(fmt.Sprintf("^%s$", pattern))
+		if err != nil {
+			log.Fatal("Negative target pattern '%s' is not a valid regular expression: %s.\n", pattern, err)
+		}
+		negativeRegexps = append(negativeRegexps, re)
 	}
 
 	targets := []string{}
@@ -284,7 +294,20 @@ func runBuild(args []string, mode mode, modeArgs []string) {
 				continue
 			}
 
-			for _, re := range regexps {
+			// Negative patterns have precedence
+			matchesNegativePattern := false
+			for _, re := range negativeRegexps {
+				if re.MatchString(name) {
+					matchesNegativePattern = true
+					break
+				}
+			}
+
+			if matchesNegativePattern {
+				continue
+			}
+
+			for _, re := range positiveRegexps {
 				if re.MatchString(name) {
 					targets = append(targets, name)
 					break
@@ -421,15 +444,21 @@ func completeBuildArgs(toComplete string, mode mode) []string {
 	}
 
 	suggestions := []string{}
+	toComplete, isNegative := strings.CutPrefix(toComplete, negativeRulePrefix)
+	prefix := ""
+	if isNegative {
+		prefix = negativeRulePrefix
+	}
+
 	targetToComplete := normalizeTarget(toComplete)
 	for name, target := range genOutput.Targets {
 		if skipTarget(mode, target) {
 			continue
 		}
 		if strings.Contains(name, toComplete) {
-			suggestions = append(suggestions, fmt.Sprintf("//%s\t%s", name, target.Description))
+			suggestions = append(suggestions, fmt.Sprintf("%s//%s\t%s", prefix, name, target.Description))
 		} else if strings.HasPrefix(name, targetToComplete) {
-			suggestions = append(suggestions, fmt.Sprintf("%s%s\t%s", toComplete, strings.TrimPrefix(name, targetToComplete), target.Description))
+			suggestions = append(suggestions, fmt.Sprintf("%s%s%s\t%s", prefix, toComplete, strings.TrimPrefix(name, targetToComplete), target.Description))
 		}
 	}
 
@@ -440,22 +469,30 @@ func completeBuildArgs(toComplete string, mode mode) []string {
 	return suggestions
 }
 
-func parseArgs(args []string) ([]string, map[string]string) {
-	patterns := []string{}
+func parseArgs(args []string) ([]string, []string, map[string]string) {
+	positivePatterns := []string{}
+	negativePatterns := []string{}
 	flags := map[string]string{}
 
-	// Split all args into two categories: If they contain a "= they are considered
-	// build flags, otherwise a target pattern to be built.
+	// Split all args into 3 categories: If they contain a "=" they are considered
+	// build flags, otherwise if they start with "-" a negative target pattern
+	// and otherwise a positve target pattern to be built.
 	for _, arg := range args {
 		if strings.Contains(arg, "=") {
 			parts := strings.SplitN(arg, "=", 2)
 			flags[parts[0]] = parts[1]
 		} else {
-			patterns = append(patterns, normalizeTarget(arg))
+			trimmedArg, isNegativePattern := strings.CutPrefix(arg, negativeRulePrefix)
+
+			if isNegativePattern {
+				negativePatterns = append(negativePatterns, normalizeTarget(trimmedArg))
+			} else {
+				positivePatterns = append(positivePatterns, normalizeTarget(trimmedArg))
+			}
 		}
 	}
 
-	return patterns, flags
+	return positivePatterns, negativePatterns, flags
 }
 
 func normalizeTarget(target string) string {
