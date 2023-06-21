@@ -128,6 +128,7 @@ const (
 	modeList
 	modeRun
 	modeTest
+	modeFlags
 )
 
 type target struct {
@@ -307,6 +308,8 @@ func runBuild(args []string, mode mode, modeArgs []string) {
 	// Print all available targets and flags if there is nothing to build.
 	if mode == modeList {
 		printTargets(genOutput, mode)
+	} else if mode == modeFlags {
+		printFlags(genOutput)
 	} else if !commandList && !commandDb && !dependencyGraph && len(targets) == 0 {
 		fmt.Println("\nAvailable targets:")
 		printTargets(genOutput, mode)
@@ -326,17 +329,8 @@ func runBuild(args []string, mode mode, modeArgs []string) {
 		sort.Strings(flagNames)
 
 		fmt.Println("\nAvailable flags:")
-		for _, name := range flagNames {
-			flag := genOutput.Flags[name]
-			fmt.Printf("  %s='%s' [%s]", name, flag.Value, flag.Type)
-			if len(flag.AllowedValues) > 0 {
-				fmt.Printf(" ('%s')", strings.Join(flag.AllowedValues, "', '"))
-			}
-			if flag.Description != "" {
-				fmt.Printf(" // %s", flag.Description)
-			}
-			fmt.Println()
-		}
+		printFlags(genOutput)
+
 		log.Fatal("The target is either not specified or is invalid.\n")
 		return
 	}
@@ -535,7 +529,27 @@ func printTargets(genOutput generatorOutput, mode mode) {
 		}
 		fmt.Println()
 	}
+}
 
+func printFlags(genOutput generatorOutput) {
+	// Sort flags alphabetically.
+	flagNames := []string{}
+	for name := range genOutput.Flags {
+		flagNames = append(flagNames, name)
+	}
+	sort.Strings(flagNames)
+
+	for _, name := range flagNames {
+		flag := genOutput.Flags[name]
+		fmt.Printf("  %s='%s' [%s]", name, flag.Value, flag.Type)
+		if len(flag.AllowedValues) > 0 {
+			fmt.Printf(" ('%s')", strings.Join(flag.AllowedValues, "', '"))
+		}
+		if flag.Description != "" {
+			fmt.Printf(" // %s", flag.Description)
+		}
+		fmt.Println()
+	}
 }
 
 func copyBuildAndRuleFiles(moduleName, modulePath, buildFilesDir string, modules map[string]module.Module) []string {
