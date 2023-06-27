@@ -9,12 +9,14 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path"
 	"path/filepath"
 	"reflect"
 	"regexp"
 	"sort"
 	"strings"
+	"syscall"
 
 	"github.com/daedaleanai/dbt/config"
 	"github.com/daedaleanai/dbt/log"
@@ -409,7 +411,21 @@ func runNinja(dir string, stdout io.Writer, args []string) {
 	ninjaCmd.Dir = dir
 	ninjaCmd.Stderr = os.Stderr
 	ninjaCmd.Stdout = stdout
-	err := ninjaCmd.Run()
+	err := ninjaCmd.Start()
+	if err != nil {
+		log.Fatal("Starting ninja failed: %s\n", err)
+	}
+
+	// Forward Ctrl-C to the child process, but wait until it finishes.
+	signals := make(chan os.Signal, 1)
+	signal.Notify(signals, os.Interrupt, syscall.SIGINT)
+
+	go func() {
+		<-signals
+		fmt.Println("SIGINT received. Waiting for ninja to finish...")
+	}()
+
+	err = ninjaCmd.Wait()
 	if err != nil {
 		log.Fatal("Running ninja failed: %s\n", err)
 	}
