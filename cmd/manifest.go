@@ -30,11 +30,6 @@ func init() {
 
 func runManifest(cmd *cobra.Command, args []string) {
 	workspaceRoot := util.GetWorkspaceRoot()
-	log.Debug("Workspace: %s.\n", workspaceRoot)
-
-	workspaceModule := module.OpenModule(workspaceRoot)
-	workspaceModuleName := workspaceModule.Name()
-	log.Debug("Workspace module name: '%s\n", workspaceModuleName)
 
 	dependencyNames := func(file *module.ModuleFile) []string {
 		names := []string{}
@@ -64,11 +59,6 @@ func runManifest(cmd *cobra.Command, args []string) {
 			continue
 		}
 
-		moduleName := path.Base(modulePath)
-		log.IndentationLevel = 0
-		log.Debug("Processing %s\n", moduleName)
-		log.IndentationLevel = 1
-
 		currentModule := module.OpenModule(modulePath)
 		currentModuleFile := module.ReadModuleFile(modulePath)
 
@@ -76,24 +66,13 @@ func runManifest(cmd *cobra.Command, args []string) {
 			log.Fatal("Module '%s' contains uncommitted changes\n", currentModule.Name())
 		}
 
-		// Store current module
 		processed[modulePath] = ModuleManifest{
 			Name: currentModule.Name(),
 			Url:  currentModule.URL(),
 			Hash: currentModule.Head(),
 		}
 
-		if len(currentModuleFile.Dependencies) == 0 {
-			log.IndentationLevel = 1
-			log.Debug("Has no dependencies\n\n")
-			continue
-		}
-
 		for _, name := range dependencyNames(&currentModuleFile) {
-			log.IndentationLevel = 1
-			log.Debug("Depends on %s\n", name)
-			log.IndentationLevel = 2
-
 			depModulePath := path.Join(workspaceRoot, util.DepsDirName, name)
 			queue = append(queue, depModulePath)
 		}
@@ -105,6 +84,5 @@ func runManifest(cmd *cobra.Command, args []string) {
 	}
 	util.WriteYaml(manifestOutput, modules)
 
-	log.IndentationLevel = 0
 	log.Success("Done.\n")
 }
