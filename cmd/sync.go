@@ -48,6 +48,8 @@ func runSync(cmd *cobra.Command, args []string) {
 	workspaceModuleName := module.OpenModule(workspaceRoot).Name()
 	log.Debug("Workspace module name: '%s\n", workspaceModuleName)
 
+	overrides := workspaceModuleFile.Overrides
+
 	workspaceModuleSymlink := ""
 	if workspaceModuleFile.Layout != "cpp" {
 		// Create the DEPS/ subdirectory and create a symlink to the top-level module.
@@ -79,9 +81,8 @@ func runSync(cmd *cobra.Command, args []string) {
 	// Modules that still need to be processed.
 	queue := []string{workspaceRoot}
 
-	// Pinned dependency URLs / hashes.
-	pinnedUrls := map[string]string{}
-	pinnedHashes := map[string]string{}
+	// Pinned dependencies
+	pinned := map[string]module.Dependency{}
 
 	for len(queue) > 0 {
 		modulePath := queue[0]
@@ -113,19 +114,31 @@ func runSync(cmd *cobra.Command, args []string) {
 			depModulePath := path.Join(workspaceRoot, util.DepsDirName, name)
 			queue = append(queue, depModulePath)
 
-			// Check that the dependency URL matches the pinned URL for that module.
-			if _, isUrlPinned := pinnedUrls[name]; !isUrlPinned {
-				pinnedUrls[name] = dep.URL
-				log.Debug("Pinning URL to '%s'.\n", dep.URL)
+			overriden := false
+			if overridenDep, found := overrides[name]; found {
+				log.Debug("Overriden URL to '%s', Version to '%s', Type to '%s' and Hash to '%s'.\n", overridenDep.URL, overridenDep.Version, overridenDep.Type, overridenDep.Hash)
+				pinned[name] = overridenDep
+				overriden = true
 			}
-			if dep.URL != pinnedUrls[name] {
-				errorFunc("Dependency requires URL '%s', but URL has been pinned to '%s'.\n", dep.URL, pinnedUrls[name])
+
+			// Check that the dependency URL matches the pinned URL for that module.
+			if _, isDepPinned := pinned[name]; !isDepPinned {
+				pinned[name] = module.Dependency{
+					URL:     dep.URL,
+					Version: dep.Version,
+					Type:    dep.Type,
+					Hash:    dep.Hash,
+				}
+				log.Debug("Pinning URL to '%s', Version to '%s', Type to '%s' and Hash to '%s'.\n", dep.URL, dep.Version, dep.Type, dep.Hash)
+			}
+			if !overriden && dep.URL != pinned[name].URL {
+				errorFunc("Dependency requires URL '%s', but URL has been pinned to '%s'.\n", dep.URL, pinned[name].URL)
 			}
 
 			// Check that the on-disk module has the same URL.
-			depModule := module.OpenOrCreateModule(depModulePath, dep.URL, dep.Type)
-			if depModule.URL() != dep.URL {
-				errorFunc("Dependency requires URL '%s', but the on-disk module has URL '%s'.\n", dep.URL, depModule.URL())
+			depModule := module.OpenOrCreateModule(depModulePath, pinned[name].URL, pinned[name].Type)
+			if depModule.URL() != pinned[name].URL {
+				errorFunc("Dependency requires URL '%s', but the on-disk module has URL '%s'.\n", pinned[name].URL, depModule.URL())
 			}
 
 			// Make sure we have the latest changes and the working tree is clean.
@@ -140,33 +153,40 @@ func runSync(cmd *cobra.Command, args []string) {
 			// Determine the commit hash for this dependency.
 
 			// In --strict mode all hashes must be set in the MODULE file.
-			if strict && dep.Hash == "" {
+			if strict && ((overriden && pinned[name].Hash == "") || (!overriden && dep.Hash == "")) {
 				errorFunc("Hash must not be empty in --strict mode.\n")
 			}
 
 			// Resolve the version string to a hash if we are currently processsing the
 			// workspace module (only one module is "done") and the hash is not set yet or
 			// --update is used to force re-resolution of the version string to a hash.
-			if (update || dep.Hash == "") && len(done) == 1 {
-				dep.Hash = depModule.RevParse(dep.Version)
-				log.Debug("Resolved dependency version '%s' to hash '%s'.\n", dep.Version, dep.Hash[:7])
+			if update || pinned[name].Hash == "" {
+				pinnedDep := pinned[name]
+				pinnedDep.Hash = depModule.RevParse(pinned[name].Version)
+				pinned[name] = pinnedDep
+				if len(done) == 1 {
+					dep.Hash = pinnedDep.Hash
+				}
+				log.Debug("Resolved dependency version '%s' to hash '%s'.\n", pinnedDep.Version, pinnedDep.Hash[:7])
 			}
 
-			log.Log("Using hash '%s' for version '%s'.\n", dep.Hash[:7], dep.Version)
+			log.Log("Using hash '%s' for version '%s'.\n", pinned[name].Hash[:7], pinned[name].Version)
 
 			// Check that the dependency hash is part of the tree that is referenced by the version string.
-			if !depModule.IsAncestor(dep.Hash, dep.Version) {
+			if !overriden && !depModule.IsAncestor(dep.Hash, dep.Version) {
 				errorFunc(
 					"The dependency hash ('%s') is not an ancestor of the commit ('%s') the version string ('%s') currently resolves to.\n",
 					dep.Hash[:7], depModule.RevParse(dep.Version)[:7], dep.Version)
 			}
 
 			// Check the dependency hash against the fixed hash for that module.
-			if _, isHashPinned := pinnedHashes[name]; !isHashPinned {
-				pinnedHashes[name] = dep.Hash
+			if pinnedDep := pinned[name]; len(pinnedDep.Hash) == 0 {
+				pinnedDep.Hash = dep.Hash
+				pinned[name] = pinnedDep
 			}
-			pinnedHash := pinnedHashes[name]
-			if dep.Hash != pinnedHash {
+
+			pinnedHash := pinned[name].Hash
+			if !overriden && dep.Hash != pinnedHash {
 				errorFunc("Dependency requires hash '%s', but hash has been pinned to '%s'.\n", dep.Hash[:7], pinnedHash[:7])
 			}
 
@@ -201,7 +221,7 @@ func runSync(cmd *cobra.Command, args []string) {
 
 	// Updated the MODULE file.
 	for name, dep := range workspaceModuleFile.Dependencies {
-		dep.Hash = pinnedHashes[name]
+		dep.Hash = pinned[name].Hash
 		workspaceModuleFile.Dependencies[name] = dep
 	}
 	module.WriteModuleFile(workspaceRoot, workspaceModuleFile)
