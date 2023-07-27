@@ -2,6 +2,7 @@ package module
 
 import (
 	"context"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -332,26 +333,36 @@ const (
 	TarGzModuleType
 )
 
-func determineModuleType(url, moduleTypeString string) ModuleType {
+func DetermineModuleType(url, moduleTypeString string) (ModuleType, error) {
 	if moduleTypeString == "git" {
-		return GitModuleType
+		return GitModuleType, nil
 	} else if moduleTypeString == "tar.gz" {
-		return TarGzModuleType
+		return TarGzModuleType, nil
 	} else if moduleTypeString != "" {
-		log.Fatal("Invalid module type '%s'.\n", moduleTypeString)
+		return GitModuleType, fmt.Errorf("Invalid module type '%s'.\n", moduleTypeString)
 	}
 
 	if strings.HasSuffix(url, ".git") {
 		log.Debug("Module URL ends in '.git'. Trying to create a new git module.\n")
-		return GitModuleType
+		return GitModuleType, nil
 	}
 	if strings.HasSuffix(url, ".tar.gz") {
 		log.Debug("Module URL ends in '.tar.gz'. Trying to create a new TarModule.\n")
-		return TarGzModuleType
+		return TarGzModuleType, nil
 	}
 
-	log.Fatal("Failed to determine module type from dependency url '%s'.\n", url)
-	return GitModuleType // Just because golang is not clever enough to notice that this is unreachable.
+	return GitModuleType, fmt.Errorf("Failed to determine module type from dependency url '%s'.\n", url)
+}
+
+func (t ModuleType) String() string {
+	if t == GitModuleType {
+		return "git"
+	} else if t == TarGzModuleType {
+		return "tar.gz"
+	}
+
+	log.Fatal("Unhandled module type %v", t)
+	return "" // Just because golang is not clever enough to notice that this is unreachable.
 }
 
 // OpenOrCreateModule tries to open the module in `modulePath`. If the `modulePath` directory does
@@ -365,7 +376,10 @@ func OpenOrCreateModule(modulePath string, url string, moduleTypeString string) 
 
 	log.Debug("Module directory does not exists.\n")
 
-	moduleType := determineModuleType(url, moduleTypeString)
+	moduleType, error := DetermineModuleType(url, moduleTypeString)
+	if error != nil {
+		log.Fatal("%s", error.Error())
+	}
 
 	if moduleType == GitModuleType {
 		module, err := CreateGitModule(modulePath, url)

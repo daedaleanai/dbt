@@ -24,6 +24,7 @@ type ModuleFile struct {
 	Version      uint
 	Layout       string
 	Dependencies map[string]Dependency
+	Overrides    map[string]Dependency
 	Flags        map[string]string
 }
 
