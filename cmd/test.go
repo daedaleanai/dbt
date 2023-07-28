@@ -17,6 +17,7 @@ var testCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(testCmd)
+	testCmd.Flags().IntVarP(&numThreads, "threads", "j", -1, "Run N jobs in parallel")
 	testCmd.Flags().SetInterspersed(false)
 }
 
