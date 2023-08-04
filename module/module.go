@@ -48,6 +48,7 @@ type Module interface {
 	Checkout(hash string)
 
 	RootPath() string
+	Type() ModuleType
 }
 
 func listGoModules(module Module, moduleFile ModuleFile) []GoModule {
@@ -296,6 +297,21 @@ func ListBuildFiles(module Module) []GoFile {
 	}
 }
 
+// OpenModuleByName opens a module checked out on disk.
+func OpenModuleByName(moduleName string) Module {
+	wsRoot := util.GetWorkspaceRoot()
+	workspaceModuleFile := ReadModuleFile(wsRoot)
+	if workspaceModuleFile.Layout == "cpp" && moduleName == path.Base(wsRoot) {
+		// The root module in cpp layout is not symlinked
+		return OpenModule(wsRoot)
+	}
+
+	// The module is in the deps folder
+	depsDir := path.Join(wsRoot, util.DepsDirName)
+	modPath := path.Join(depsDir, moduleName)
+	return OpenModule(modPath)
+}
+
 // OpenModule opens a module checked out on disk.
 func OpenModule(modulePath string) Module {
 	log.Debug("Opening module '%s'.\n", modulePath)
@@ -332,12 +348,34 @@ const (
 	TarGzModuleType
 )
 
+func (t ModuleType) String() string {
+	switch t {
+	case GitModuleType:
+		return "git"
+	case TarGzModuleType:
+		return "tar.gz"
+	}
+
+	log.Fatal("Invalid module type: %s\n", t)
+	return ""
+}
+
+func ParseModuleTypeString(str string) (ModuleType, bool) {
+	if str == "git" {
+		return GitModuleType, true
+	} else if str == "tar.gz" {
+		return TarGzModuleType, true
+	}
+
+	return GitModuleType, false
+}
+
 func determineModuleType(url, moduleTypeString string) ModuleType {
-	if moduleTypeString == "git" {
-		return GitModuleType
-	} else if moduleTypeString == "tar.gz" {
-		return TarGzModuleType
-	} else if moduleTypeString != "" {
+	if moduleType, ok := ParseModuleTypeString(moduleTypeString); ok {
+		return moduleType
+	}
+
+	if moduleTypeString != "" {
 		log.Fatal("Invalid module type '%s'.\n", moduleTypeString)
 	}
 

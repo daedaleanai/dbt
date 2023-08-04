@@ -72,7 +72,7 @@ func CreateGitModule(modulePath, url string) (Module, error) {
 }
 
 func (m GitModule) Name() string {
-	return strings.TrimSuffix(path.Base(m.URL()), ".git")
+	return path.Base(m.RootPath())
 }
 
 func (m GitModule) RootPath() string {
@@ -130,6 +130,40 @@ func (m GitModule) Checkout(ref string) {
 	}
 
 	m.runGitCommand("checkout", ref)
+}
+
+func (m GitModule) Type() ModuleType {
+	return GitModuleType
+}
+
+// GetMergeBase returns the best common ancestor that could be used for a merge between the two given references.
+func (m GitModule) GetMergeBase(revA, revB string) (string, error) {
+	stdout, _, err := m.tryRunGitCommand("merge-base", revA, revB)
+	return stdout, err
+}
+
+func (m GitModule) GetCommitTitle(revision string) (string, error) {
+	stdout, _, err := m.tryRunGitCommand("show", "--format=format:\"%s\"", "-s", revision)
+	return stdout, err
+}
+
+func (m GitModule) GetCommitAuthorName(revision string) (string, error) {
+	stdout, _, err := m.tryRunGitCommand("show", "--format=format:\"%an\"", "-s", revision)
+	return stdout, err
+}
+
+func (m GitModule) GetCommitsBetweenRefs(base, head string) ([]string, error) {
+	result := []string{}
+	stdout, _, err := m.tryRunGitCommand("rev-list", strings.Join([]string{strings.TrimSpace(base), strings.TrimSpace(head)}, ".."))
+	for _, line := range strings.Split(stdout, "\n") {
+		trimmedLine := strings.TrimSpace(line)
+		if len(trimmedLine) == 0 {
+			continue
+		}
+
+		result = append(result, trimmedLine)
+	}
+	return result, err
 }
 
 // Runs a git command with the specified arguments, exiting with an error message if the command

@@ -156,6 +156,10 @@ func (m TarModule) Checkout(hash string) {
 	}
 }
 
+func (m TarModule) Type() ModuleType {
+	return TarGzModuleType
+}
+
 // clones a tar from either a mirror (if the tar module contains one and is valid) or downloaded from
 // the network
 func (m TarModule) clone(url string) error {
