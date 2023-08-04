@@ -118,6 +118,9 @@ func runManifestDiff(cmd *cobra.Command, args []string) {
 	}
 
 	if len(diff.ModifiedModules) != 0 {
+		colorizedMinus := log.GetColorString(log.ColorRed) + "-" + log.GetColorString(log.ColorReset)
+		colorizedPlus := log.GetColorString(log.ColorGreen) + "+" + log.GetColorString(log.ColorReset)
+
 		log.Log("Modified modules:\n")
 		for _, modifiedMod := range diff.ModifiedModules {
 			log.IndentationLevel = 1
@@ -134,14 +137,11 @@ func runManifestDiff(cmd *cobra.Command, args []string) {
 					log.Log("Common ancestor: %v\n", modifiedMod.FirstCommonAncestor.String())
 				}
 
-				const RED_DASH string = "\u001b[31;1m-\u001b[0m"
-				const GREEN_PLUS string = "\u001b[32;1m+\u001b[0m"
-
 				if len(modifiedMod.AddedCommits) != 0 {
 					log.Log("Added commits: \n")
 					log.IndentationLevel = 4
 					for _, commit := range modifiedMod.AddedCommits {
-						log.Log("%s %s\n", GREEN_PLUS, commit.String())
+						log.Log("%s %s\n", colorizedPlus, commit.String())
 					}
 					log.IndentationLevel = 3
 				}
@@ -150,7 +150,7 @@ func runManifestDiff(cmd *cobra.Command, args []string) {
 					log.Log("Discarded commits: \n")
 					log.IndentationLevel = 4
 					for _, commit := range modifiedMod.DiscardedCommits {
-						log.Log("%s %s\n", RED_DASH, commit.String())
+						log.Log("%s %s\n", colorizedMinus, commit.String())
 					}
 					log.IndentationLevel = 3
 				}
