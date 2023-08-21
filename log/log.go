@@ -9,8 +9,9 @@ import (
 // Verbose controls whether debug messages are being printed.
 var Verbose bool
 
-// NoColor controls whether stdout and stderr are colorized or not
+// NoColor and noColorEnv control whether stdout and stderr are colorized or not
 var NoColor bool
+var noColorEnv bool = false
 
 // IndentationLevel controls the amount of indentation of log messages.
 var IndentationLevel = 0
@@ -27,8 +28,14 @@ const (
 	ColorYellow
 )
 
+func init() {
+	if val, ok := os.LookupEnv("NO_COLOR"); ok && val != "" {
+		noColorEnv = true
+	}
+}
+
 func GetColorString(color Color) string {
-	if NoColor {
+	if NoColor || noColorEnv {
 		return ""
 	}
 
