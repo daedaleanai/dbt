@@ -10,6 +10,9 @@ import (
 var Verbose bool
 
 // NoColor and noColorEnv control whether stdout and stderr are colorized or not
+// Two variables are used to prevent races when they are set. NoColor is set by the dbt
+// command invokation after cobra parses the cli args. noColorEnv is set by the init function
+// of this package. As long as one of the flags is true, the output is not colorized.
 var NoColor bool
 var noColorEnv bool = false
 
