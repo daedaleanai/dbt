@@ -23,6 +23,7 @@ building build targets defined in those modules.`,
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
 	rootCmd.PersistentFlags().BoolVarP(&log.Verbose, "verbose", "v", false, "print debug output")
+	rootCmd.PersistentFlags().BoolVar(&log.NoColor, "no-color", false, "does not colorize the output")
 	if rootCmd.Execute() != nil {
 		os.Exit(1)
 	}
