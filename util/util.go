@@ -265,18 +265,18 @@ var warningText string
 
 func sanitizeManagedDir(root, child string) {
 	dir := filepath.Join(root, child)
-	stat, err := os.Stat(dir)
+	stat, err := os.Lstat(dir)
 	if errors.Is(err, os.ErrNotExist) {
 		return
 	}
 	if err != nil {
 		log.Fatal("Failed to stat directory %s: %v\n", dir, err)
 	}
+	if (stat.Mode() & os.ModeSymlink) != 0 {
+		log.Fatal("%s special directory must not be a symlink\n", child)
+	}
 	if !stat.IsDir() {
 		log.Fatal("Workspace contains file %s, which overlaps with a special purpose directory used by dbt\n", child)
-	}
-	if stat.Mode()&os.ModeSymlink != 0 {
-		log.Fatal("%s special directory must not be a symlink\n", child)
 	}
 
 	warningFilepath := filepath.Join(dir, "WARNING.readme.txt")
