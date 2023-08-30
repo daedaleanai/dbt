@@ -1,7 +1,9 @@
 package util
 
 import (
+	_ "embed"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -16,13 +18,15 @@ import (
 
 // DbtVersion is the current version of DBT. The minor version
 // is also used as the MODULE file version.
-var DbtVersion = [3]uint{1, 3, 13}
+var DbtVersion = [3]uint{1, 3, 14}
 
 // ModuleFileName is the name of the file describing each module.
-const ModuleFileName = "MODULE"
-
-// DepsDirName is directory that dependencies are stored in.
-const DepsDirName = "DEPS"
+const (
+	ModuleFileName = "MODULE"
+	BuildDirName   = "BUILD"
+	// DepsDirName is directory that dependencies are stored in.
+	DepsDirName = "DEPS"
+)
 
 const fileMode = 0664
 const dirMode = 0775
@@ -248,4 +252,38 @@ func WalkSymlink(root string, walkFn filepath.WalkFunc) error {
 		file = path.Join(root, strings.TrimPrefix(file, link))
 		return walkFn(file, info, err)
 	})
+}
+
+func SanitizeManagedDirs() {
+	workspaceRoot := GetWorkspaceRoot()
+	sanitizeManagedDir(workspaceRoot, BuildDirName)
+	sanitizeManagedDir(workspaceRoot, DepsDirName)
+}
+
+//go:embed WARNING.readme.txt
+var warningText string
+
+func sanitizeManagedDir(root, child string) {
+	dir := filepath.Join(root, child)
+	stat, err := os.Stat(dir)
+	if errors.Is(err, os.ErrNotExist) {
+		return
+	}
+	if err != nil {
+		log.Fatal("Failed to stat directory %s: %v\n", dir, err)
+	}
+	if !stat.IsDir() {
+		log.Fatal("Workspace contains file %s, which overlaps with a special purpose directory used by dbt\n", child)
+	}
+	if stat.Mode()&os.ModeSymlink != 0 {
+		log.Fatal("%s special directory must not be a symlink\n", child)
+	}
+
+	warningFilepath := filepath.Join(dir, "WARNING.readme.txt")
+	_, err = os.Stat(warningFilepath)
+	if !errors.Is(err, os.ErrNotExist) {
+		return
+	}
+	// best effort, ignore errors
+	os.WriteFile(warningFilepath, []byte(warningText), fileMode)
 }
