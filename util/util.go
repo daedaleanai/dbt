@@ -254,16 +254,13 @@ func WalkSymlink(root string, walkFn filepath.WalkFunc) error {
 	})
 }
 
-func SanitizeManagedDirs() {
+func CheckManagedDirs() {
 	workspaceRoot := GetWorkspaceRoot()
-	sanitizeManagedDir(workspaceRoot, BuildDirName)
-	sanitizeManagedDir(workspaceRoot, DepsDirName)
+	checkManagedDir(workspaceRoot, BuildDirName)
+	checkManagedDir(workspaceRoot, DepsDirName)
 }
 
-//go:embed WARNING.readme.txt
-var warningText string
-
-func sanitizeManagedDir(root, child string) {
+func checkManagedDir(root, child string) {
 	dir := filepath.Join(root, child)
 	stat, err := os.Lstat(dir)
 	if errors.Is(err, os.ErrNotExist) {
@@ -278,12 +275,22 @@ func sanitizeManagedDir(root, child string) {
 	if !stat.IsDir() {
 		log.Fatal("Workspace contains file %s, which overlaps with a special purpose directory used by dbt\n", child)
 	}
+}
 
-	warningFilepath := filepath.Join(dir, "WARNING.readme.txt")
-	_, err = os.Stat(warningFilepath)
-	if !errors.Is(err, os.ErrNotExist) {
-		return
+//go:embed WARNING.readme.txt
+var warningText string
+
+func EnsureManagedDir(dir string) {
+	workspaceRoot := GetWorkspaceRoot()
+	checkManagedDir(workspaceRoot, dir)
+
+	if err := os.MkdirAll(filepath.Join(workspaceRoot, dir), dirMode); err != nil {
+		log.Fatal("Failed to create special directory %s: %v\n", dir, err)
 	}
-	// best effort, ignore errors
-	os.WriteFile(warningFilepath, []byte(warningText), fileMode)
+
+	warningFilepath := filepath.Join(workspaceRoot, dir, "WARNING.readme.txt")
+	if _, err := os.Stat(warningFilepath); errors.Is(err, os.ErrNotExist) {
+		// best effort, ignore errors
+		os.WriteFile(warningFilepath, []byte(warningText), fileMode)
+	}
 }

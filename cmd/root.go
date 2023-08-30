@@ -35,7 +35,7 @@ func initWorkspace() {
 	if noWorkspaceChecks {
 		return
 	}
-	util.SanitizeManagedDirs()
+	util.CheckManagedDirs()
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.

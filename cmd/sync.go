@@ -46,7 +46,9 @@ func runSync(cmd *cobra.Command, args []string) {
 
 	workspaceModuleFile := module.ReadModuleFile(workspaceRoot)
 	workspaceModuleName := module.OpenModule(workspaceRoot).Name()
-	log.Debug("Workspace module name: '%s\n", workspaceModuleName)
+	log.Debug("Workspace module name: '%s'\n", workspaceModuleName)
+
+	util.EnsureManagedDir(util.DepsDirName)
 
 	workspaceModuleSymlink := ""
 	if workspaceModuleFile.Layout != "cpp" {
