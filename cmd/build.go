@@ -24,7 +24,6 @@ import (
 	"github.com/daedaleanai/cobra"
 )
 
-const buildDirName = "BUILD"
 const buildFileName = "BUILD.go"
 const compileCommandsDbFileName = "compile_commands.json"
 const compileCommandsFileName = "compile_commands.sh"
@@ -213,6 +212,8 @@ func runBuild(args []string, mode mode, modeArgs []string) {
 		return
 	}
 
+	util.EnsureManagedDir(util.BuildDirName)
+
 	workspaceFlags := module.ReadModuleFile(workspaceRoot).Flags
 	positivePatterns, negativePatterns, cmdlineFlags := parseArgs(args)
 	_, _, legacyFlags := parseArgs(args)
@@ -228,7 +229,7 @@ func runBuild(args []string, mode mode, modeArgs []string) {
 	}
 
 	if !strings.HasPrefix(outputDir, "/") {
-		outputDir = path.Join(workspaceRoot, buildDirName, outputDir)
+		outputDir = path.Join(workspaceRoot, util.BuildDirName, outputDir)
 	}
 	log.Debug("Output directory: %s.\n", outputDir)
 	genInput := generatorInput{
@@ -514,7 +515,7 @@ func runGenerator(input generatorInput) generatorOutput {
 	input.WorkingDir = util.GetWorkingDir()
 
 	// Remove all existing buildfiles.
-	generatorDir := path.Join(workspaceRoot, buildDirName, generatorDirName)
+	generatorDir := path.Join(workspaceRoot, util.BuildDirName, generatorDirName)
 	util.RemoveDir(generatorDir)
 
 	// Copy all BUILD.go files and RULES/ files from the source directory.

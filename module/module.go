@@ -17,7 +17,6 @@ import (
 const setupFileName = "SETUP.go"
 const setupSentinelFileName = ".setup"
 const rulesDirName = "RULES"
-const buildDirName = "BUILD"
 const buildFileName = "BUILD.go"
 
 type GoFile struct {
@@ -130,7 +129,7 @@ func listBuildFiles(module Module) []GoFile {
 		relativeFilePath := strings.TrimPrefix(filePath, modulePath+"/")
 
 		// Ignore the BUILD/, DEPS/ and RULES/ directories.
-		if file.IsDir() && (relativeFilePath == buildDirName || relativeFilePath == util.DepsDirName || relativeFilePath == rulesDirName) {
+		if file.IsDir() && (relativeFilePath == util.BuildDirName || relativeFilePath == util.DepsDirName || relativeFilePath == rulesDirName) {
 			return filepath.SkipDir
 		}
 
@@ -169,7 +168,7 @@ func listBuildFilesCpp(module Module) []GoFile {
 		relativeFilePath := strings.TrimPrefix(filePath, modulePath+"/")
 
 		// Ignore the BUILD/, DEPS/ and RULES/ directories.
-		if file.IsDir() && (relativeFilePath == buildDirName || relativeFilePath == util.DepsDirName || relativeFilePath == rulesDirName) {
+		if file.IsDir() && (relativeFilePath == util.BuildDirName || relativeFilePath == util.DepsDirName || relativeFilePath == rulesDirName) {
 			return filepath.SkipDir
 		}
 

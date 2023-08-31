@@ -1,7 +1,9 @@
 package util
 
 import (
+	_ "embed"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -16,13 +18,15 @@ import (
 
 // DbtVersion is the current version of DBT. The minor version
 // is also used as the MODULE file version.
-var DbtVersion = [3]uint{1, 3, 13}
+var DbtVersion = [3]uint{1, 3, 14}
 
 // ModuleFileName is the name of the file describing each module.
-const ModuleFileName = "MODULE"
-
-// DepsDirName is directory that dependencies are stored in.
-const DepsDirName = "DEPS"
+const (
+	ModuleFileName = "MODULE"
+	BuildDirName   = "BUILD"
+	// DepsDirName is directory that dependencies are stored in.
+	DepsDirName = "DEPS"
+)
 
 const fileMode = 0664
 const dirMode = 0775
@@ -248,4 +252,63 @@ func WalkSymlink(root string, walkFn filepath.WalkFunc) error {
 		file = path.Join(root, strings.TrimPrefix(file, link))
 		return walkFn(file, info, err)
 	})
+}
+
+var FlagNoWorkspaceChecks = false
+
+func CheckWorkspace() {
+	if FlagNoWorkspaceChecks {
+		return
+	}
+
+	workspaceRoot := GetWorkspaceRoot()
+	checkManagedDir(workspaceRoot, BuildDirName)
+	checkManagedDir(workspaceRoot, DepsDirName)
+}
+
+func checkManagedDir(root, child string) {
+	if err := diagnoseExistingManagedDir(root, child); err != nil {
+		log.Fatal("%vUse --no-workspace-checks to ignore this diagnostics.\n", err)
+	}
+}
+
+func diagnoseExistingManagedDir(root, child string) error {
+	dir := filepath.Join(root, child)
+	stat, err := os.Lstat(dir)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("Failed to stat directory %s: %w\n", dir, err)
+	}
+	if (stat.Mode() & os.ModeSymlink) != 0 {
+		return fmt.Errorf("%s special directory must not be a symlink\n", child)
+	}
+	if !stat.IsDir() {
+		return fmt.Errorf("Workspace contains file %s, which overlaps with a special purpose directory used by dbt\n", child)
+	}
+	return nil
+}
+
+//go:embed WARNING.readme.txt
+var warningText string
+
+func EnsureManagedDir(dir string) {
+	workspaceRoot := GetWorkspaceRoot()
+	if err := diagnoseExistingManagedDir(workspaceRoot, dir); err != nil {
+		log.Warning("File or directory %s exists but it was modified outside of dbt."+
+			" This is error-prone and shall be avoided.\n", dir)
+		log.Warning("%v", err)
+		return
+	}
+
+	if err := os.MkdirAll(filepath.Join(workspaceRoot, dir), dirMode); err != nil {
+		log.Fatal("Failed to create special directory %s: %v", dir, err)
+	}
+
+	warningFilepath := filepath.Join(workspaceRoot, dir, "WARNING.readme.txt")
+	if _, err := os.Stat(warningFilepath); errors.Is(err, os.ErrNotExist) {
+		// best effort, ignore errors
+		os.WriteFile(warningFilepath, []byte(warningText), fileMode)
+	}
 }

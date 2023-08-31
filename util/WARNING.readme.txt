@@ -1,0 +1,8 @@
+DO NOT MESS with this directory unless you know what you are doing and take responsibility for your actions.
+
+This directory is managed by dbt, in particular dbt might WITHOUT WARNING OR PROMPT
+delete, rename, move, create arbitrary files and directories in this directory or any of its subdirectories.
+
+In particular, DO NOT symlink this directory to any location where you store cloned repositories.
+This may lead to you losing your work in these repositories.
+
