@@ -19,7 +19,6 @@ of multiple modules (git repositories), managing dependencies between modules, a
 building build targets defined in those modules.`,
 		Version: fmt.Sprintf("v%d.%d.%d", util.DbtVersion[0], util.DbtVersion[1], util.DbtVersion[2]),
 	}
-	noWorkspaceChecks = false
 )
 
 func init() {
@@ -27,15 +26,12 @@ func init() {
 
 	rootCmd.PersistentFlags().BoolVarP(&log.Verbose, "verbose", "v", false, "print debug output")
 	rootCmd.PersistentFlags().BoolVar(&log.NoColor, "no-color", false, "does not colorize the output")
-	rootCmd.PersistentFlags().BoolVar(&noWorkspaceChecks, "no-workspace-checks", false,
+	rootCmd.PersistentFlags().BoolVar(&util.FlagNoWorkspaceChecks, "no-workspace-checks", false,
 		"DANGEROUS: skip checks that the special purpose directories (BUILD, DEPS) are not adjusted by the user")
 }
 
 func initWorkspace() {
-	if noWorkspaceChecks {
-		return
-	}
-	util.CheckManagedDirs()
+	util.CheckWorkspace()
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.

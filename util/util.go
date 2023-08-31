@@ -254,27 +254,40 @@ func WalkSymlink(root string, walkFn filepath.WalkFunc) error {
 	})
 }
 
-func CheckManagedDirs() {
+var FlagNoWorkspaceChecks = false
+
+func CheckWorkspace() {
+	if FlagNoWorkspaceChecks {
+		return
+	}
+
 	workspaceRoot := GetWorkspaceRoot()
 	checkManagedDir(workspaceRoot, BuildDirName)
 	checkManagedDir(workspaceRoot, DepsDirName)
 }
 
 func checkManagedDir(root, child string) {
+	if err := isExistingManagedDir(root, child); err != nil {
+		log.Fatal("%vUse --no-workspace-checks to ignore this diagnostics.\n", err)
+	}
+}
+
+func isExistingManagedDir(root, child string) error {
 	dir := filepath.Join(root, child)
 	stat, err := os.Lstat(dir)
 	if errors.Is(err, os.ErrNotExist) {
-		return
+		return nil
 	}
 	if err != nil {
-		log.Fatal("Failed to stat directory %s: %v\n", dir, err)
+		return fmt.Errorf("Failed to stat directory %s: %w\n", dir, err)
 	}
 	if (stat.Mode() & os.ModeSymlink) != 0 {
-		log.Fatal("%s special directory must not be a symlink\n", child)
+		return fmt.Errorf("%s special directory must not be a symlink\n", child)
 	}
 	if !stat.IsDir() {
-		log.Fatal("Workspace contains file %s, which overlaps with a special purpose directory used by dbt\n", child)
+		return fmt.Errorf("Workspace contains file %s, which overlaps with a special purpose directory used by dbt\n", child)
 	}
+	return nil
 }
 
 //go:embed WARNING.readme.txt
@@ -282,10 +295,15 @@ var warningText string
 
 func EnsureManagedDir(dir string) {
 	workspaceRoot := GetWorkspaceRoot()
-	checkManagedDir(workspaceRoot, dir)
+	if err := isExistingManagedDir(workspaceRoot, dir); err != nil {
+		log.Warning("File or directory %s exists but it was modified outside of dbt."+
+			" This is error-prone and shall be avoided.\n", dir)
+		log.Warning("%v", err)
+		return
+	}
 
 	if err := os.MkdirAll(filepath.Join(workspaceRoot, dir), dirMode); err != nil {
-		log.Fatal("Failed to create special directory %s: %v\n", dir, err)
+		log.Fatal("Failed to create special directory %s: %v", dir, err)
 	}
 
 	warningFilepath := filepath.Join(workspaceRoot, dir, "WARNING.readme.txt")
