@@ -267,12 +267,12 @@ func CheckWorkspace() {
 }
 
 func checkManagedDir(root, child string) {
-	if err := isExistingManagedDir(root, child); err != nil {
+	if err := diagnoseExistingManagedDir(root, child); err != nil {
 		log.Fatal("%vUse --no-workspace-checks to ignore this diagnostics.\n", err)
 	}
 }
 
-func isExistingManagedDir(root, child string) error {
+func diagnoseExistingManagedDir(root, child string) error {
 	dir := filepath.Join(root, child)
 	stat, err := os.Lstat(dir)
 	if errors.Is(err, os.ErrNotExist) {
@@ -295,7 +295,7 @@ var warningText string
 
 func EnsureManagedDir(dir string) {
 	workspaceRoot := GetWorkspaceRoot()
-	if err := isExistingManagedDir(workspaceRoot, dir); err != nil {
+	if err := diagnoseExistingManagedDir(workspaceRoot, dir); err != nil {
 		log.Warning("File or directory %s exists but it was modified outside of dbt."+
 			" This is error-prone and shall be avoided.\n", dir)
 		log.Warning("%v", err)
