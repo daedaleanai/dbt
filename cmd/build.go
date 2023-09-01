@@ -526,6 +526,7 @@ func runGenerator(input generatorInput) generatorOutput {
 		modulePackages := copyBuildAndRuleFiles(modName, module.RootPath(), modBuildfilesDir, modules)
 		packages = append(packages, modulePackages...)
 	}
+	sort.Strings(packages)
 
 	createGeneratorMainFile(generatorDir, packages, modules)
 	createSumGoFile(generatorDir)
@@ -634,6 +635,7 @@ func copyBuildAndRuleFiles(moduleName, modulePath, buildFilesDir string, modules
 		util.CopyFile(ruleFile.SourcePath, copyFilePath)
 	}
 
+	sort.Strings(packages)
 	return packages
 }
 
@@ -671,6 +673,7 @@ func parseBuildFile(buildFilePath string) (string, []string) {
 			}
 		}
 	}
+	sort.Strings(vars)
 
 	return fileAst.Name.String(), vars
 }
@@ -681,7 +684,14 @@ func createRootModFileContent(moduleName string, modules map[string]module.Modul
 	fmt.Fprintf(&mod, "module %s\n\n", moduleName)
 	fmt.Fprintf(&mod, "go %d.%d\n\n", goMajorVersion, goMinorVersion)
 
-	for _, topModule := range modules {
+	keys := []string{}
+	for key, _ := range modules {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+
+	for _, topModuleKey := range keys {
+		topModule := modules[topModuleKey]
 		for _, goModule := range module.ListGoModules(topModule) {
 			fmt.Fprintf(&mod, "require %s v0.0.0\n", goModule.Name)
 			fmt.Fprintf(&mod, "replace %s => ./%s\n\n", goModule.Name, goModule.Name)
