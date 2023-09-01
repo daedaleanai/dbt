@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -50,15 +51,19 @@ type Module interface {
 	Type() ModuleType
 }
 
+func sortGoFiles(files []GoFile) {
+	sort.Slice(files, func(l, r int) bool { return files[l].SourcePath < files[r].SourcePath })
+}
+
 func listGoModules(module Module, moduleFile ModuleFile) []GoModule {
 	modulePath := module.RootPath()
 	moduleName := path.Base(modulePath) // FIXME: interface method
 
 	deps := []string{}
-
 	for depName := range moduleFile.Dependencies {
 		deps = append(deps, depName)
 	}
+	sort.Strings(deps)
 
 	return []GoModule{
 		{
@@ -73,13 +78,12 @@ func listGoModulesCpp(module Module, moduleFile ModuleFile) []GoModule {
 	moduleName := path.Base(modulePath) // FIXME: interface method
 
 	deps := []string{}
-
 	for depName := range moduleFile.Dependencies {
 		deps = append(deps, depName)
 	}
+	sort.Strings(deps)
 
 	result := []GoModule{}
-
 	result = append(result, GoModule{
 		Name: moduleName,
 		Deps: deps,
@@ -96,15 +100,20 @@ func listGoModulesCpp(module Module, moduleFile ModuleFile) []GoModule {
 		log.Fatal("Failed to read content of %s/ directory: %s.\n", rulesDirPath, err)
 	}
 
+	subdirs := []string{}
 	for _, file := range files {
 		if file.IsDir() {
-			result = append(result, GoModule{
-				Name: file.Name(),
-				Deps: deps,
-			})
+			subdirs = append(subdirs, file.Name())
 		}
 	}
+	sort.Strings(subdirs)
 
+	for _, subdirName := range subdirs {
+		result = append(result, GoModule{
+			Name: subdirName,
+			Deps: deps,
+		})
+	}
 	return result
 }
 
@@ -148,11 +157,11 @@ func listBuildFiles(module Module) []GoFile {
 		})
 		return nil
 	})
-
 	if err != nil {
 		log.Fatal("Failed to process %s files for module %s: %s.\n", buildFileName, moduleName, err)
 	}
 
+	sortGoFiles(result)
 	return result
 }
 
@@ -192,11 +201,11 @@ func listBuildFilesCpp(module Module) []GoFile {
 		})
 		return nil
 	})
-
 	if err != nil {
 		log.Fatal("Failed to process %s files for module %s: %s.\n", buildFileName, moduleName, err)
 	}
 
+	sortGoFiles(result)
 	return result
 }
 
@@ -227,10 +236,11 @@ func listRules(module Module) []GoFile {
 		})
 		return nil
 	})
-
 	if err != nil {
 		log.Fatal("Failed to process %s/ files for module '%s': %s.\n", rulesDirName, moduleName, err)
 	}
+
+        sortGoFiles(result)
 	return result
 }
 
@@ -271,10 +281,11 @@ func listRulesCpp(module Module) []GoFile {
 		})
 		return nil
 	})
-
 	if err != nil {
 		log.Fatal("Failed to process %s/ files for module '%s': %s.\n", rulesDirName, moduleName, err)
 	}
+
+        sortGoFiles(result)
 	return result
 }
 
