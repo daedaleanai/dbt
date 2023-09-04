@@ -17,6 +17,7 @@ import (
 	"sort"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/daedaleanai/dbt/config"
 	"github.com/daedaleanai/dbt/log"
@@ -411,19 +412,41 @@ func runNinja(dir string, stdout io.Writer, args []string) {
 		log.Fatal("Starting ninja failed: %s\n", err)
 	}
 
-	// Forward Ctrl-C to the child process, but wait until it finishes.
+	// Capture and handle Ctrl-C manually. Note that all subprocesses get the
+	// Ctrl-C automatically nevertheless, since they belong to the same process
+	// group.
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, os.Interrupt, syscall.SIGINT)
 
 	go func() {
 		<-signals
-		fmt.Println("SIGINT received. Waiting for ninja to finish...")
+		fmt.Println("SIGINT: Waiting for ninja to finish...")
+
+		var lastSignalTime *time.Time
+		for {
+			<-signals
+
+			currentTime := time.Now()
+			if lastSignalTime == nil || currentTime.Sub(*lastSignalTime) > 1*time.Second {
+				fmt.Println("SIGINT: Press Ctrl-C again within 1 sec to force-kill dbt and ninja...")
+				lastSignalTime = &currentTime
+			} else {
+				fmt.Println("SIGINT: Killing dbt, ninja and its subprocesses...")
+				// Pass negative PID to kill the whole dbt process group. This
+				// works only if this dbt instance is the leader of the process
+				// group. Otherwise it would be unsafe to kill the whole group.
+				if err := syscall.Kill(-syscall.Getpid(), syscall.SIGKILL); err != nil {
+					fmt.Printf("Failed to kill dbt and ninja: %s\n", err)
+				}
+			}
+		}
 	}()
 
 	err = ninjaCmd.Wait()
 	if err != nil {
 		log.Fatal("Running ninja failed: %s\n", err)
 	}
+	signal.Stop(signals)
 }
 
 func printNinjaOutput(dir, fileName, label string, args []string) {
