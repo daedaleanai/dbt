@@ -520,8 +520,15 @@ func runGenerator(input generatorInput) generatorOutput {
 
 	// Copy all BUILD.go files and RULES/ files from the source directory.
 	modules := module.GetAllModules(workspaceRoot)
+	modNames := []string{}
+	for modName, _ := range modules {
+		modNames = append(modNames, modName)
+	}
+	sort.Strings(modNames)
+
 	packages := []string{}
-	for modName, module := range modules {
+	for _, modName := range modNames {
+		module := modules[modName]
 		modBuildfilesDir := path.Join(generatorDir, modName)
 		modulePackages := copyBuildAndRuleFiles(modName, module.RootPath(), modBuildfilesDir, modules)
 		packages = append(packages, modulePackages...)
