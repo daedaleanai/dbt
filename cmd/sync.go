@@ -49,6 +49,7 @@ func runSync(cmd *cobra.Command, args []string) {
 	workspaceModuleName := module.OpenModule(workspaceRoot).Name()
 	log.Debug("Workspace module name: '%s'\n", workspaceModuleName)
 
+	// Ensure DEPS/ directory exists, and warn if it seems to be mangled by the user.
 	util.EnsureManagedDir(util.DepsDirName)
 
 	workspaceModuleSymlink := ""
@@ -195,7 +196,7 @@ func runSync(cmd *cobra.Command, args []string) {
 	if content != nil {
 		for _, info := range content {
 			fullPath := path.Join(depsDir, info.Name())
-			if !done[fullPath] && fullPath != workspaceModuleSymlink {
+			if !done[fullPath] && fullPath != workspaceModuleSymlink && info.Name() != util.WarningFileName {
 				log.Log("Deleting '%s'\n", fullPath)
 				os.RemoveAll(fullPath)
 			}

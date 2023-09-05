@@ -18,14 +18,15 @@ import (
 
 // DbtVersion is the current version of DBT. The minor version
 // is also used as the MODULE file version.
-var DbtVersion = [3]uint{1, 3, 16}
+var DbtVersion = [3]uint{1, 3, 17}
 
 // ModuleFileName is the name of the file describing each module.
 const (
 	ModuleFileName = "MODULE"
 	BuildDirName   = "BUILD"
 	// DepsDirName is directory that dependencies are stored in.
-	DepsDirName = "DEPS"
+	DepsDirName     = "DEPS"
+	WarningFileName = "WARNING.readme.txt"
 )
 
 const fileMode = 0664
@@ -306,9 +307,9 @@ func EnsureManagedDir(dir string) {
 		log.Fatal("Failed to create special directory %s: %v", dir, err)
 	}
 
-	warningFilepath := filepath.Join(workspaceRoot, dir, "WARNING.readme.txt")
+	warningFilepath := filepath.Join(workspaceRoot, dir, WarningFileName)
 	if _, err := os.Stat(warningFilepath); errors.Is(err, os.ErrNotExist) {
 		// best effort, ignore errors
-		os.WriteFile(warningFilepath, []byte(warningText), fileMode)
+		_ = os.WriteFile(warningFilepath, []byte(warningText), fileMode)
 	}
 }
