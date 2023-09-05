@@ -310,6 +310,6 @@ func EnsureManagedDir(dir string) {
 	warningFilepath := filepath.Join(workspaceRoot, dir, WarningFileName)
 	if _, err := os.Stat(warningFilepath); errors.Is(err, os.ErrNotExist) {
 		// best effort, ignore errors
-		os.WriteFile(warningFilepath, []byte(warningText), fileMode)
+		_ = os.WriteFile(warningFilepath, []byte(warningText), fileMode)
 	}
 }
