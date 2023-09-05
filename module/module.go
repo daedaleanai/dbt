@@ -380,7 +380,7 @@ func ParseModuleTypeString(str string) (ModuleType, bool) {
 	return GitModuleType, false
 }
 
-func determineModuleType(url, moduleTypeString string) ModuleType {
+func DetermineModuleType(url, moduleTypeString string) ModuleType {
 	if moduleType, ok := ParseModuleTypeString(moduleTypeString); ok {
 		return moduleType
 	}
@@ -413,7 +413,7 @@ func OpenOrCreateModule(modulePath string, url string, moduleTypeString string) 
 
 	log.Debug("Module directory does not exists.\n")
 
-	moduleType := determineModuleType(url, moduleTypeString)
+	moduleType := DetermineModuleType(url, moduleTypeString)
 
 	if moduleType == GitModuleType {
 		module, err := CreateGitModule(modulePath, url)
