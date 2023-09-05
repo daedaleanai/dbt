@@ -7,6 +7,7 @@ import (
 	"os"
 	"path"
 	"sort"
+	"strings"
 
 	"github.com/daedaleanai/dbt/log"
 	"github.com/daedaleanai/dbt/module"
@@ -213,7 +214,18 @@ func runSync(cmd *cobra.Command, args []string) {
 
 func dependencyNames(file module.ModuleFile) []string {
 	names := []string{}
-	for name := range file.Dependencies {
+	for name, dep := range file.Dependencies {
+		modType := module.DetermineModuleType(dep.URL, dep.Type)
+
+		if modType == module.GitModuleType {
+			// Ensure that the dependency name matches the name of the git repo, since otherwise `module.Name()`
+			// is broken.
+			expectedName := strings.TrimSuffix(path.Base(dep.URL), ".git")
+			if expectedName != name {
+				log.Fatal("Dependency name does not match git repo name. Rename dependency %s to %s\n", name, expectedName)
+			}
+		}
+
 		names = append(names, name)
 	}
 	sort.Strings(names)

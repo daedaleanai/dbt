@@ -72,7 +72,7 @@ func CreateGitModule(modulePath, url string) (Module, error) {
 }
 
 func (m GitModule) Name() string {
-	return path.Base(m.RootPath())
+	return strings.TrimSuffix(path.Base(m.URL()), ".git")
 }
 
 func (m GitModule) RootPath() string {
