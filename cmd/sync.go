@@ -222,7 +222,7 @@ func dependencyNames(file module.ModuleFile) []string {
 			// is broken.
 			expectedName := strings.TrimSuffix(path.Base(dep.URL), ".git")
 			if expectedName != name {
-				log.Fatal("Dependency name does not match git repo name. Rename dependency %s to %s", name, expectedName)
+				log.Fatal("Dependency name does not match git repo name. Rename dependency %s to %s\n", name, expectedName)
 			}
 		}
 
