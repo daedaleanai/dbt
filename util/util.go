@@ -205,17 +205,27 @@ func GetModuleRoot() string {
 
 // GetWorkspaceRoot returns the root directory of the current workspace (i.e., top-level module).
 func GetWorkspaceRoot() string {
+	root, err := getWorkspaceRoot()
+	if err != nil {
+		log.Fatal("Could not identify workspace root directory. Make sure you run this command inside a workspace: %s.\n", err)
+	}
+
+	return root
+}
+
+// internal version of getWorkspaceRoot that returns an error instead of aborting if we run dbt outside of a workspace.
+func getWorkspaceRoot() (string, error) {
 	var err error
 	p := GetWorkingDir()
 	for {
 		p, err = getModuleRoot(p)
 		if err != nil {
-			log.Fatal("Could not identify workspace root directory. Make sure you run this command inside a workspace: %s.\n", err)
+			return "", err
 		}
 
 		parentDirName := path.Base(path.Dir(p))
 		if parentDirName != DepsDirName {
-			return p
+			return p, nil
 		}
 		p = path.Dir(p)
 	}
@@ -262,7 +272,12 @@ func CheckWorkspace() {
 		return
 	}
 
-	workspaceRoot := GetWorkspaceRoot()
+	workspaceRoot, err := getWorkspaceRoot()
+	if err != nil {
+		// No workspace to check
+		return
+	}
+
 	checkManagedDir(workspaceRoot, BuildDirName)
 	checkManagedDir(workspaceRoot, DepsDirName)
 }
