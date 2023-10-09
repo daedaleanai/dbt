@@ -240,7 +240,7 @@ func listRules(module Module) []GoFile {
 		log.Fatal("Failed to process %s/ files for module '%s': %s.\n", rulesDirName, moduleName, err)
 	}
 
-        sortGoFiles(result)
+	sortGoFiles(result)
 	return result
 }
 
@@ -285,7 +285,7 @@ func listRulesCpp(module Module) []GoFile {
 		log.Fatal("Failed to process %s/ files for module '%s': %s.\n", rulesDirName, moduleName, err)
 	}
 
-        sortGoFiles(result)
+	sortGoFiles(result)
 	return result
 }
 
@@ -404,7 +404,7 @@ func DetermineModuleType(url, moduleTypeString string) ModuleType {
 
 // OpenOrCreateModule tries to open the module in `modulePath`. If the `modulePath` directory does
 // not yet exists, it tries to create a new module by cloning / downloading the module from `url`.
-func OpenOrCreateModule(modulePath string, url string, moduleTypeString string) Module {
+func OpenOrCreateModule(modulePath string, url string, moduleTypeString string, expectedHash string) Module {
 	log.Debug("Opening or creating module '%s' from url '%s'.\n", modulePath, url)
 	if util.DirExists(modulePath) {
 		log.Debug("Module directory exists.\n")
@@ -421,7 +421,9 @@ func OpenOrCreateModule(modulePath string, url string, moduleTypeString string) 
 			os.RemoveAll(modulePath)
 			log.Fatal("Failed to create git module: %s.\n", err)
 		}
-		SetupModule(modulePath)
+		if module.Head() == expectedHash {
+			SetupModule(modulePath)
+		}
 		return module
 	} else if moduleType == TarGzModuleType {
 		module, err := createTarModule(modulePath, url)
