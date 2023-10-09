@@ -55,9 +55,9 @@ func runClone(cmd *cobra.Command, args []string) {
 		os.RemoveAll(repoPath)
 		log.Fatal("Failed to create git module: %s.\n", err)
 	}
-	module.SetupModule(repoPath)
 	log.Log("Checking out revision '%s'\n", revision)
 	mod.Checkout(revision)
+	module.SetupModule(repoPath)
 
 	// Move into the repo directory in order to set it up
 	os.Chdir(repoPath)
