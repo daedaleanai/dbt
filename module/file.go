@@ -3,6 +3,7 @@ package module
 import (
 	"path"
 
+	"github.com/daedaleanai/dbt/config"
 	"github.com/daedaleanai/dbt/log"
 	"github.com/daedaleanai/dbt/util"
 )
@@ -25,6 +26,7 @@ type ModuleFile struct {
 	Layout       string
 	Dependencies map[string]Dependency
 	Flags        map[string]string
+	PersistFlags bool `yaml:"persist-flags"`
 }
 
 // MODULE file version 2
@@ -139,6 +141,7 @@ func readV2ModuleFile(path string) ModuleFile {
 
 func readV3ModuleFile(path string) ModuleFile {
 	var moduleFile ModuleFile
+	moduleFile.PersistFlags = config.GetConfig().PersistFlags
 	util.ReadYaml(path, &moduleFile)
 
 	// YAML decoding can produce `nil`` maps if the key is present in the YAML file

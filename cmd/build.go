@@ -19,7 +19,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/daedaleanai/dbt/config"
 	"github.com/daedaleanai/dbt/log"
 	"github.com/daedaleanai/dbt/module"
 	"github.com/daedaleanai/dbt/util"
@@ -217,7 +216,8 @@ func runBuild(args []string, mode mode, modeArgs []string) {
 
 	util.EnsureManagedDir(util.BuildDirName)
 
-	workspaceFlags := module.ReadModuleFile(workspaceRoot).Flags
+	moduleFile := module.ReadModuleFile(workspaceRoot)
+	workspaceFlags := moduleFile.Flags
 	positivePatterns, negativePatterns, cmdlineFlags := parseArgs(args)
 	_, _, legacyFlags := parseArgs(args)
 
@@ -243,7 +243,7 @@ func runBuild(args []string, mode mode, modeArgs []string) {
 		TestArgs:             []string{},
 		RunArgs:              []string{},
 		BuildAnalyzerTargets: false,
-		PersistFlags:         config.GetConfig().PersistFlags,
+		PersistFlags:         moduleFile.PersistFlags,
 
 		// Legacy fields
 		Version:        2,
