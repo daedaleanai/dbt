@@ -9,6 +9,8 @@
 - The MODULE file format is no longer directly linked to the minor version of DBT,
   versions 1 through 3 are supported.
 - Updated the minimum required Go dependency to 1.18.
+- `go build --tags=semver-override=vX.Y.Z-dev` should be used when building DBT from
+  source on an untagged branch and/or with local changes.
 
 ### v1.3.19
 
