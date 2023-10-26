@@ -6,7 +6,7 @@ The Daedalean Build Tool (DBT) provides dependency management and build system f
 
 DBT requires the following tools to be installed on your system:
 
-* go (>= 1.16)
+* go (>= 1.18)
 * git
 * ninja
 
