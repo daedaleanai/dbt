@@ -71,7 +71,7 @@ func ReadModuleFile(modulePath string) ModuleFile {
 	if !util.FileExists(moduleFilePath) {
 		log.Debug("Module has no %s file.\n", util.ModuleFileName)
 		return ModuleFile{
-			Version:      util.DbtVersion[1],
+			Version:      util.ModuleSyntaxVersion,
 			Dependencies: map[string]Dependency{},
 		}
 	}
@@ -85,17 +85,17 @@ func ReadModuleFile(modulePath string) ModuleFile {
 		return readV1ModuleFile(moduleFilePath)
 	case 2:
 		return readV2ModuleFile(moduleFilePath)
-	case util.DbtVersion[1]:
+	case 3:
 		return readV3ModuleFile(moduleFilePath)
 	default:
-		log.Fatal("MODULE file has version %d that requires a newer version of dbt\n", moduleFileVersion.Version)
+		log.Fatal("MODULE file has unknown syntax version %d. It is either a mistake in the file or a newer version of dbt is required.\n", moduleFileVersion.Version)
 		return ModuleFile{}
 	}
 }
 
 // WriteModuleFile serializes and writes a Module's Dependencies to a MODULE file.
 func WriteModuleFile(modulePath string, moduleFile ModuleFile) {
-	moduleFile.Version = util.DbtVersion[1]
+	moduleFile.Version = util.ModuleSyntaxVersion
 	moduleFilePath := path.Join(modulePath, util.ModuleFileName)
 	util.WriteYaml(moduleFilePath, moduleFile)
 }
@@ -105,7 +105,7 @@ func readV1ModuleFile(path string) ModuleFile {
 	util.ReadYaml(path, &v1ModuleFile)
 
 	moduleFile := ModuleFile{
-		Version:      util.DbtVersion[1],
+		Version:      util.ModuleSyntaxVersion,
 		Dependencies: map[string]Dependency{},
 	}
 	for _, dep := range v1ModuleFile.Dependencies {
@@ -123,7 +123,7 @@ func readV2ModuleFile(path string) ModuleFile {
 	util.ReadYaml(path, &v2ModuleFile)
 
 	moduleFile := ModuleFile{
-		Version:      util.DbtVersion[1],
+		Version:      util.ModuleSyntaxVersion,
 		Layout:       v2ModuleFile.Layout,
 		Dependencies: map[string]Dependency{},
 	}
