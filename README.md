@@ -327,11 +327,19 @@ The flag's value can now be retrieved by calling `arch.Value()`.
 
 DBT provides `core.StringFlag`s, `core.BoolFlag`s, `core.IntFlag`s and `core.FloatFlag`s. However, only `core.StringFlag`s and `core.BoolFlag`s can have allowed values.
 
-Flag values can be set via the command-line (see [here](#running-builds) for details). Once specified, flag values are persisted across DBT invocations. If a flag has been specified via the command-line once that value will be used until a new value is provided via the command-line.
+Flag values can be set via the command-line (see [here](#running-builds) for details).
+
+By default, the flag values are only applied to the current invocation of DBT.
+However, maintainers of the top-level MODULE file can specify `persist-flags` boolean value,
+which impacts all builds in this top-level module.
+In this case, flag values are persisted across DBT invocations.
+If a flag has been specified via the command-line once that value will be used until a new value is provided via the command-line,
+or `dbt clean` command is invoked.
 
 If a flag is not specified on the command-line and has no persisted previous value, the `DefaultFn` will be called to get a default value. If the `DefaultFn` is also not provided, no value can be determined for the flag. In that case DBT will abort the build, since all flags must have a defined value.
 
-To disable the storage of persistent flags across dbt invokations, the user can set the `persist-flag` option to `false` in `~/.config/dbt/config.yaml`. This is a global setting that affects all dbt repositories.
+A user can set the `persist-flag` option in `~/.config/dbt/config.yaml`, in which case it
+will be applied for all modules that do not specify the `persist-flag` option.
 
 ### C/C++ rules and cross-compilation
 
