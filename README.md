@@ -27,6 +27,10 @@ sudo update-alternatives --config gofmt
 You can install the latest version of DBT by running:
 
 ```
+# for go < 1.18
+go get github.com/daedaleanai/dbt
+
+# for go >= 1.18
 go install github.com/daedaleanai/dbt@latest
 ```
 
