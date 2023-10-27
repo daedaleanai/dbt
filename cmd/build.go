@@ -19,7 +19,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/daedaleanai/dbt/config"
 	"github.com/daedaleanai/dbt/log"
 	"github.com/daedaleanai/dbt/module"
 	"github.com/daedaleanai/dbt/util"
@@ -217,7 +216,8 @@ func runBuild(args []string, mode mode, modeArgs []string) {
 
 	util.EnsureManagedDir(util.BuildDirName)
 
-	workspaceFlags := module.ReadModuleFile(workspaceRoot).Flags
+	moduleFile := module.ReadModuleFile(workspaceRoot)
+	workspaceFlags := moduleFile.Flags
 	positivePatterns, negativePatterns, cmdlineFlags := parseArgs(args)
 	_, _, legacyFlags := parseArgs(args)
 
@@ -236,14 +236,14 @@ func runBuild(args []string, mode mode, modeArgs []string) {
 	}
 	log.Debug("Output directory: %s.\n", outputDir)
 	genInput := generatorInput{
-		DbtVersion:           util.DbtVersion,
+		DbtVersion:           util.VersionTriplet(),
 		OutputDir:            outputDir,
 		CmdlineFlags:         cmdlineFlags,
 		WorkspaceFlags:       workspaceFlags,
 		TestArgs:             []string{},
 		RunArgs:              []string{},
 		BuildAnalyzerTargets: false,
-		PersistFlags:         config.GetConfig().PersistFlags,
+		PersistFlags:         moduleFile.PersistFlags,
 
 		// Legacy fields
 		Version:        2,
@@ -461,7 +461,7 @@ func printNinjaOutput(dir, fileName, label string, args []string) {
 
 func completeBuildArgs(toComplete string, mode mode) []string {
 	genOutput := runGenerator(generatorInput{
-		DbtVersion:      util.DbtVersion,
+		DbtVersion:      util.VersionTriplet(),
 		CompletionsOnly: true,
 
 		// Legacy field expected by dbt-rules < v1.10.0.

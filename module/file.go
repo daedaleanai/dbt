@@ -3,6 +3,7 @@ package module
 import (
 	"path"
 
+	"github.com/daedaleanai/dbt/config"
 	"github.com/daedaleanai/dbt/log"
 	"github.com/daedaleanai/dbt/util"
 )
@@ -25,6 +26,7 @@ type ModuleFile struct {
 	Layout       string
 	Dependencies map[string]Dependency
 	Flags        map[string]string
+	PersistFlags bool `yaml:"persist-flags"`
 }
 
 // MODULE file version 2
@@ -46,6 +48,7 @@ type v2ModuleFile struct {
 	Dependencies       map[string]v2Dependency
 	PinnedDependencies map[string]v2PinnedDependency
 	Flags              map[string]string
+	PersistFlags       bool `yaml:"persist-flags"`
 }
 
 // MODULE file version 1
@@ -63,6 +66,7 @@ type v1Dependency struct {
 
 type v1ModuleFile struct {
 	Dependencies []v1Dependency
+	PersistFlags bool `yaml:"persist-flags"`
 }
 
 // ReadModuleFile reads and parses module Dependencies from a MODULE file.
@@ -71,7 +75,7 @@ func ReadModuleFile(modulePath string) ModuleFile {
 	if !util.FileExists(moduleFilePath) {
 		log.Debug("Module has no %s file.\n", util.ModuleFileName)
 		return ModuleFile{
-			Version:      util.DbtVersion[1],
+			Version:      util.ModuleSyntaxVersion,
 			Dependencies: map[string]Dependency{},
 		}
 	}
@@ -85,28 +89,31 @@ func ReadModuleFile(modulePath string) ModuleFile {
 		return readV1ModuleFile(moduleFilePath)
 	case 2:
 		return readV2ModuleFile(moduleFilePath)
-	case util.DbtVersion[1]:
+	case 3:
 		return readV3ModuleFile(moduleFilePath)
 	default:
-		log.Fatal("MODULE file has version %d that requires a newer version of dbt\n", moduleFileVersion.Version)
+		log.Fatal("MODULE file has unknown syntax version %d. It is either a mistake in the file or a newer version of dbt is required.\n", moduleFileVersion.Version)
 		return ModuleFile{}
 	}
 }
 
 // WriteModuleFile serializes and writes a Module's Dependencies to a MODULE file.
 func WriteModuleFile(modulePath string, moduleFile ModuleFile) {
-	moduleFile.Version = util.DbtVersion[1]
+	moduleFile.Version = util.ModuleSyntaxVersion
 	moduleFilePath := path.Join(modulePath, util.ModuleFileName)
 	util.WriteYaml(moduleFilePath, moduleFile)
 }
 
 func readV1ModuleFile(path string) ModuleFile {
-	var v1ModuleFile v1ModuleFile
+	v1ModuleFile := v1ModuleFile{
+		PersistFlags: config.GetConfig().PersistFlags,
+	}
 	util.ReadYaml(path, &v1ModuleFile)
 
 	moduleFile := ModuleFile{
-		Version:      util.DbtVersion[1],
+		Version:      util.ModuleSyntaxVersion,
 		Dependencies: map[string]Dependency{},
+		PersistFlags: v1ModuleFile.PersistFlags,
 	}
 	for _, dep := range v1ModuleFile.Dependencies {
 		moduleFile.Dependencies[dep.Name] = Dependency{
@@ -119,13 +126,16 @@ func readV1ModuleFile(path string) ModuleFile {
 }
 
 func readV2ModuleFile(path string) ModuleFile {
-	var v2ModuleFile v2ModuleFile
+	v2ModuleFile := v2ModuleFile{
+		PersistFlags: config.GetConfig().PersistFlags,
+	}
 	util.ReadYaml(path, &v2ModuleFile)
 
 	moduleFile := ModuleFile{
-		Version:      util.DbtVersion[1],
+		Version:      util.ModuleSyntaxVersion,
 		Layout:       v2ModuleFile.Layout,
 		Dependencies: map[string]Dependency{},
+		PersistFlags: v2ModuleFile.PersistFlags,
 	}
 	for name, dep := range v2ModuleFile.Dependencies {
 		moduleFile.Dependencies[name] = Dependency{
@@ -138,7 +148,9 @@ func readV2ModuleFile(path string) ModuleFile {
 }
 
 func readV3ModuleFile(path string) ModuleFile {
-	var moduleFile ModuleFile
+	moduleFile := ModuleFile{
+		PersistFlags: config.GetConfig().PersistFlags,
+	}
 	util.ReadYaml(path, &moduleFile)
 
 	// YAML decoding can produce `nil`` maps if the key is present in the YAML file
