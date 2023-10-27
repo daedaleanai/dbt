@@ -236,7 +236,7 @@ func runBuild(args []string, mode mode, modeArgs []string) {
 	}
 	log.Debug("Output directory: %s.\n", outputDir)
 	genInput := generatorInput{
-		DbtVersion:           util.DbtVersion,
+		DbtVersion:           util.VersionTriplet(),
 		OutputDir:            outputDir,
 		CmdlineFlags:         cmdlineFlags,
 		WorkspaceFlags:       workspaceFlags,
@@ -461,7 +461,7 @@ func printNinjaOutput(dir, fileName, label string, args []string) {
 
 func completeBuildArgs(toComplete string, mode mode) []string {
 	genOutput := runGenerator(generatorInput{
-		DbtVersion:      util.DbtVersion,
+		DbtVersion:      util.VersionTriplet(),
 		CompletionsOnly: true,
 
 		// Legacy field expected by dbt-rules < v1.10.0.

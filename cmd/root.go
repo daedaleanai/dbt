@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"fmt"
 	"os"
 
 	"github.com/daedaleanai/dbt/log"
@@ -17,7 +16,7 @@ var (
 		Long: `The Daedalean Build Tool (dbt) helps setting up workspaces consisting
 of multiple modules (git repositories), managing dependencies between modules, and
 building build targets defined in those modules.`,
-		Version: fmt.Sprintf("v%d.%d.%d", util.DbtVersion[0], util.DbtVersion[1], util.DbtVersion[2]),
+		Version: util.Version(),
 	}
 )
 

@@ -9,6 +9,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 
@@ -16,21 +17,24 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-// DbtVersion is the current version of DBT. The minor version
-// is also used as the MODULE file version.
-var DbtVersion = [3]uint{1, 3, 19}
-
 // ModuleFileName is the name of the file describing each module.
 const (
-	ModuleFileName = "MODULE"
-	BuildDirName   = "BUILD"
+	ModuleFileName      = "MODULE"
+	ModuleSyntaxVersion = 3
+
+	BuildDirName = "BUILD"
 	// DepsDirName is directory that dependencies are stored in.
 	DepsDirName     = "DEPS"
 	WarningFileName = "WARNING.readme.txt"
 )
 
-const fileMode = 0664
-const dirMode = 0775
+const (
+	fileMode = 0664
+	dirMode  = 0775
+)
+
+// NOTE: We limit the integers to at most 6 digits.
+var semVerRe = regexp.MustCompile(`v(\d{1,6})\.(\d{1,6})\.(\d{1,6})(-([\d\w.]+))?(\+[\d\w.]+)?`)
 
 // Reimplementation of CutPrefix for backwards compatibility with versions < 1.20
 func CutPrefix(str string, prefix string) (string, bool) {
@@ -38,6 +42,20 @@ func CutPrefix(str string, prefix string) (string, bool) {
 		return str[len(prefix):], true
 	}
 	return str, false
+}
+
+func obtainVersion() (string, uint, uint, uint) {
+	return "1.4.0", 1, 4, 0
+}
+
+func VersionTriplet() [3]uint {
+	_, major, minor, patch := obtainVersion()
+	return [3]uint{major, minor, patch}
+}
+
+func Version() string {
+	s, _, _, _ := obtainVersion()
+	return s
 }
 
 // FileExists checks whether some file exists.
