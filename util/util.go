@@ -33,9 +33,6 @@ const (
 	dirMode  = 0775
 )
 
-// NOTE: We limit the integers to at most 6 digits.
-var semVerRe = regexp.MustCompile(`v(\d{1,6})\.(\d{1,6})\.(\d{1,6})(-([\d\w.]+))?(\+[\d\w.]+)?`)
-
 // Reimplementation of CutPrefix for backwards compatibility with versions < 1.20
 func CutPrefix(str string, prefix string) (string, bool) {
 	if strings.HasPrefix(str, prefix) {
