@@ -52,7 +52,7 @@ func (c Commit) String() string {
 }
 
 func Generate(modules map[string]module.Module, allowUncommittedChanges bool) (Manifest, error) {
-        dbtVersion := util.VersionTriplet()
+	dbtVersion := util.VersionTriplet()
 	manifest := Manifest{
 		DbtVersion: DbtVersion{
 			Major:    dbtVersion[0],

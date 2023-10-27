@@ -46,6 +46,10 @@ func CutPrefix(str string, prefix string) (string, bool) {
 	return str, false
 }
 
+// If -tags=semver-override=xxxxxx is specified among build info settings, then that one is used;
+// otherwise Main.Version is used.
+// If the version deduced by the algorithm above does not match semantic version format,
+// the binary panics.
 func obtainVersion() (string, uint, uint, uint) {
 	bi, ok := debug.ReadBuildInfo()
 	if !ok {
