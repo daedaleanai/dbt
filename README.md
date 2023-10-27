@@ -10,28 +10,18 @@ DBT requires the following tools to be installed on your system:
 * git
 * ninja
 
-Go 1.16 can be installed on Ubuntu with the following commands:
-
-```
-sudo apt install golang-1.16
-sudo update-alternatives --install "/usr/bin/go" "go" "/usr/lib/go-1.13/bin/go" 0
-sudo update-alternatives --install "/usr/bin/gofmt" "gofmt" "/usr/lib/go-1.13/bin/gofmt" 0
-sudo update-alternatives --install "/usr/bin/go" "go" "/usr/lib/go-1.16/bin/go" 0
-sudo update-alternatives --install "/usr/bin/gofmt" "gofmt" "/usr/lib/go-1.16/bin/gofmt" 0
-sudo update-alternatives --config go
-sudo update-alternatives --config gofmt
-```
-
 ## Installation
 
 You can install the latest version of DBT by running:
-```
-# for go < 1.18
-go get github.com/daedaleanai/dbt
 
-# for go >= 1.18
+```
 go install github.com/daedaleanai/dbt@latest
 ```
+
+Notice that DBT follows sematic versioning, and major version change introduce breaking changes.
+You might in practice prefer to pin to a specific major version.
+
+CHANGELOG.md lists the changes between versions.
 
 ### Setting up a local mirror
 
