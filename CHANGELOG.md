@@ -1,5 +1,10 @@
 # Changelog
 
+### v1.4.1
+
+- Bug fix (introduced in v1.4.0): The "persist-flags" configuration flag erroneously appeared in the
+  MODULE file as a side effect of `dbt sync`.
+
 ### v1.4.0
 
 - Switched to semantic versioning of the binaries.

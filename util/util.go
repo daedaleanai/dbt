@@ -41,7 +41,7 @@ func CutPrefix(str string, prefix string) (string, bool) {
 }
 
 func obtainVersion() (string, uint, uint, uint) {
-	return "1.4.0", 1, 4, 0
+	return "1.4.1", 1, 4, 1
 }
 
 func VersionTriplet() [3]uint {
