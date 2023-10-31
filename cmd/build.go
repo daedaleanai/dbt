@@ -19,6 +19,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/daedaleanai/dbt/config"
 	"github.com/daedaleanai/dbt/log"
 	"github.com/daedaleanai/dbt/module"
 	"github.com/daedaleanai/dbt/util"
@@ -235,6 +236,13 @@ func runBuild(args []string, mode mode, modeArgs []string) {
 		outputDir = path.Join(workspaceRoot, util.BuildDirName, outputDir)
 	}
 	log.Debug("Output directory: %s.\n", outputDir)
+
+	persistFlags := config.GetConfig().PersistFlags
+	if moduleFile.PersistFlags != nil {
+		persistFlags = *moduleFile.PersistFlags
+	}
+	log.Debug("Flags persistency: %t.\n", persistFlags)
+
 	genInput := generatorInput{
 		DbtVersion:           util.VersionTriplet(),
 		OutputDir:            outputDir,
@@ -243,7 +251,7 @@ func runBuild(args []string, mode mode, modeArgs []string) {
 		TestArgs:             []string{},
 		RunArgs:              []string{},
 		BuildAnalyzerTargets: false,
-		PersistFlags:         moduleFile.PersistFlags,
+		PersistFlags:         persistFlags,
 
 		// Legacy fields
 		Version:        2,
