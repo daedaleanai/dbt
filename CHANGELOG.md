@@ -2,7 +2,7 @@
 
 ### v2.0.0-pre1
 
-- Updated the minimum required Go dependency to 1.18.
+- Updated the minimum required Go dependency to 1.18 for both DBT build and DBT rules.
 - `dbt --version` output format has changed, and can now contain semver pre-release and build components.
 - The default value of persist-flags has been changed from `true` to `false`.
   This value can be overriden in MODULE file of a project or in the user's configuration.
