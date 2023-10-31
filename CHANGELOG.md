@@ -10,6 +10,9 @@
 - The build version is deduced from Git tags. It is a hard failure if the deduction fails.  
   Use `go build --tags=semver-override=vX.Y.Z-dev` when building DBT from source on
   an untagged branch and/or with local changes.
+- `dbt sync --strict` hardened: it no longer overwrites the top level MODULE file.
+  While normally it should have been the case already, bugs could inadvertently break this assumption,
+  see e.g. v1.4.1 release.
 
 ### v1.4.0
 

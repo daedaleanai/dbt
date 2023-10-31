@@ -203,12 +203,14 @@ func runSync(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	// Updated the MODULE file.
-	for name, dep := range workspaceModuleFile.Dependencies {
-		dep.Hash = pinnedHashes[name]
-		workspaceModuleFile.Dependencies[name] = dep
+	if !strict {
+		// Updated the MODULE file.
+		for name, dep := range workspaceModuleFile.Dependencies {
+			dep.Hash = pinnedHashes[name]
+			workspaceModuleFile.Dependencies[name] = dep
+		}
+		module.WriteModuleFile(workspaceRoot, workspaceModuleFile)
 	}
-	module.WriteModuleFile(workspaceRoot, workspaceModuleFile)
 
 	log.Success("Done.\n")
 }
