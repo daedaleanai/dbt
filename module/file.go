@@ -3,7 +3,6 @@ package module
 import (
 	"path"
 
-	"github.com/daedaleanai/dbt/config"
 	"github.com/daedaleanai/dbt/log"
 	"github.com/daedaleanai/dbt/util"
 )
@@ -26,7 +25,7 @@ type ModuleFile struct {
 	Layout       string
 	Dependencies map[string]Dependency
 	Flags        map[string]string
-	PersistFlags bool `yaml:"persist-flags"`
+	PersistFlags *bool `yaml:"persist-flags,omitempty"`
 }
 
 // MODULE file version 2
@@ -48,7 +47,7 @@ type v2ModuleFile struct {
 	Dependencies       map[string]v2Dependency
 	PinnedDependencies map[string]v2PinnedDependency
 	Flags              map[string]string
-	PersistFlags       bool `yaml:"persist-flags"`
+	PersistFlags       *bool `yaml:"persist-flags,omitempty"`
 }
 
 // MODULE file version 1
@@ -66,7 +65,7 @@ type v1Dependency struct {
 
 type v1ModuleFile struct {
 	Dependencies []v1Dependency
-	PersistFlags bool `yaml:"persist-flags"`
+	PersistFlags *bool `yaml:"persist-flags,omitempty"`
 }
 
 // ReadModuleFile reads and parses module Dependencies from a MODULE file.
@@ -105,9 +104,7 @@ func WriteModuleFile(modulePath string, moduleFile ModuleFile) {
 }
 
 func readV1ModuleFile(path string) ModuleFile {
-	v1ModuleFile := v1ModuleFile{
-		PersistFlags: config.GetConfig().PersistFlags,
-	}
+	v1ModuleFile := v1ModuleFile{}
 	util.ReadYaml(path, &v1ModuleFile)
 
 	moduleFile := ModuleFile{
@@ -126,9 +123,7 @@ func readV1ModuleFile(path string) ModuleFile {
 }
 
 func readV2ModuleFile(path string) ModuleFile {
-	v2ModuleFile := v2ModuleFile{
-		PersistFlags: config.GetConfig().PersistFlags,
-	}
+	v2ModuleFile := v2ModuleFile{}
 	util.ReadYaml(path, &v2ModuleFile)
 
 	moduleFile := ModuleFile{
@@ -148,9 +143,7 @@ func readV2ModuleFile(path string) ModuleFile {
 }
 
 func readV3ModuleFile(path string) ModuleFile {
-	moduleFile := ModuleFile{
-		PersistFlags: config.GetConfig().PersistFlags,
-	}
+	moduleFile := ModuleFile{}
 	util.ReadYaml(path, &moduleFile)
 
 	// YAML decoding can produce `nil`` maps if the key is present in the YAML file
