@@ -644,7 +644,7 @@ func createRootModFile(filePath string, modules util.OrderedMap[string, module.M
 		RequiredGoVersionMinor: goMinorVersion,
 		Module:                 "root",
 		Prefix:                 "./",
-		Deps:                   deps,
+		Deps:                   util.OrderedSlice(deps),
 	})
 }
 
