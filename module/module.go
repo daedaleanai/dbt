@@ -7,7 +7,6 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
-	"sort"
 	"strings"
 	"time"
 
@@ -51,24 +50,18 @@ type Module interface {
 	Type() ModuleType
 }
 
-func sortGoFiles(files []GoFile) {
-	sort.Slice(files, func(l, r int) bool { return files[l].SourcePath < files[r].SourcePath })
+func orderedGoFiles(files []GoFile) []GoFile {
+	return util.OrderedBySlice(files, func(f *GoFile) string { return f.SourcePath })
 }
 
 func listGoModules(module Module, moduleFile ModuleFile) []GoModule {
 	modulePath := module.RootPath()
 	moduleName := path.Base(modulePath) // FIXME: interface method
 
-	deps := []string{}
-	for depName := range moduleFile.Dependencies {
-		deps = append(deps, depName)
-	}
-	sort.Strings(deps)
-
 	return []GoModule{
 		{
 			Name: moduleName,
-			Deps: deps,
+			Deps: util.OrderedKeys(moduleFile.Dependencies),
 		},
 	}
 }
@@ -77,11 +70,7 @@ func listGoModulesCpp(module Module, moduleFile ModuleFile) []GoModule {
 	modulePath := module.RootPath()
 	moduleName := path.Base(modulePath) // FIXME: interface method
 
-	deps := []string{}
-	for depName := range moduleFile.Dependencies {
-		deps = append(deps, depName)
-	}
-	sort.Strings(deps)
+	deps := util.OrderedKeys(moduleFile.Dependencies)
 
 	result := []GoModule{}
 	result = append(result, GoModule{
@@ -100,15 +89,7 @@ func listGoModulesCpp(module Module, moduleFile ModuleFile) []GoModule {
 		log.Fatal("Failed to read content of %s/ directory: %s.\n", rulesDirPath, err)
 	}
 
-	subdirs := []string{}
-	for _, file := range files {
-		if file.IsDir() {
-			subdirs = append(subdirs, file.Name())
-		}
-	}
-	sort.Strings(subdirs)
-
-	for _, subdirName := range subdirs {
+	for _, subdirName := range util.OrderedSlice(util.MappedSlice(files, func(fi os.FileInfo) string { return fi.Name() })) {
 		result = append(result, GoModule{
 			Name: subdirName,
 			Deps: deps,
@@ -161,8 +142,7 @@ func listBuildFiles(module Module) []GoFile {
 		log.Fatal("Failed to process %s files for module %s: %s.\n", buildFileName, moduleName, err)
 	}
 
-	sortGoFiles(result)
-	return result
+	return orderedGoFiles(result)
 }
 
 func listBuildFilesCpp(module Module) []GoFile {
@@ -205,8 +185,7 @@ func listBuildFilesCpp(module Module) []GoFile {
 		log.Fatal("Failed to process %s files for module %s: %s.\n", buildFileName, moduleName, err)
 	}
 
-	sortGoFiles(result)
-	return result
+	return orderedGoFiles(result)
 }
 
 func listRules(module Module) []GoFile {
@@ -240,8 +219,7 @@ func listRules(module Module) []GoFile {
 		log.Fatal("Failed to process %s/ files for module '%s': %s.\n", rulesDirName, moduleName, err)
 	}
 
-	sortGoFiles(result)
-	return result
+	return orderedGoFiles(result)
 }
 
 func listRulesCpp(module Module) []GoFile {
@@ -285,8 +263,7 @@ func listRulesCpp(module Module) []GoFile {
 		log.Fatal("Failed to process %s/ files for module '%s': %s.\n", rulesDirName, moduleName, err)
 	}
 
-	sortGoFiles(result)
-	return result
+	return orderedGoFiles(result)
 }
 
 func ListRules(module Module) []GoFile {
@@ -467,11 +444,11 @@ func SetupModule(modulePath string) {
 }
 
 // GetAllModules return all the names and modules in the workspace
-func GetAllModules(workspaceRoot string) map[string]Module {
+func GetAllModules(workspaceRoot string) util.OrderedMap[string, Module] {
 	depsDir := path.Join(workspaceRoot, util.DepsDirName)
 	if !util.DirExists(depsDir) {
 		log.Warning("There is no %s/ directory in the workspace. Try running 'dbt sync' first.\n", util.DepsDirName)
-		return nil
+		return util.NewOrderedMap[string, Module]()
 	}
 	files, err := ioutil.ReadDir(depsDir)
 	if err != nil {
@@ -490,5 +467,5 @@ func GetAllModules(workspaceRoot string) map[string]Module {
 		modules[path.Base(workspaceRoot)] = OpenModule(workspaceRoot)
 	}
 
-	return modules
+	return util.NewOrderedMapFrom(modules)
 }

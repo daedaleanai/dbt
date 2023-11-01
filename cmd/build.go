@@ -12,9 +12,7 @@ import (
 	"os/signal"
 	"path"
 	"path/filepath"
-	"reflect"
 	"regexp"
-	"sort"
 	"strings"
 	"syscall"
 	"time"
@@ -284,13 +282,6 @@ func runBuild(args []string, mode mode, modeArgs []string) {
 			Value:       outputDir,
 		}
 
-		// Sort flags alphabetically.
-		flagNames := []string{}
-		for name := range genOutput.Flags {
-			flagNames = append(flagNames, name)
-		}
-		sort.Strings(flagNames)
-
 		fmt.Println("\nAvailable flags:")
 		printFlags(genOutput)
 
@@ -495,22 +486,15 @@ func runGenerator(input generatorInput) generatorOutput {
 
 	// Copy all BUILD.go files and RULES/ files from the source directory.
 	modules := module.GetAllModules(workspaceRoot)
-	modNames := []string{}
-	for modName := range modules {
-		modNames = append(modNames, modName)
-	}
-	sort.Strings(modNames)
 
 	packages := []string{}
-	for _, modName := range modNames {
-		module := modules[modName]
-		modBuildfilesDir := path.Join(generatorDir, modName)
-		modulePackages := copyBuildAndRuleFiles(modName, module.RootPath(), modBuildfilesDir, modules)
+	for _, module := range modules.Entries() {
+		modBuildfilesDir := path.Join(generatorDir, module.Key)
+		modulePackages := copyBuildAndRuleFiles(module.Key, module.Value.RootPath(), modBuildfilesDir, modules)
 		packages = append(packages, modulePackages...)
 	}
-	sort.Strings(packages)
 
-	createGeneratorMainFile(generatorDir, packages, modules)
+	createGeneratorMainFile(generatorDir, util.OrderedSlice(packages), modules)
 	createSumGoFile(generatorDir)
 
 	generatorInputPath := path.Join(generatorDir, generatorInputFileName)
@@ -533,34 +517,20 @@ func runGenerator(input generatorInput) generatorOutput {
 }
 
 func printTargets(genOutput generatorOutput, mode mode) {
-	targetNames := []string{}
-	for name := range genOutput.Targets {
-		targetNames = append(targetNames, name)
-	}
-	sort.Strings(targetNames)
-
-	for _, name := range targetNames {
-		target := genOutput.Targets[name]
-		if skipTarget(mode, target) {
+	for _, target := range util.OrderedEntries(genOutput.Targets) {
+		if skipTarget(mode, target.Value) {
 			continue
 		}
-		fmt.Printf("  //%s", name)
-		if target.Description != "" {
-			fmt.Printf("  (%s)", target.Description)
+		fmt.Printf("  //%s", target.Key)
+		if target.Value.Description != "" {
+			fmt.Printf("  (%s)", target.Value.Description)
 		}
 		fmt.Println()
 	}
 }
 
 func printFlags(genOutput generatorOutput) {
-	// Sort flags alphabetically.
-	flagNames := []string{}
-	for name := range genOutput.Flags {
-		flagNames = append(flagNames, name)
-	}
-	sort.Strings(flagNames)
-
-	for _, name := range flagNames {
+	for _, name := range util.OrderedKeys(genOutput.Flags) {
 		flag := genOutput.Flags[name]
 		fmt.Printf("  %s='%s' [%s]", name, flag.Value, flag.Type)
 		if len(flag.AllowedValues) > 0 {
@@ -573,14 +543,15 @@ func printFlags(genOutput generatorOutput) {
 	}
 }
 
-func copyBuildAndRuleFiles(moduleName, modulePath, buildFilesDir string, modules map[string]module.Module) []string {
+func copyBuildAndRuleFiles(moduleName, modulePath, buildFilesDir string, modules util.OrderedMap[string, module.Module]) []string {
 	packages := []string{}
 
 	log.Debug("Processing module '%s'.\n", moduleName)
+	m := modules.Get(moduleName)
 
 	goFilesDir := path.Dir(buildFilesDir)
 
-	for _, goMod := range module.ListGoModules(modules[moduleName]) {
+	for _, goMod := range module.ListGoModules(m) {
 		modFile := path.Join(goFilesDir, goMod.Name, modFileName)
 		util.GenerateFile(modFile, *assets.Templates.Lookup(modFileName + ".tmpl"), assets.GoModTemplate{
 			RequiredGoVersionMajor: goMajorVersion,
@@ -591,8 +562,7 @@ func copyBuildAndRuleFiles(moduleName, modulePath, buildFilesDir string, modules
 		})
 	}
 
-	buildFiles := module.ListBuildFiles(modules[moduleName])
-
+	buildFiles := module.ListBuildFiles(m)
 	for _, buildFile := range buildFiles {
 		relativeDirPath := strings.TrimSuffix(path.Dir(buildFile.CopyPath), "/")
 
@@ -613,7 +583,7 @@ func copyBuildAndRuleFiles(moduleName, modulePath, buildFilesDir string, modules
 		util.CopyFile(buildFile.SourcePath, copyFilePath)
 	}
 
-	for _, ruleFile := range module.ListRules(modules[moduleName]) {
+	for _, ruleFile := range module.ListRules(m) {
 		copyFilePath := path.Join(goFilesDir, ruleFile.CopyPath)
 		if util.FileExists(copyFilePath) {
 			log.Fatal("Rule file provided by more than one dbt module: %s\n", copyFilePath)
@@ -621,8 +591,7 @@ func copyBuildAndRuleFiles(moduleName, modulePath, buildFilesDir string, modules
 		util.CopyFile(ruleFile.SourcePath, copyFilePath)
 	}
 
-	sort.Strings(packages)
-	return packages
+	return util.OrderedSlice(packages)
 }
 
 func parseBuildFile(buildFilePath string) (string, []string) {
@@ -659,22 +628,13 @@ func parseBuildFile(buildFilePath string) (string, []string) {
 			}
 		}
 	}
-	sort.Strings(vars)
-
-	return fileAst.Name.String(), vars
+	return fileAst.Name.String(), util.OrderedSlice(vars)
 }
 
-func createRootModFile(filePath string, modules map[string]module.Module) {
-	keys := []string{}
-	for key, _ := range modules {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
-
+func createRootModFile(filePath string, modules util.OrderedMap[string, module.Module]) {
 	deps := []string{}
-	for _, topModuleKey := range keys {
-		topModule := modules[topModuleKey]
-		for _, goModule := range module.ListGoModules(topModule) {
+	for _, topModule := range modules.Entries() {
+		for _, goModule := range module.ListGoModules(topModule.Value) {
 			deps = append(deps, goModule.Name)
 		}
 	}
@@ -688,14 +648,13 @@ func createRootModFile(filePath string, modules map[string]module.Module) {
 	})
 }
 
-func createGeneratorMainFile(generatorDir string, packages []string, modules map[string]module.Module) {
+func createGeneratorMainFile(generatorDir string, packages []string, modules util.OrderedMap[string, module.Module]) {
 	mainFilePath := path.Join(generatorDir, mainFileName)
 	util.GenerateFile(mainFilePath, *assets.Templates.Lookup(mainFileName + ".tmpl"), assets.MainFileTemplate{
 		RequiredGoVersionMajor: goMajorVersion,
 		RequiredGoVersionMinor: goMinorVersion,
 		Packages:               packages,
 	})
-
 	createRootModFile(path.Join(generatorDir, modFileName), modules)
 }
 
@@ -722,15 +681,4 @@ func skipTarget(mode mode, target target) bool {
 		return !target.Testable
 	}
 	return false
-}
-
-func sortMapKeys(m interface{}) []string {
-	keys := reflect.ValueOf(m).MapKeys()
-	keyList := []string{}
-
-	for _, key := range keys {
-		keyList = append(keyList, key.Interface().(string))
-	}
-	sort.Strings(keyList)
-	return keyList
 }

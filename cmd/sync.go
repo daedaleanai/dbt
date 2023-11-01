@@ -6,7 +6,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
-	"sort"
 	"strings"
 
 	"github.com/daedaleanai/dbt/log"
@@ -231,6 +230,5 @@ func dependencyNames(file module.ModuleFile) []string {
 
 		names = append(names, name)
 	}
-	sort.Strings(names)
-	return names
+	return util.OrderedSlice(names)
 }
