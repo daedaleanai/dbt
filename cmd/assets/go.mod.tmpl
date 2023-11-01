@@ -1,0 +1,9 @@
+module {{ .Module }}
+
+go {{ .RequiredGoVersionMajor }}.{{ .RequiredGoVersionMinor }}
+
+// Dependencies
+{{- range .Deps }}
+require {{ . }} v0.0.0
+replace {{ . }} => {{ $.Prefix }}{{ . }}
+{{ end }}

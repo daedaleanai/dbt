@@ -1,8 +1,6 @@
 package cmd
 
 import (
-	_ "embed"
-
 	"bytes"
 	"fmt"
 	"go/ast"
@@ -19,7 +17,6 @@ import (
 	"sort"
 	"strings"
 	"syscall"
-	"text/template"
 	"time"
 
 	"github.com/daedaleanai/dbt/config"
@@ -51,26 +48,6 @@ const (
 	goMajorVersion = 1
 	goMinorVersion = 18
 )
-
-//go:embed assets/init.go.tmpl
-var initFileTemplatePayload string
-var initFileTemplate = template.Must(template.New("init.go").Parse(initFileTemplatePayload))
-
-type initFileParams struct {
-	Package   string
-	Vars      []string
-	SourceDir string
-}
-
-//go:embed assets/main.go.tmpl
-var mainFileTemplatePayload string
-var mainFileTemplate = template.Must(template.New("main.go").Parse(mainFileTemplatePayload))
-
-type mainFileParams struct {
-	RequiredGoVersionMajor uint64
-	RequiredGoVersionMinor uint64
-	Packages               []string
-}
 
 type mode uint
 
@@ -604,8 +581,13 @@ func copyBuildAndRuleFiles(moduleName, modulePath, buildFilesDir string, modules
 
 	for _, goMod := range module.ListGoModules(modules[moduleName]) {
 		modFile := path.Join(goFilesDir, goMod.Name, modFileName)
-		modFileContent := createModFileContent(goMod.Name, goMod.Deps)
-		util.WriteFile(modFile, modFileContent)
+		util.GenerateFile(modFile, *templates.Lookup(modFileName + ".tmpl"), goModParams{
+			RequiredGoVersionMajor: goMajorVersion,
+			RequiredGoVersionMinor: goMinorVersion,
+			Module:                 goMod.Name,
+			Prefix:                 "../",
+			Deps:                   goMod.Deps,
+		})
 	}
 
 	buildFiles := module.ListBuildFiles(modules[moduleName])
@@ -616,15 +598,12 @@ func copyBuildAndRuleFiles(moduleName, modulePath, buildFilesDir string, modules
 		packages = append(packages, relativeDirPath)
 		packageName, vars := parseBuildFile(buildFile.SourcePath)
 
-		initFileContent := bytes.Buffer{}
-		initFileTemplate.Execute(&initFileContent, initFileParams{
+		initFilePath := path.Join(goFilesDir, relativeDirPath, initFileName)
+		util.GenerateFile(initFilePath, *templates.Lookup(initFileName + ".tmpl"), initFileParams{
 			Package:   packageName,
 			Vars:      vars,
 			SourceDir: path.Dir(buildFile.SourcePath),
 		})
-
-		initFilePath := path.Join(goFilesDir, relativeDirPath, initFileName)
-		util.WriteFile(initFilePath, initFileContent.Bytes())
 
 		copyFilePath := path.Join(goFilesDir, buildFile.CopyPath)
 		if util.FileExists(copyFilePath) {
@@ -684,57 +663,39 @@ func parseBuildFile(buildFilePath string) (string, []string) {
 	return fileAst.Name.String(), vars
 }
 
-func createRootModFileContent(moduleName string, modules map[string]module.Module) []byte {
-	mod := strings.Builder{}
-
-	fmt.Fprintf(&mod, "module %s\n\n", moduleName)
-	fmt.Fprintf(&mod, "go %d.%d\n\n", goMajorVersion, goMinorVersion)
-
+func createRootModFile(filePath string, modules map[string]module.Module) {
 	keys := []string{}
 	for key, _ := range modules {
 		keys = append(keys, key)
 	}
 	sort.Strings(keys)
 
+	deps := []string{}
 	for _, topModuleKey := range keys {
 		topModule := modules[topModuleKey]
 		for _, goModule := range module.ListGoModules(topModule) {
-			fmt.Fprintf(&mod, "require %s v0.0.0\n", goModule.Name)
-			fmt.Fprintf(&mod, "replace %s => ./%s\n\n", goModule.Name, goModule.Name)
+			deps = append(deps, goModule.Name)
 		}
 	}
 
-	return []byte(mod.String())
-}
-
-func createModFileContent(moduleName string, deps []string) []byte {
-	mod := strings.Builder{}
-
-	fmt.Fprintf(&mod, "module %s\n\n", moduleName)
-	fmt.Fprintf(&mod, "go %d.%d\n\n", goMajorVersion, goMinorVersion)
-
-	for _, modName := range deps {
-		fmt.Fprintf(&mod, "require %s v0.0.0\n", modName)
-		fmt.Fprintf(&mod, "replace %s => ../%s\n\n", modName, modName)
-	}
-
-	return []byte(mod.String())
+	util.GenerateFile(filePath, *templates.Lookup(modFileName + ".tmpl"), goModParams{
+		RequiredGoVersionMajor: goMajorVersion,
+		RequiredGoVersionMinor: goMinorVersion,
+		Module:                 "root",
+		Prefix:                 "./",
+		Deps:                   deps,
+	})
 }
 
 func createGeneratorMainFile(generatorDir string, packages []string, modules map[string]module.Module) {
-	mainFileContent := bytes.Buffer{}
-	mainFileTemplate.Execute(&mainFileContent, mainFileParams{
+	mainFilePath := path.Join(generatorDir, mainFileName)
+	util.GenerateFile(mainFilePath, *templates.Lookup(mainFileName + ".tmpl"), mainFileParams{
 		RequiredGoVersionMajor: goMajorVersion,
 		RequiredGoVersionMinor: goMinorVersion,
 		Packages:               packages,
 	})
 
-	mainFilePath := path.Join(generatorDir, mainFileName)
-	util.WriteFile(mainFilePath, mainFileContent.Bytes())
-
-	modFilePath := path.Join(generatorDir, modFileName)
-	modFileContent := createRootModFileContent("root", modules)
-	util.WriteFile(modFilePath, modFileContent)
+	createRootModFile(path.Join(generatorDir, modFileName), modules)
 }
 
 func createSumGoFile(generatorDir string) {

@@ -1,6 +1,7 @@
 package util
 
 import (
+	"bytes"
 	_ "embed"
 	"encoding/json"
 	"errors"
@@ -14,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"text/template"
 
 	"github.com/daedaleanai/dbt/log"
 	"gopkg.in/yaml.v2"
@@ -153,6 +155,14 @@ func WriteFile(filePath string, data []byte) {
 	if err != nil {
 		log.Fatal("Failed to write file '%s': %s.\n", filePath, err)
 	}
+}
+
+func GenerateFile(filePath string, tmpl template.Template, args any) {
+	payload := bytes.Buffer{}
+	if err := tmpl.Execute(&payload, args); err != nil {
+		log.Fatal("Failed to generate file: %s: %w", filePath, err)
+	}
+	WriteFile(filePath, payload.Bytes())
 }
 
 func WriteJson(filePath string, v interface{}) {
