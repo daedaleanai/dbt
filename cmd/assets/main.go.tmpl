@@ -10,9 +10,10 @@ import (
 	"dbt-rules/RULES/core"
 )
 
-{{range $index, $element := .Packages -}}
+// Import dependencies
+{{- range $index, $element := .Packages }}
 import p{{$index}} "{{$element}}"
-{{end}}
+{{- end}}
 
 func init() {
 	requiredMajor := uint64({{ .RequiredGoVersionMajor }})
@@ -32,11 +33,12 @@ func init() {
 }
 
 func main() {
-    vars := map[string]interface{}{}
+	vars := map[string]interface{}{}
 
-    {{range $index, $_ := .Packages -}}
-    p{{$index}}.DbtMain(vars)
-    {{end}}
+	// Evaluate dependencies
+	{{- range $index, $_ := .Packages}}
+	p{{$index}}.DbtMain(vars)
+	{{- end}}
 
-    core.GeneratorMain(vars)
+	core.GeneratorMain(vars)
 }

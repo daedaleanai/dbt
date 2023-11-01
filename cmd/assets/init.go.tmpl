@@ -7,7 +7,9 @@ import "dbt-rules/RULES/core"
 type __internal_pkg struct{}
 
 func DbtMain(vars map[string]interface{}) {
-    {{ .DbtMain }}
+	{{- range .Vars }}
+	vars[in("{{.}}").Relative()] = &{{.}}
+	{{- end }}
 }
 
 func in(name string) core.Path {

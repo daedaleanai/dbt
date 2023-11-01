@@ -58,7 +58,7 @@ var initFileTemplate = template.Must(template.New("init.go").Parse(initFileTempl
 
 type initFileParams struct {
 	Package   string
-	DbtMain   string
+	Vars      []string
 	SourceDir string
 }
 
@@ -615,15 +615,11 @@ func copyBuildAndRuleFiles(moduleName, modulePath, buildFilesDir string, modules
 
 		packages = append(packages, relativeDirPath)
 		packageName, vars := parseBuildFile(buildFile.SourcePath)
-		varLines := []string{}
-		for _, varName := range vars {
-			varLines = append(varLines, fmt.Sprintf("    vars[in(\"%s\").Relative()] = &%s", varName, varName))
-		}
 
 		initFileContent := bytes.Buffer{}
 		initFileTemplate.Execute(&initFileContent, initFileParams{
 			Package:   packageName,
-			DbtMain:   strings.Join(varLines, "\n"),
+			Vars:      vars,
 			SourceDir: path.Dir(buildFile.SourcePath),
 		})
 
@@ -631,7 +627,7 @@ func copyBuildAndRuleFiles(moduleName, modulePath, buildFilesDir string, modules
 		util.WriteFile(initFilePath, initFileContent.Bytes())
 
 		copyFilePath := path.Join(goFilesDir, buildFile.CopyPath)
-		for util.FileExists(copyFilePath) {
+		if util.FileExists(copyFilePath) {
 			log.Fatal("BUILD.go file provided by more than one dbt module: %s\n", copyFilePath)
 		}
 		util.CopyFile(buildFile.SourcePath, copyFilePath)
