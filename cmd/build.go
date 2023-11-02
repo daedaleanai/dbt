@@ -19,6 +19,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/daedaleanai/dbt/assets"
 	"github.com/daedaleanai/dbt/config"
 	"github.com/daedaleanai/dbt/log"
 	"github.com/daedaleanai/dbt/module"
@@ -581,7 +582,7 @@ func copyBuildAndRuleFiles(moduleName, modulePath, buildFilesDir string, modules
 
 	for _, goMod := range module.ListGoModules(modules[moduleName]) {
 		modFile := path.Join(goFilesDir, goMod.Name, modFileName)
-		util.GenerateFile(modFile, *templates.Lookup(modFileName + ".tmpl"), goModParams{
+		util.GenerateFile(modFile, *assets.Templates.Lookup(modFileName + ".tmpl"), assets.GoModTemplate{
 			RequiredGoVersionMajor: goMajorVersion,
 			RequiredGoVersionMinor: goMinorVersion,
 			Module:                 goMod.Name,
@@ -599,7 +600,7 @@ func copyBuildAndRuleFiles(moduleName, modulePath, buildFilesDir string, modules
 		packageName, vars := parseBuildFile(buildFile.SourcePath)
 
 		initFilePath := path.Join(goFilesDir, relativeDirPath, initFileName)
-		util.GenerateFile(initFilePath, *templates.Lookup(initFileName + ".tmpl"), initFileParams{
+		util.GenerateFile(initFilePath, *assets.Templates.Lookup(initFileName + ".tmpl"), assets.InitFileTemplate{
 			Package:   packageName,
 			Vars:      vars,
 			SourceDir: path.Dir(buildFile.SourcePath),
@@ -678,7 +679,7 @@ func createRootModFile(filePath string, modules map[string]module.Module) {
 		}
 	}
 
-	util.GenerateFile(filePath, *templates.Lookup(modFileName + ".tmpl"), goModParams{
+	util.GenerateFile(filePath, *assets.Templates.Lookup(modFileName + ".tmpl"), assets.GoModTemplate{
 		RequiredGoVersionMajor: goMajorVersion,
 		RequiredGoVersionMinor: goMinorVersion,
 		Module:                 "root",
@@ -689,7 +690,7 @@ func createRootModFile(filePath string, modules map[string]module.Module) {
 
 func createGeneratorMainFile(generatorDir string, packages []string, modules map[string]module.Module) {
 	mainFilePath := path.Join(generatorDir, mainFileName)
-	util.GenerateFile(mainFilePath, *templates.Lookup(mainFileName + ".tmpl"), mainFileParams{
+	util.GenerateFile(mainFilePath, *assets.Templates.Lookup(mainFileName + ".tmpl"), assets.MainFileTemplate{
 		RequiredGoVersionMajor: goMajorVersion,
 		RequiredGoVersionMinor: goMinorVersion,
 		Packages:               packages,

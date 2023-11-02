@@ -1,28 +1,31 @@
-package cmd
+package assets
 
 import (
 	"embed"
 	"text/template"
 )
 
-//go:embed assets/*
-var assets embed.FS
+//go:embed templates/*
+var templatesFS embed.FS
 
-var templates = template.Must(template.ParseFS(assets, "assets/*.tmpl"))
+//go:embed statics/*
+var Statics embed.FS
 
-type initFileParams struct {
+var Templates = template.Must(template.ParseFS(templatesFS, "templates/*.tmpl"))
+
+type InitFileTemplate struct {
 	Package   string
 	Vars      []string
 	SourceDir string
 }
 
-type mainFileParams struct {
+type MainFileTemplate struct {
 	RequiredGoVersionMajor uint64
 	RequiredGoVersionMinor uint64
 	Packages               []string
 }
 
-type goModParams struct {
+type GoModTemplate struct {
 	RequiredGoVersionMajor uint64
 	RequiredGoVersionMinor uint64
 	Module                 string

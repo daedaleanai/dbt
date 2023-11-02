@@ -5,4 +5,3 @@ delete, rename, move, create arbitrary files and directories in this directory o
 
 In particular, DO NOT symlink this directory to any location where you store cloned repositories.
 This may lead to you losing your work in these repositories.
-

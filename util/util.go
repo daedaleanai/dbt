@@ -17,6 +17,7 @@ import (
 	"sync"
 	"text/template"
 
+	"github.com/daedaleanai/dbt/assets"
 	"github.com/daedaleanai/dbt/log"
 	"gopkg.in/yaml.v2"
 )
@@ -369,9 +370,6 @@ func diagnoseExistingManagedDir(root, child string) error {
 	return nil
 }
 
-//go:embed WARNING.readme.txt
-var warningText string
-
 func EnsureManagedDir(dir string) {
 	workspaceRoot := GetWorkspaceRoot()
 	if err := diagnoseExistingManagedDir(workspaceRoot, dir); err != nil {
@@ -388,6 +386,8 @@ func EnsureManagedDir(dir string) {
 	warningFilepath := filepath.Join(workspaceRoot, dir, WarningFileName)
 	if _, err := os.Stat(warningFilepath); errors.Is(err, os.ErrNotExist) {
 		// best effort, ignore errors
-		_ = os.WriteFile(warningFilepath, []byte(warningText), fileMode)
+		if payload, err := assets.Statics.ReadFile("statics/WARNING.readme.txt"); err == nil {
+			_ = os.WriteFile(warningFilepath, payload, fileMode)
+		}
 	}
 }
