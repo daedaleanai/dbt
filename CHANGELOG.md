@@ -1,5 +1,10 @@
 # Changelog
 
+### Unreleased
+
+- Remove restriction to run ninja with 1 thread for the coverage command. Instead, give the user the
+  option to set the number of threads and default to as many threads as cores (-1).
+
 ### v1.4.1
 
 - Bug fix (introduced in v1.4.0): The "persist-flags" configuration flag erroneously appeared in the
