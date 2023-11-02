@@ -17,7 +17,7 @@ var coverageCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(coverageCmd)
-	coverageCmd.Flags().IntVarP(&numThreads, "threads", "j", -1, "Run N jobs in parallel")
+	coverageCmd.Flags().IntVarP(&numThreads, "threads", "j", -1, "Run N jobs in parallel. Defaults to as many threads as cores available.")
 	coverageCmd.Flags().SetInterspersed(false)
 }
 
