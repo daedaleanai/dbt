@@ -511,6 +511,7 @@ func runGenerator(input generatorInput) generatorOutput {
 	sort.Strings(packages)
 
 	createGeneratorMainFile(generatorDir, packages, modules)
+	createRootModFile(path.Join(generatorDir, modFileName), modules)
 	createSumGoFile(generatorDir)
 
 	generatorInputPath := path.Join(generatorDir, generatorInputFileName)
@@ -582,7 +583,7 @@ func copyBuildAndRuleFiles(moduleName, modulePath, buildFilesDir string, modules
 
 	for _, goMod := range module.ListGoModules(modules[moduleName]) {
 		modFile := path.Join(goFilesDir, goMod.Name, modFileName)
-		util.GenerateFile(modFile, *assets.Templates.Lookup(modFileName + ".tmpl"), assets.GoModTemplate{
+		util.GenerateFile(modFile, *assets.Templates.Lookup(modFileName + ".tmpl"), assets.GoModTmplParams{
 			RequiredGoVersionMajor: goMajorVersion,
 			RequiredGoVersionMinor: goMinorVersion,
 			Module:                 goMod.Name,
@@ -600,7 +601,7 @@ func copyBuildAndRuleFiles(moduleName, modulePath, buildFilesDir string, modules
 		packageName, vars := parseBuildFile(buildFile.SourcePath)
 
 		initFilePath := path.Join(goFilesDir, relativeDirPath, initFileName)
-		util.GenerateFile(initFilePath, *assets.Templates.Lookup(initFileName + ".tmpl"), assets.InitFileTemplate{
+		util.GenerateFile(initFilePath, *assets.Templates.Lookup(initFileName + ".tmpl"), assets.InitFileTmplParams{
 			Package:   packageName,
 			Vars:      vars,
 			SourceDir: path.Dir(buildFile.SourcePath),
@@ -679,7 +680,7 @@ func createRootModFile(filePath string, modules map[string]module.Module) {
 		}
 	}
 
-	util.GenerateFile(filePath, *assets.Templates.Lookup(modFileName + ".tmpl"), assets.GoModTemplate{
+	util.GenerateFile(filePath, *assets.Templates.Lookup(modFileName + ".tmpl"), assets.GoModTmplParams{
 		RequiredGoVersionMajor: goMajorVersion,
 		RequiredGoVersionMinor: goMinorVersion,
 		Module:                 "root",
@@ -690,13 +691,11 @@ func createRootModFile(filePath string, modules map[string]module.Module) {
 
 func createGeneratorMainFile(generatorDir string, packages []string, modules map[string]module.Module) {
 	mainFilePath := path.Join(generatorDir, mainFileName)
-	util.GenerateFile(mainFilePath, *assets.Templates.Lookup(mainFileName + ".tmpl"), assets.MainFileTemplate{
+	util.GenerateFile(mainFilePath, *assets.Templates.Lookup(mainFileName + ".tmpl"), assets.MainFileTmplParams{
 		RequiredGoVersionMajor: goMajorVersion,
 		RequiredGoVersionMinor: goMinorVersion,
 		Packages:               packages,
 	})
-
-	createRootModFile(path.Join(generatorDir, modFileName), modules)
 }
 
 func createSumGoFile(generatorDir string) {

@@ -13,19 +13,19 @@ var Statics embed.FS
 
 var Templates = template.Must(template.ParseFS(templatesFS, "templates/*.tmpl"))
 
-type InitFileTemplate struct {
+type InitFileTmplParams struct {
 	Package   string
 	Vars      []string
 	SourceDir string
 }
 
-type MainFileTemplate struct {
+type MainFileTmplParams struct {
 	RequiredGoVersionMajor uint64
 	RequiredGoVersionMinor uint64
 	Packages               []string
 }
 
-type GoModTemplate struct {
+type GoModTmplParams struct {
 	RequiredGoVersionMajor uint64
 	RequiredGoVersionMinor uint64
 	Module                 string

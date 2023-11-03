@@ -75,11 +75,16 @@ func obtainVersion() (string, uint, uint, uint) {
 		}
 	}
 
+	const (
+		base = 10
+		bits = 20
+	)
+
 	m := semVerRe.FindStringSubmatch(ver)
 	if len(m) > 0 && m[0] == ver {
-		major, _ := strconv.ParseUint(m[1], 10, 20)
-		minor, _ := strconv.ParseUint(m[2], 10, 20)
-		patch, _ := strconv.ParseUint(m[3], 10, 20)
+		major, _ := strconv.ParseUint(m[1], base, bits)
+		minor, _ := strconv.ParseUint(m[2], base, bits)
+		patch, _ := strconv.ParseUint(m[3], base, bits)
 		return m[0], uint(major), uint(minor), uint(patch)
 	}
 
