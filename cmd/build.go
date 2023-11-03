@@ -132,7 +132,7 @@ func init() {
 	buildCmd.Flags().BoolVar(&commandList, "commands", false, "Create compile commands list")
 	buildCmd.Flags().BoolVar(&commandDb, "compdb", false, "Create compile commands JSON database")
 	buildCmd.Flags().BoolVar(&dependencyGraph, "graph", false, "Create dependency graph")
-	buildCmd.Flags().IntVarP(&numThreads, "threads", "j", -1, "Run N jobs in parallel")
+	buildCmd.Flags().IntVarP(&numThreads, "threads", "j", -1, "Run N jobs in parallel. Defaults to as many threads as cores available.")
 }
 
 func runBuild(args []string, mode mode, modeArgs []string) {

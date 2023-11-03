@@ -13,6 +13,8 @@
 - `dbt sync --strict` hardened: it no longer overwrites the top level MODULE file.
   While normally it should have been the case already, bugs could inadvertently break this assumption,
   see e.g. v1.4.1 release.
+- Remove restriction to run ninja with 1 thread for the coverage command. Instead, give the user the
+  option to set the number of threads and default to as many threads as cores (-1).
 
 ### v1.4.1
 
