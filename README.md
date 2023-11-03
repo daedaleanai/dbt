@@ -6,31 +6,15 @@ The Daedalean Build Tool (DBT) provides dependency management and build system f
 
 DBT requires the following tools to be installed on your system:
 
-* go (>= 1.16)
+* go (>= 1.18)
 * git
 * ninja
-
-Go 1.16 can be installed on Ubuntu with the following commands:
-
-```
-sudo apt install golang-1.16
-sudo update-alternatives --install "/usr/bin/go" "go" "/usr/lib/go-1.13/bin/go" 0
-sudo update-alternatives --install "/usr/bin/gofmt" "gofmt" "/usr/lib/go-1.13/bin/gofmt" 0
-sudo update-alternatives --install "/usr/bin/go" "go" "/usr/lib/go-1.16/bin/go" 0
-sudo update-alternatives --install "/usr/bin/gofmt" "gofmt" "/usr/lib/go-1.16/bin/gofmt" 0
-sudo update-alternatives --config go
-sudo update-alternatives --config gofmt
-```
 
 ## Installation
 
 You can install the latest version of DBT by running:
 
 ```
-# for go < 1.18
-go get github.com/daedaleanai/dbt
-
-# for go >= 1.18
 go install github.com/daedaleanai/dbt@latest
 ```
 
@@ -333,11 +317,19 @@ The flag's value can now be retrieved by calling `arch.Value()`.
 
 DBT provides `core.StringFlag`s, `core.BoolFlag`s, `core.IntFlag`s and `core.FloatFlag`s. However, only `core.StringFlag`s and `core.BoolFlag`s can have allowed values.
 
-Flag values can be set via the command-line (see [here](#running-builds) for details). Once specified, flag values are persisted across DBT invocations. If a flag has been specified via the command-line once that value will be used until a new value is provided via the command-line.
+Flag values can be set via the command-line (see [here](#running-builds) for details).
+
+By default, the flag values are only applied to the current invocation of DBT.
+However, maintainers of the top-level MODULE file can specify `persist-flags` boolean value,
+which impacts all builds in this top-level module.
+In this case, flag values are persisted across DBT invocations.
+If a flag has been specified via the command-line once that value will be used until a new value is provided via the command-line,
+or `dbt clean` command is invoked.
 
 If a flag is not specified on the command-line and has no persisted previous value, the `DefaultFn` will be called to get a default value. If the `DefaultFn` is also not provided, no value can be determined for the flag. In that case DBT will abort the build, since all flags must have a defined value.
 
-To disable the storage of persistent flags across dbt invokations, the user can set the `persist-flag` option to `false` in `~/.config/dbt/config.yaml`. This is a global setting that affects all dbt repositories.
+A user can set the `persist-flag` option in `~/.config/dbt/config.yaml`, in which case it
+will be applied for all modules that do not specify the `persist-flag` option.
 
 ### C/C++ rules and cross-compilation
 

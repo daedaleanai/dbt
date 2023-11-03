@@ -50,9 +50,7 @@ func getDbtConfigDir() (string, error) {
 }
 
 func loadConfiguration() Config {
-	config := Config{
-		PersistFlags: true,
-	}
+	var config Config
 
 	configDir, err := getDbtConfigDir()
 	if err != nil {

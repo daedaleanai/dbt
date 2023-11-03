@@ -1,7 +1,18 @@
 # Changelog
 
-### Unreleased
+### v2.0.0-rc1
 
+- Updated the minimum required Go dependency to 1.18 for both DBT build and DBT rules.
+- `dbt --version` output format has changed, and can now contain semver pre-release and build components.
+- The default value of persist-flags has been changed from `true` to `false`.
+  This value can be overriden in MODULE file of a project or in the user's configuration.
+  The former takes precedence.
+- The build version is deduced from Git tags. It is a hard failure if the deduction fails.  
+  Use `go build --tags=semver-override=vX.Y.Z-dev` when building DBT from source on
+  an untagged branch and/or with local changes.
+- `dbt sync --strict` hardened: it no longer overwrites the top level MODULE file.
+  While normally it should have been the case already, bugs could inadvertently break this assumption,
+  see e.g. v1.4.1 release.
 - Remove restriction to run ninja with 1 thread for the coverage command. Instead, give the user the
   option to set the number of threads and default to as many threads as cores (-1).
 

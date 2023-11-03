@@ -1,6 +1,7 @@
 package util
 
 import (
+	"bytes"
 	_ "embed"
 	"encoding/json"
 	"errors"
@@ -9,9 +10,14 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
+	"runtime/debug"
+	"strconv"
 	"strings"
 	"sync"
+	"text/template"
 
+	"github.com/daedaleanai/dbt/assets"
 	"github.com/daedaleanai/dbt/log"
 	"gopkg.in/yaml.v2"
 )
@@ -32,6 +38,9 @@ const (
 	dirMode  = 0775
 )
 
+// NOTE: We limit the integers to at most 6 digits.
+var semVerRe = regexp.MustCompile(`v(\d{1,6})\.(\d{1,6})\.(\d{1,6})(-([\d\w.]+))?(\+[\d\w.]+)?`)
+
 // Reimplementation of CutPrefix for backwards compatibility with versions < 1.20
 func CutPrefix(str string, prefix string) (string, bool) {
 	if strings.HasPrefix(str, prefix) {
@@ -40,8 +49,46 @@ func CutPrefix(str string, prefix string) (string, bool) {
 	return str, false
 }
 
+// If -tags=semver-override=xxxxxx is specified among build info settings, then that one is used;
+// otherwise Main.Version is used.
+// If the version deduced by the algorithm above does not match semantic version format,
+// the binary panics.
 func obtainVersion() (string, uint, uint, uint) {
-	return "1.4.1", 1, 4, 1
+	bi, ok := debug.ReadBuildInfo()
+	if !ok {
+		panic("The binary has been built without build information")
+	}
+
+	ver := bi.Main.Version
+
+	for _, m := range bi.Settings {
+		if m.Key != "-tags" {
+			continue
+		}
+		for _, kv := range strings.Split(m.Value, ",") {
+			kv := strings.TrimSpace(kv)
+			if sfx, ok := CutPrefix(kv, "semver-override="); ok {
+				ver = sfx
+				break
+			}
+
+		}
+	}
+
+	const (
+		base = 10
+		bits = 20
+	)
+
+	m := semVerRe.FindStringSubmatch(ver)
+	if len(m) > 0 && m[0] == ver {
+		major, _ := strconv.ParseUint(m[1], base, bits)
+		minor, _ := strconv.ParseUint(m[2], base, bits)
+		patch, _ := strconv.ParseUint(m[3], base, bits)
+		return m[0], uint(major), uint(minor), uint(patch)
+	}
+
+	panic("Could not determine DBT semantic version")
 }
 
 func VersionTriplet() [3]uint {
@@ -114,6 +161,14 @@ func WriteFile(filePath string, data []byte) {
 	if err != nil {
 		log.Fatal("Failed to write file '%s': %s.\n", filePath, err)
 	}
+}
+
+func GenerateFile(filePath string, tmpl template.Template, args any) {
+	payload := bytes.Buffer{}
+	if err := tmpl.Execute(&payload, args); err != nil {
+		log.Fatal("Failed to generate file: %s: %w", filePath, err)
+	}
+	WriteFile(filePath, payload.Bytes())
 }
 
 func WriteJson(filePath string, v interface{}) {
@@ -320,9 +375,6 @@ func diagnoseExistingManagedDir(root, child string) error {
 	return nil
 }
 
-//go:embed WARNING.readme.txt
-var warningText string
-
 func EnsureManagedDir(dir string) {
 	workspaceRoot := GetWorkspaceRoot()
 	if err := diagnoseExistingManagedDir(workspaceRoot, dir); err != nil {
@@ -339,6 +391,8 @@ func EnsureManagedDir(dir string) {
 	warningFilepath := filepath.Join(workspaceRoot, dir, WarningFileName)
 	if _, err := os.Stat(warningFilepath); errors.Is(err, os.ErrNotExist) {
 		// best effort, ignore errors
-		_ = os.WriteFile(warningFilepath, []byte(warningText), fileMode)
+		if payload, err := assets.Statics.ReadFile("statics/WARNING.readme.txt"); err == nil {
+			_ = os.WriteFile(warningFilepath, payload, fileMode)
+		}
 	}
 }
