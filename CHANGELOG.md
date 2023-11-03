@@ -1,6 +1,6 @@
 # Changelog
 
-### v2.0.0-pre1
+### v2.0.0-rc1
 
 - Updated the minimum required Go dependency to 1.18 for both DBT build and DBT rules.
 - `dbt --version` output format has changed, and can now contain semver pre-release and build components.
