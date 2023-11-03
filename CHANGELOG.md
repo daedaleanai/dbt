@@ -1,5 +1,9 @@
 # Changelog
 
+### v2.0.0-rc2
+
+- Refactoring: Ordered data structures introduced and used throughout the implementation of `dbt build`.
+
 ### v2.0.0-rc1
 
 - Updated the minimum required Go dependency to 1.18 for both DBT build and DBT rules.
