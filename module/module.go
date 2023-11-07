@@ -51,7 +51,7 @@ type Module interface {
 }
 
 func orderedGoFiles(files []GoFile) []GoFile {
-	return util.OrderedBySlice(files, func(f *GoFile) string { return f.SourcePath })
+	return util.SliceOrderedBy(files, func(f *GoFile) string { return f.SourcePath })
 }
 
 func listGoModules(module Module, moduleFile ModuleFile) []GoModule {

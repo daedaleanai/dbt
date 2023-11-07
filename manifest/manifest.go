@@ -61,10 +61,10 @@ func Generate(modules util.OrderedMap[string, module.Module], allowUncommittedCh
 		},
 	}
 
-	for _, mod := range modules.Entries() {
-		dirty := mod.Value.IsDirty()
+	for _, mod := range modules.Values() {
+		dirty := mod.IsDirty()
 		if dirty {
-			message := fmt.Sprintf("Module %q has uncommitted changes", mod.Value.Name())
+			message := fmt.Sprintf("Module %q has uncommitted changes", mod.Name())
 			if allowUncommittedChanges {
 				log.Warning("%s\n", message)
 			} else {
@@ -73,10 +73,10 @@ func Generate(modules util.OrderedMap[string, module.Module], allowUncommittedCh
 		}
 
 		manifest.Modules = append(manifest.Modules, Module{
-			Name:  mod.Value.Name(),
-			Url:   mod.Value.URL(),
-			Hash:  mod.Value.Head(),
-			Type:  mod.Value.Type().String(),
+			Name:  mod.Name(),
+			Url:   mod.URL(),
+			Hash:  mod.Head(),
+			Type:  mod.Type().String(),
 			Dirty: dirty,
 		})
 	}
