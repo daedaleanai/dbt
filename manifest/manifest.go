@@ -51,7 +51,7 @@ func (c Commit) String() string {
 	return fmt.Sprintf("%s: %s - %s", c.Id[:7], c.Title, c.AuthorName)
 }
 
-func Generate(modules map[string]module.Module, allowUncommittedChanges bool) (Manifest, error) {
+func Generate(modules util.OrderedMap[string, module.Module], allowUncommittedChanges bool) (Manifest, error) {
 	dbtVersion := util.VersionTriplet()
 	manifest := Manifest{
 		DbtVersion: DbtVersion{
@@ -61,7 +61,7 @@ func Generate(modules map[string]module.Module, allowUncommittedChanges bool) (M
 		},
 	}
 
-	for _, mod := range modules {
+	for _, mod := range modules.Values() {
 		dirty := mod.IsDirty()
 		if dirty {
 			message := fmt.Sprintf("Module %q has uncommitted changes", mod.Name())
