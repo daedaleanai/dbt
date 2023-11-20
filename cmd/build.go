@@ -54,6 +54,7 @@ const (
 	modeList
 	modeRun
 	modeTest
+	modeReport
 	modeFlags
 )
 
