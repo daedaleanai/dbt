@@ -1,8 +1,10 @@
 # Changelog
 
-### v2.0.1
+### v2.0.3
 
 - Bug fix: The name of the package must have been changed earlier, it is done now.
+- Tags and versions v2.0.1 and v2.0.2 had been used for much older unrelated releases,
+  they are cursed and should not be used.
 
 ### v2.0.0 (also: v2.0.0-rc2)
 
