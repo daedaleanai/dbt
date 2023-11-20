@@ -15,7 +15,7 @@ DBT requires the following tools to be installed on your system:
 You can install the latest version of DBT by running:
 
 ```
-go install github.com/daedaleanai/dbt@latest
+go install github.com/daedaleanai/dbt/v3@latest
 ```
 
 Notice that DBT follows sematic versioning, and major version change introduce breaking changes.

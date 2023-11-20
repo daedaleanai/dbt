@@ -1,6 +1,7 @@
 # Changelog
 
-### v3.0.1-rc1
+### v3.0.0-rc1
+
 - Target filtering moved to dbt-rules
 - Coverage and analyze commands removed. They could be implemented in project-specific RULES
 

@@ -8,9 +8,9 @@ import (
 	"path"
 	"strings"
 
-	"github.com/daedaleanai/dbt/v2/log"
-	"github.com/daedaleanai/dbt/v2/module"
-	"github.com/daedaleanai/dbt/v2/util"
+	"github.com/daedaleanai/dbt/v3/log"
+	"github.com/daedaleanai/dbt/v3/module"
+	"github.com/daedaleanai/dbt/v3/util"
 
 	"github.com/daedaleanai/cobra"
 )
