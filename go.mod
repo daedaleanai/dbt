@@ -1,4 +1,4 @@
-module github.com/daedaleanai/dbt
+module github.com/daedaleanai/dbt/v2
 
 go 1.18
 

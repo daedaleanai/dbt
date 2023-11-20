@@ -6,9 +6,9 @@ import (
 	"strings"
 
 	"github.com/daedaleanai/cobra"
-	"github.com/daedaleanai/dbt/log"
-	"github.com/daedaleanai/dbt/module"
-	"github.com/daedaleanai/dbt/util"
+	"github.com/daedaleanai/dbt/v2/log"
+	"github.com/daedaleanai/dbt/v2/module"
+	"github.com/daedaleanai/dbt/v2/util"
 )
 
 var cloneCmd = &cobra.Command{
