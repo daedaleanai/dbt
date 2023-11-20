@@ -88,9 +88,7 @@ func obtainVersion() (string, uint, uint, uint) {
 		return m[0], uint(major), uint(minor), uint(patch)
 	}
 
-	return "1", uint(1), uint(4), uint(0)
-
-	//panic("Could not determine DBT semantic version")
+	panic("Could not determine DBT semantic version")
 }
 
 func VersionTriplet() [3]uint {
