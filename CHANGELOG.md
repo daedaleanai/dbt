@@ -2,7 +2,7 @@
 
 ### v3.0.0-rc1
 
-- Target filtering moved to dbt-rules
+- Target filtering moved to dbt-rules. Minimum dbt-rules version is 2.0.0
 - Coverage and analyze commands removed. They could be implemented in project-specific RULES
 
 ### v2.0.3
