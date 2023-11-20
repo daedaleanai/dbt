@@ -171,19 +171,21 @@ func runBuild(args []string, mode mode, modeArgs []string) {
 	log.Debug("Flags persistency: %t.\n", persistFlags)
 
 	genInput := generatorInput{
-		DbtVersion:     util.VersionTriplet(),
-		OutputDir:      outputDir,
-		CmdlineFlags:   cmdlineFlags,
-		WorkspaceFlags: workspaceFlags,
-		TestArgs:       []string{},
-		RunArgs:        []string{},
-		PersistFlags:   persistFlags,
+		DbtVersion:       util.VersionTriplet(),
+		OutputDir:        outputDir,
+		CmdlineFlags:     cmdlineFlags,
+		WorkspaceFlags:   workspaceFlags,
+		TestArgs:         []string{},
+		RunArgs:          []string{},
+		PersistFlags:     persistFlags,
+		Mode:             mode,
+		PositivePatterns: positivePatterns,
+		NegativePatterns: negativePatterns,
 
 		// Legacy fields
 		Version:        2,
 		BuildDirPrefix: outputDir,
 		BuildFlags:     legacyFlags,
-		Mode:           mode,
 	}
 	switch mode {
 	case modeBuild:
@@ -196,10 +198,11 @@ func runBuild(args []string, mode mode, modeArgs []string) {
 		genInput.TestArgs = modeArgs
 	}
 
-	genInput.PositivePatterns = positivePatterns
-	genInput.NegativePatterns = negativePatterns
-
 	genOutput := runGenerator(genInput)
+
+	if mode == modeList || mode == modeFlags {
+		genOutput.SelectedTargets = nil
+	}
 
 	// dbt-rules < v1.10.0 will compute the build directory based on flag values and return
 	// the build directory to be used by DBT.
@@ -359,9 +362,6 @@ func completeBuildArgs(toComplete string, mode mode) []string {
 
 	targetToComplete := normalizeTarget(toComplete)
 	for name, target := range genOutput.Targets {
-		if skipTarget(mode, target) {
-			continue
-		}
 		if strings.Contains(name, toComplete) {
 			suggestions = append(suggestions, fmt.Sprintf("%s//%s\t%s", prefix, name, target.Description))
 		} else if strings.HasPrefix(name, targetToComplete) {
