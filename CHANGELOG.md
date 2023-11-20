@@ -1,5 +1,9 @@
 # Changelog
 
+### v2.0.1
+
+- Bug fix: The name of the package must have been changed earlier, it is done now.
+
 ### v2.0.0 (also: v2.0.0-rc2)
 
 - Refactoring: Ordered data structures introduced and used throughout the implementation of `dbt build`.

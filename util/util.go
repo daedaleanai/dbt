@@ -17,8 +17,8 @@ import (
 	"sync"
 	"text/template"
 
-	"github.com/daedaleanai/dbt/assets"
-	"github.com/daedaleanai/dbt/log"
+	"github.com/daedaleanai/dbt/v2/assets"
+	"github.com/daedaleanai/dbt/v2/log"
 	"gopkg.in/yaml.v2"
 )
 

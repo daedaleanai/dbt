@@ -5,7 +5,7 @@ import (
 
 	"golang.org/x/exp/constraints"
 
-	"github.com/daedaleanai/dbt/log"
+	"github.com/daedaleanai/dbt/v2/log"
 )
 
 // OrderedMap is a map supporting iteration ordered by the key.

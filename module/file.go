@@ -3,8 +3,8 @@ package module
 import (
 	"path"
 
-	"github.com/daedaleanai/dbt/log"
-	"github.com/daedaleanai/dbt/util"
+	"github.com/daedaleanai/dbt/v2/log"
+	"github.com/daedaleanai/dbt/v2/util"
 )
 
 type moduleFileVersion struct {
