@@ -1,6 +1,6 @@
 # Changelog
 
-### v2.0.0-rc2
+### v2.0.0 (also: v2.0.0-rc2)
 
 - Refactoring: Ordered data structures introduced and used throughout the implementation of `dbt build`.
 
