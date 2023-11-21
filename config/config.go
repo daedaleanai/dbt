@@ -7,7 +7,7 @@ import (
 	"path"
 	"strings"
 
-	"github.com/daedaleanai/dbt/v2/log"
+	"github.com/daedaleanai/dbt/v3/log"
 	"gopkg.in/yaml.v2"
 )
 

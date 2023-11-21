@@ -12,16 +12,15 @@ import (
 	"os/signal"
 	"path"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"syscall"
 	"time"
 
-	"github.com/daedaleanai/dbt/v2/assets"
-	"github.com/daedaleanai/dbt/v2/config"
-	"github.com/daedaleanai/dbt/v2/log"
-	"github.com/daedaleanai/dbt/v2/module"
-	"github.com/daedaleanai/dbt/v2/util"
+	"github.com/daedaleanai/dbt/v3/assets"
+	"github.com/daedaleanai/dbt/v3/config"
+	"github.com/daedaleanai/dbt/v3/log"
+	"github.com/daedaleanai/dbt/v3/module"
+	"github.com/daedaleanai/dbt/v3/util"
 
 	"github.com/daedaleanai/cobra"
 )
@@ -52,11 +51,10 @@ type mode uint
 
 const (
 	modeBuild mode = iota
-	modeAnalyze
-	modeCoverage
 	modeList
 	modeRun
 	modeTest
+	modeReport
 	modeFlags
 )
 
@@ -75,19 +73,22 @@ type flag struct {
 }
 
 type generatorInput struct {
-	DbtVersion           [3]uint
-	SourceDir            string
-	WorkingDir           string
-	OutputDir            string
-	CmdlineFlags         map[string]string
-	WorkspaceFlags       map[string]string
-	CompletionsOnly      bool
-	RunArgs              []string
-	TestArgs             []string
-	Layout               string
-	SelectedTargets      []string
-	BuildAnalyzerTargets bool
-	PersistFlags         bool
+	DbtVersion      [3]uint
+	SourceDir       string
+	WorkingDir      string
+	OutputDir       string
+	CmdlineFlags    map[string]string
+	WorkspaceFlags  map[string]string
+	CompletionsOnly bool
+	RunArgs         []string
+	TestArgs        []string
+	Layout          string
+
+	PersistFlags bool
+
+	PositivePatterns []string
+	NegativePatterns []string
+	Mode             mode
 
 	// These fields are used by dbt-rules < v1.10.0 and must be kept for backward compatibility
 	Version        uint
@@ -96,10 +97,11 @@ type generatorInput struct {
 }
 
 type generatorOutput struct {
-	NinjaFile   string
-	Targets     map[string]target
-	Flags       map[string]flag
-	CompDbRules []string
+	NinjaFile       string
+	Targets         map[string]target
+	Flags           map[string]flag
+	CompDbRules     []string
+	SelectedTargets []string
 
 	// This field is set by dbt-rules < v1.10.0 and must be kept for backward compatibility
 	BuildDir string
@@ -170,14 +172,16 @@ func runBuild(args []string, mode mode, modeArgs []string) {
 	log.Debug("Flags persistency: %t.\n", persistFlags)
 
 	genInput := generatorInput{
-		DbtVersion:           util.VersionTriplet(),
-		OutputDir:            outputDir,
-		CmdlineFlags:         cmdlineFlags,
-		WorkspaceFlags:       workspaceFlags,
-		TestArgs:             []string{},
-		RunArgs:              []string{},
-		BuildAnalyzerTargets: false,
-		PersistFlags:         persistFlags,
+		DbtVersion:       util.VersionTriplet(),
+		OutputDir:        outputDir,
+		CmdlineFlags:     cmdlineFlags,
+		WorkspaceFlags:   workspaceFlags,
+		TestArgs:         []string{},
+		RunArgs:          []string{},
+		PersistFlags:     persistFlags,
+		Mode:             mode,
+		PositivePatterns: positivePatterns,
+		NegativePatterns: negativePatterns,
 
 		// Legacy fields
 		Version:        2,
@@ -187,10 +191,6 @@ func runBuild(args []string, mode mode, modeArgs []string) {
 	switch mode {
 	case modeBuild:
 		// do nothing
-	case modeAnalyze:
-		genInput.BuildAnalyzerTargets = true
-	case modeCoverage:
-		genInput.TestArgs = modeArgs
 	case modeList, modeFlags:
 		// do nothing
 	case modeRun:
@@ -198,67 +198,17 @@ func runBuild(args []string, mode mode, modeArgs []string) {
 	case modeTest:
 		genInput.TestArgs = modeArgs
 	}
+
 	genOutput := runGenerator(genInput)
+
+	if mode == modeList || mode == modeFlags {
+		genOutput.SelectedTargets = nil
+	}
 
 	// dbt-rules < v1.10.0 will compute the build directory based on flag values and return
 	// the build directory to be used by DBT.
 	if genOutput.BuildDir != "" {
 		genInput.OutputDir = genOutput.BuildDir
-	}
-
-	// Determine the set of targets to be built.
-	log.Debug("Target patterns: '%s'. Negative patterns: '%s'\n", strings.Join(positivePatterns, "', '"), strings.Join(negativePatterns, "', '"))
-	positiveRegexps := []*regexp.Regexp{}
-	for _, pattern := range positivePatterns {
-		re, err := regexp.Compile(fmt.Sprintf("^%s$", pattern))
-		if err != nil {
-			log.Fatal("Positive target pattern '%s' is not a valid regular expression: %s.\n", pattern, err)
-		}
-		positiveRegexps = append(positiveRegexps, re)
-	}
-
-	negativeRegexps := []*regexp.Regexp{}
-	for _, pattern := range negativePatterns {
-		re, err := regexp.Compile(fmt.Sprintf("^%s$", pattern))
-		if err != nil {
-			log.Fatal("Negative target pattern '%s' is not a valid regular expression: %s.\n", pattern, err)
-		}
-		negativeRegexps = append(negativeRegexps, re)
-	}
-
-	targets := []string{}
-	if mode != modeList && mode != modeFlags {
-		for name, target := range genOutput.Targets {
-			if skipTarget(mode, target) {
-				continue
-			}
-
-			// Negative patterns have precedence
-			matchesNegativePattern := false
-			for _, re := range negativeRegexps {
-				if re.MatchString(name) {
-					matchesNegativePattern = true
-					break
-				}
-			}
-
-			if matchesNegativePattern {
-				continue
-			}
-
-			for _, re := range positiveRegexps {
-				if re.MatchString(name) {
-					targets = append(targets, name)
-					break
-				}
-			}
-		}
-	}
-
-	// Second pass with all targets
-	if mode == modeAnalyze || mode == modeCoverage {
-		genInput.SelectedTargets = targets
-		genOutput = runGenerator(genInput)
 	}
 
 	// Write the Ninja build file.
@@ -271,7 +221,7 @@ func runBuild(args []string, mode mode, modeArgs []string) {
 		printTargets(genOutput, mode)
 	} else if mode == modeFlags {
 		printFlags(genOutput)
-	} else if !commandList && !commandDb && !dependencyGraph && len(targets) == 0 {
+	} else if !commandList && !commandDb && !dependencyGraph && len(genOutput.SelectedTargets) == 0 {
 		fmt.Println("\nAvailable targets:")
 		printTargets(genOutput, mode)
 
@@ -289,7 +239,7 @@ func runBuild(args []string, mode mode, modeArgs []string) {
 		return
 	}
 
-	if len(targets) > 0 {
+	if len(genOutput.SelectedTargets) > 0 {
 		ninjaArgs := []string{}
 		if log.Verbose {
 			ninjaArgs = []string{"-v", "-d", "explain"}
@@ -306,14 +256,14 @@ func runBuild(args []string, mode mode, modeArgs []string) {
 			suffix = "#test"
 		}
 
-		for _, target := range targets {
+		for _, target := range genOutput.SelectedTargets {
 			ninjaArgs = append(ninjaArgs, target+suffix)
 		}
 		runNinja(genInput.OutputDir, os.Stdout, ninjaArgs)
 	}
 
 	if commandList {
-		args := append([]string{"-t", "commands"}, targets...)
+		args := append([]string{"-t", "commands"}, genOutput.SelectedTargets...)
 		printNinjaOutput(genInput.OutputDir, compileCommandsFileName, "Compile commands", args)
 	}
 	if commandDb {
@@ -323,7 +273,7 @@ func runBuild(args []string, mode mode, modeArgs []string) {
 			append([]string{"-t", "compdb"}, genOutput.CompDbRules...))
 	}
 	if dependencyGraph {
-		args := append([]string{"-t", "graph"}, targets...)
+		args := append([]string{"-t", "graph"}, genOutput.SelectedTargets...)
 		printNinjaOutput(genInput.OutputDir, dependencyGraphFileName, "Dependency graph", args)
 	}
 }
@@ -413,9 +363,6 @@ func completeBuildArgs(toComplete string, mode mode) []string {
 
 	targetToComplete := normalizeTarget(toComplete)
 	for name, target := range genOutput.Targets {
-		if skipTarget(mode, target) {
-			continue
-		}
 		if strings.Contains(name, toComplete) {
 			suggestions = append(suggestions, fmt.Sprintf("%s//%s\t%s", prefix, name, target.Description))
 		} else if strings.HasPrefix(name, targetToComplete) {
@@ -673,8 +620,6 @@ func createSumGoFile(generatorDir string) {
 
 func skipTarget(mode mode, target target) bool {
 	switch mode {
-	case modeCoverage:
-		return !target.Testable && !target.Report
 	case modeRun:
 		return !target.Runnable
 	case modeTest:

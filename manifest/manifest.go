@@ -3,9 +3,9 @@ package manifest
 import (
 	"fmt"
 
-	"github.com/daedaleanai/dbt/v2/log"
-	"github.com/daedaleanai/dbt/v2/module"
-	"github.com/daedaleanai/dbt/v2/util"
+	"github.com/daedaleanai/dbt/v3/log"
+	"github.com/daedaleanai/dbt/v3/module"
+	"github.com/daedaleanai/dbt/v3/util"
 )
 
 type Module struct {

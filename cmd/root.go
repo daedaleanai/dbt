@@ -3,8 +3,8 @@ package cmd
 import (
 	"os"
 
-	"github.com/daedaleanai/dbt/v2/log"
-	"github.com/daedaleanai/dbt/v2/util"
+	"github.com/daedaleanai/dbt/v3/log"
+	"github.com/daedaleanai/dbt/v3/util"
 
 	"github.com/daedaleanai/cobra"
 )

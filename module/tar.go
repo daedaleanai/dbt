@@ -12,10 +12,10 @@ import (
 	"path"
 	"strings"
 
-	"github.com/daedaleanai/dbt/v2/config"
-	"github.com/daedaleanai/dbt/v2/log"
-	"github.com/daedaleanai/dbt/v2/netrc"
-	"github.com/daedaleanai/dbt/v2/util"
+	"github.com/daedaleanai/dbt/v3/config"
+	"github.com/daedaleanai/dbt/v3/log"
+	"github.com/daedaleanai/dbt/v3/netrc"
+	"github.com/daedaleanai/dbt/v3/util"
 )
 
 const tarMetadataFileName = ".metadata"
