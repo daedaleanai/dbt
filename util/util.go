@@ -88,7 +88,8 @@ func obtainVersion() (string, uint, uint, uint) {
 		return m[0], uint(major), uint(minor), uint(patch)
 	}
 
-	panic("Could not determine DBT semantic version")
+	panic("Could not determine DBT semantic version. " +
+		"If compiling locally, compile with `go build -tags=semver-override=vX.Y.Z` for some X, Y and Z.")
 }
 
 func VersionTriplet() [3]uint {
