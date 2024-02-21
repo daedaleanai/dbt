@@ -50,7 +50,7 @@ folder, they get cloned using the url and a `--reference` flag pointing to the l
 some network access might be required (e.g., if the branch has updates), but the bulk of fetching
 all git objects can be done from the local mirror.
 
-Note that the data in the mirror is never deleted/freed by DBT. It is the user's responsibility 
+Note that the data in the mirror is never deleted/freed by DBT. It is the user's responsibility
 to manage it and delete old checkouts that are not required anymore when disk usage gets too large.
 
 ## General remarks
@@ -59,7 +59,6 @@ to manage it and delete old checkouts that are not required anymore when disk us
 * `dbt --version` prints the current version of the tool.
 * DBT supports shell completion for `bash`, `zsh`, and `fish` shells. Run `dbt completion bash|zsh|fish` to get the respective completion script.
 * The auto-generated Go documentation for this repository can be found [here](https://pkg.go.dev/github.com/daedaleanai/dbt).
-* The auto-generated Go documentation for the `dbt-rules` repository can be found [here](https://pkg.go.dev/github.com/daedaleanai/dbt-rules).
 
 ## Dependency management
 
@@ -111,9 +110,8 @@ If the `--update` flag is used, DBT will ignore all previously resolved dependen
 
 ### Setup
 
-In order to use the build system features of DBT the `dbt-rules` module must be available. The easiest way to achieve this is to add the following dependency:
+Before running any builds, sync all your dependencies with:
 ```
-dbt dep add dbt-rules --url=https://github.com/daedaleanai/dbt-rules.git --version=origin/master
 dbt sync
 ```
 
@@ -229,7 +227,7 @@ type BuildRule interface {
     Build(ctx Context)
 }
 ```
-DBT will call the `Build` method of the struct for each target with a `Context`. 
+DBT will call the `Build` method of the struct for each target with a `Context`.
 ```
 type Context interface {
 	AddBuildStep(BuildStep)
@@ -343,7 +341,7 @@ If you have a `cc.Library` that could be compiled with different toolchains *wit
 // Define a gcc toolchain by populating the struct
 val baseToolchain = cc.GccToolchain{ ... }
 
-// Add different stdlibs to baseToolchain to create new toolchains and register them 
+// Add different stdlibs to baseToolchain to create new toolchains and register them
 val kernelToolchain = cc.RegisterToolchain(baseToolchain.NewWithStdLib(kernelIncludes, kernelDeps, kernelLinkerScript, "kernel-gcc"))
 val userToolchain = cc.RegisterToolchain(baseToolchain.NewWithStdLib(userIncludes, userDeps, userLinkerScript, "user-gcc"))
 
