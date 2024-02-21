@@ -1,0 +1,96 @@
+#!/bin/bash
+
+set -eu -o pipefail
+
+{{ if .Verbose }}
+set -x
+{{ end }}
+
+{{ $outDir := .OutDir }}
+{{ $outScript := .OutScript }}
+
+rm -rf {{ .OutDir }}
+mkdir -p {{ .OutDir }}
+TMPDIR=$(mktemp -d -t ci-XXXXXXXXXX)
+
+cat > {{ .OutScript }} <<EOF
+#!/bin/bash
+set -eu -o pipefail
+
+NEEDS_XSIM_GLBL=false
+EXTRA_MOD=
+SIMULATOR=xsim
+SIM_FLAGS=
+SIM_SV_FLAGS="\${SIM_FLAGS} -work {{ .Name }} --include {{ .IncDir }} --sv"
+SIM_SV_COMPILER=xvlog
+SIM_VHDL_FLAGS="\${SIM_FLAGS} -work {{ .Name }}"
+SIM_VHDL_COMPILER=xvhdl
+SIM_IP_DIR={{ .OutDir }}
+PROJECT_NAME={{ .Name }}
+
+COMPILE=1
+if [ \$# -ge 1 ] && [ \$1 == "simonly" ]; then
+    COMPILE=0
+    shift
+fi
+
+cd {{ .OutDir }}/..
+
+if [ \$COMPILE -eq 1 ]; then
+{{ range .Srcs }}
+    {{ if hasSuffix .String ".vhd" }}
+        \${SIM_VHDL_COMPILER} \${SIM_VHDL_FLAGS} {{ . }}
+    {{ else }}
+        \${SIM_SV_COMPILER} \${SIM_SV_FLAGS} {{ . }}
+    {{ end }}
+{{ end }}
+EOF
+
+{{ range .Ips }}
+(
+    cd {{ $outDir }}
+    tar zxf {{ . }}
+    SIM_SCRIPT={{ $outDir }}/`basename {{ . }} .tar.gz`/xsim.sh
+    if [ ! -r ${SIM_SCRIPT} ]; then
+        SIM_SCRIPT={{ $outDir }}/`basename {{ . }} .tar.gz`/generic-sim.sh
+        if [ ! -r ${SIM_SCRIPT} ]; then
+            echo "[!] No simulation script for XSim exists"
+            exit 1
+        fi
+    fi
+            cat >> {{ $outScript }} << EOF
+source ${SIM_SCRIPT}
+EOF
+
+)
+{{ end }}
+
+    XSIMDIR=`which xsim`
+    XSIMIP=`dirname $XSIMDIR`/../data/xsim/ip/xsim_ip.ini
+    GLBL=`dirname $XSIMDIR`/../data/verilog/src/glbl.v
+
+    cat >> {{ .OutScript }} << EOF
+
+    if [ x"\${NEEDS_XSIM_GLBL}" == xtrue ]; then
+        xvlog \${SIM_SV_FLAGS} $GLBL
+        EXTRA_MOD={{ .Name }}.glbl
+    fi
+    xelab -initfile=$XSIMIP  --timescale 1ns/1ps -debug typical {{ .Name }}.board \${EXTRA_MOD} -s {{ .Name }}_sim -L {{ .Name }} {{range .Libs}}-L {{ . }} {{end}}
+fi # compile"
+
+if [ \$# -ge 1 ]; then
+    xsim {{ .Name }}_sim "\$@"
+else
+    xsim {{ .Name }}_sim -t {{ .OutSimScript }}
+fi
+
+EOF
+chmod 755 {{ .OutScript }}
+
+cat > {{ .OutSimScript }} << EOF
+open_vcd
+log_vcd [get_objects -r * ]
+run all
+close_vcd
+exit
+EOF

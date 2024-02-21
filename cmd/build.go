@@ -20,6 +20,7 @@ import (
 	"github.com/daedaleanai/dbt/v3/config"
 	"github.com/daedaleanai/dbt/v3/log"
 	"github.com/daedaleanai/dbt/v3/module"
+	"github.com/daedaleanai/dbt/v3/rules"
 	"github.com/daedaleanai/dbt/v3/util"
 
 	"github.com/daedaleanai/cobra"
@@ -137,11 +138,6 @@ func init() {
 
 func runBuild(args []string, mode mode, modeArgs []string) {
 	workspaceRoot := util.GetWorkspaceRoot()
-	dbtRulesDir := path.Join(workspaceRoot, util.DepsDirName, dbtRulesDirName)
-	if !util.DirExists(dbtRulesDir) {
-		log.Fatal("You are running 'dbt build' without '%s' being available. Add that dependency, run 'dbt sync' and try again.\n", dbtRulesDirName)
-		return
-	}
 
 	util.EnsureManagedDir(util.BuildDirName)
 
@@ -441,7 +437,9 @@ func runGenerator(input generatorInput) generatorOutput {
 		packages = append(packages, modulePackages...)
 	}
 
-	createGeneratorMainFile(generatorDir, util.OrderedSlice(packages), modules)
+	copyDbtRulesBuildAndRuleFiles(generatorDir)
+
+	createGeneratorMainFile(generatorDir, util.OrderedSlice(packages))
 	createRootModFile(path.Join(generatorDir, modFileName), modules)
 	createSumGoFile(generatorDir)
 
@@ -542,6 +540,54 @@ func copyBuildAndRuleFiles(moduleName, modulePath, buildFilesDir string, modules
 	return util.OrderedSlice(packages)
 }
 
+func copyDbtRulesBuildAndRuleFiles(generatorDir string) {
+	// Expand dbt rules
+	dbtRulesPath := path.Join(generatorDir, dbtRulesDirName)
+	modFile := path.Join(dbtRulesPath, modFileName)
+	util.GenerateFile(modFile, *assets.Templates.Lookup(modFileName + ".tmpl"), assets.GoModTmplParams{
+		RequiredGoVersionMajor: goMajorVersion,
+		RequiredGoVersionMinor: goMinorVersion,
+		Module:                 dbtRulesDirName,
+		Prefix:                 "../",
+		Deps:                   []string{},
+	})
+	for _, ruleFile := range rules.ListRuleFiles() {
+		content := rules.ReadFile(ruleFile)
+		util.WriteFile(path.Join(dbtRulesPath, ruleFile), content)
+	}
+
+	for _, buildFile := range rules.ListBuildFiles() {
+		content := rules.ReadFile(buildFile)
+		temp, err := os.CreateTemp("", "BUILD*.go")
+		if err != nil {
+			log.Fatal("Error creating temporary build file: ", err)
+		}
+		defer os.Remove(temp.Name())
+		_, err = temp.Write(content)
+		if err != nil {
+			log.Fatal("Error writing temporary build file: ", err)
+		}
+		temp.Close()
+		packageName, vars := parseBuildFile(temp.Name())
+
+		relativeDirPath := strings.TrimSuffix(path.Dir(buildFile), string(os.PathSeparator))
+
+		initFilePath := path.Join(dbtRulesPath, relativeDirPath, initFileName)
+		util.GenerateFile(initFilePath, *assets.Templates.Lookup(initFileName + ".tmpl"), assets.InitFileTmplParams{
+			Package:   packageName,
+			Vars:      vars,
+			SourceDir: path.Dir(buildFile),
+		})
+
+		copyFilePath := path.Join(dbtRulesPath, buildFile)
+		if util.FileExists(copyFilePath) {
+			log.Fatal("BUILD.go file provided by more than one dbt module: %s\n", copyFilePath)
+		}
+		util.WriteFile(copyFilePath, content)
+	}
+
+}
+
 func parseBuildFile(buildFilePath string) (string, []string) {
 	fileAst, err := parser.ParseFile(token.NewFileSet(), buildFilePath, nil, parser.AllErrors)
 
@@ -586,6 +632,8 @@ func createRootModFile(filePath string, modules util.OrderedMap[string, module.M
 			deps = append(deps, goModule.Name)
 		}
 	}
+	// dbt-rules is implicit
+	deps = append(deps, dbtRulesDirName)
 
 	util.GenerateFile(filePath, *assets.Templates.Lookup(modFileName + ".tmpl"), assets.GoModTmplParams{
 		RequiredGoVersionMajor: goMajorVersion,
@@ -596,7 +644,7 @@ func createRootModFile(filePath string, modules util.OrderedMap[string, module.M
 	})
 }
 
-func createGeneratorMainFile(generatorDir string, packages []string, modules util.OrderedMap[string, module.Module]) {
+func createGeneratorMainFile(generatorDir string, packages []string) {
 	mainFilePath := path.Join(generatorDir, mainFileName)
 	util.GenerateFile(mainFilePath, *assets.Templates.Lookup(mainFileName + ".tmpl"), assets.MainFileTmplParams{
 		RequiredGoVersionMajor: goMajorVersion,

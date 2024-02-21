@@ -67,21 +67,15 @@ func listGoModules(module Module, moduleFile ModuleFile) []GoModule {
 }
 
 func listGoModulesCpp(module Module, moduleFile ModuleFile) []GoModule {
-	modulePath := module.RootPath()
-	moduleName := path.Base(modulePath) // FIXME: interface method
-
 	deps := util.OrderedKeys(moduleFile.Dependencies)
 
 	result := []GoModule{}
-	result = append(result, GoModule{
-		Name: moduleName,
-		Deps: deps,
-	})
 
+	modulePath := module.RootPath()
 	rulesDirPath := path.Join(modulePath, rulesDirName)
 
 	if !util.DirExists(rulesDirPath) {
-		return result
+		log.Fatal("Rules directory for CPP module does not exist: ", rulesDirPath)
 	}
 
 	files, err := ioutil.ReadDir(rulesDirPath)
@@ -324,6 +318,10 @@ func OpenModule(modulePath string) Module {
 		return TarModule{path: modulePath, mirror: mirror}
 	}
 
+	if path.Base(modulePath) == "dbt-rules" {
+		log.Fatal("The dbt-rules module is implicitly added by dbt. Please rename your module to avoid naming conflicts.")
+	}
+
 	log.Fatal("Module appears to be broken. Remove the module directory and rerun 'dbt sync'.\n")
 	return nil
 }
@@ -447,7 +445,7 @@ func SetupModule(modulePath string) {
 func GetAllModules(workspaceRoot string) util.OrderedMap[string, Module] {
 	depsDir := path.Join(workspaceRoot, util.DepsDirName)
 	if !util.DirExists(depsDir) {
-		log.Warning("There is no %s/ directory in the workspace. Try running 'dbt sync' first.\n", util.DepsDirName)
+		log.Fatal("There is no %s/ directory in the workspace. Try running 'dbt sync' first.\n", util.DepsDirName)
 		return util.NewOrderedMap[string, Module]()
 	}
 	files, err := ioutil.ReadDir(depsDir)

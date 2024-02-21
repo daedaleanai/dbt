@@ -1,0 +1,32 @@
+#!/bin/bash
+set -eu -o pipefail
+
+{{ if .Verbose }}
+set -x
+{{ end }}
+
+TMPDIR=$(mktemp -d -t ci-XXXXXXXXXX)
+(
+    cd $TMPDIR
+    {{ if .Verbose }}
+    vivado -mode batch -nolog -nojournal  -notrace -source {{ .BuildScript }}
+    {{ else }}
+    vivado -mode batch -nolog -nojournal  -notrace -source {{ .BuildScript }} | ( grep -E "^(ERROR|WARNING|CRITICAL)" || true )
+    {{ end }}
+    echo "all: { bitstream.bit }" > bitstream.bif
+    {{ if ne .Postprocess "" }}
+    {{ if .Verbose }}
+    bootgen -image bitstream.bif -arch zynqmp -process_bitstream {{ .Postprocess }} -w
+    {{ else }}
+    bootgen -image bitstream.bif -arch zynqmp -process_bitstream {{ .Postprocess }} -w | ( grep -E "^\[ERROR\]" || true )
+    {{ end }}
+    cp bitstream.bit.bin {{ .Bitstream }}
+    {{ else }}
+    cp bitstream.bit {{ .Bitstream }}
+    {{ end }}
+
+    touch bitstream.ltx
+    cp bitstream.ltx {{ .DebugProbes }}
+)
+
+rm -rf ${TMPDIR}

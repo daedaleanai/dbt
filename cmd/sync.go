@@ -195,7 +195,7 @@ func runSync(cmd *cobra.Command, args []string) {
 	if content != nil {
 		for _, info := range content {
 			fullPath := path.Join(depsDir, info.Name())
-			if !done[fullPath] && fullPath != workspaceModuleSymlink && info.Name() != util.WarningFileName {
+			if !done[fullPath] && fullPath != workspaceModuleSymlink && info.Name() != util.WarningFileName && info.Name() != dbtRulesDirName {
 				log.Log("Deleting '%s'\n", fullPath)
 				os.RemoveAll(fullPath)
 			}

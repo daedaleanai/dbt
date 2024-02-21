@@ -1,0 +1,110 @@
+#!/bin/bash
+set -eu -o pipefail
+
+{{ if .Verbose }}
+set -x
+{{ end }}
+
+
+TMPDIR=$(mktemp -d -t ci-XXXXXXXXXX)
+
+(
+    cd ${TMPDIR}
+    OUTDIR=${TMPDIR}/out/{{ .Name }}.sim
+    mkdir -p ${OUTDIR}
+
+    #---------------------------------------------------------------------------
+    # Generate the XCI file
+    #---------------------------------------------------------------------------
+    cat >> generate_xci.tcl <<EOF
+{{range .BoardFiles}}
+set_param board.repoPaths [lappend board.repoPaths "{{ . }}"]
+{{end}}
+
+create_project -in memory -force test
+set_msg_config -severity INFO -suppress
+
+set part  "{{ .PartName }}"
+set board "{{ .BoardName}}"
+
+set_property "part"               "{{ .PartName}}"        [current_project]
+set_property "board_part"         "{{ .BoardName}}"       [current_project]
+set_property "default_lib"        "xil_defaultlib" [current_project]
+set_property "simulator_language" "Mixed"          [current_project]
+set_property "target_language"    "Verilog"        [current_project]
+
+source "{{ .Design }}"
+EOF
+    {{ if .Verbose }}
+    vivado -mode batch -nolog -nojournal -notrace -source generate_xci.tcl
+    find -type f
+    {{ else }}
+    vivado -mode batch -nolog -nojournal -notrace -source generate_xci.tcl | ( grep -E "^(ERROR|WARNING|CRITICAL)" || true )
+    {{ end }}
+
+    cp {{ .XciPath }} {{ .OutXci }}
+    {{ range $in, $out := .DataFiles }}
+    cp {{ $in }} {{ $out }}
+    {{ end }}
+
+    #---------------------------------------------------------------------------
+    # Generate the simulation outputs
+    #---------------------------------------------------------------------------
+    cat > generate_sim.tcl << EOF
+{{range .BoardFiles}}
+set_param board.repoPaths [lappend board.repoPaths "{{ . }}"]
+{{end}}
+
+set_part "{{ .PartName }}"
+set_property "board_part"         "{{ .BoardName}}" [current_project]
+set_property "target_language"    "Verilog"         [current_project]
+
+set ip {{ .XciPath }}
+read_ip \$ip
+generate_target simulation [get_files \$ip]
+
+export_simulation -simulator xsim   -of_objects [get_files \$ip] -directory ${OUTDIR}/vivado-scripts
+export_simulation -simulator questa -of_objects [get_files \$ip] -directory ${OUTDIR}/vivado-scripts
+EOF
+
+    {{ if .Verbose }}
+    vivado -mode batch -nolog -nojournal -notrace -source generate_sim.tcl
+    find -type f
+    {{ else }}
+    vivado -mode batch -nolog -nojournal -notrace -source generate_sim.tcl | ( grep -E "^(ERROR|WARNING|CRITICAL)" || true )
+    {{ end }}
+
+    ROOT=./.gen
+    if [ ! -e ${ROOT} ]; then
+        ROOT=./.srcs
+    fi
+
+    if [ -e ${ROOT}/sources_1/ip/{{ .Name }} ]; then
+        cp -a ${ROOT}/sources_1/ip/{{ .Name }}/* ${OUTDIR}
+    fi
+
+    if [ -e ${ROOT}/sources_1/bd/{{ .Name }} ]; then
+        cp -a ${ROOT}/sources_1/bd/{{ .Name }}/* ${OUTDIR}
+    fi
+
+    #---------------------------------------------------------------------------
+    # Install the simulation scripts
+    #---------------------------------------------------------------------------
+    {{ range $key, $value := .SimScripts }}
+    cp {{ $value }} ${OUTDIR}/{{ $key }}.sh
+    {{ end }}
+
+    #---------------------------------------------------------------------------
+    # Zip and copy out the final result
+    #---------------------------------------------------------------------------
+    (
+        cd out
+        {{ if .Verbose }}
+        find -type f
+        {{ end }}
+        tar czf {{ .Name }}.sim.tar.gz {{ .Name }}.sim
+    )
+    cp out/{{ .Name }}.sim.tar.gz {{ .OutSim }}
+)
+
+rm -rf ${TMPDIR}

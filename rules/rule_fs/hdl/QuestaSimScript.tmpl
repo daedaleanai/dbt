@@ -1,0 +1,91 @@
+#!/bin/bash
+
+{{ $outDir := .OutDir }}
+{{ $outScript := .OutScript }}
+
+set -eu -o pipefail
+
+{{ if .Verbose }}
+set -x
+{{ end }}
+
+rm -rf {{ .OutDir }}
+mkdir -p {{ .OutDir }}
+
+cat > {{ .OutScript }} <<EOF
+#!/bin/bash
+set -eu -o pipefail
+
+NEEDS_XSIM_GLBL=false
+EXTRA_MOD=
+SIMULATOR=questa
+SIM_FLAGS="-modelsimini {{ .OutDir }}/../modelsim.ini"
+SIM_SV_FLAGS="\${SIM_FLAGS} -svinputport=net +acc=rn -sv -nologo -quiet +incdir+{{ .IncDir }}"
+SIM_SV_COMPILER=vlog
+SIM_VHDL_FLAGS="\${SIM_FLAGS} -93"
+SIM_VHDL_COMPILER=vcom
+SIM_IP_DIR={{ .OutDir }}
+PROJECT_NAME={{ .Name }}
+
+{{ if ne .LibDir "" }}
+cp {{ .LibDir }}/modelsim.ini {{ .OutDir }}/..
+{{ end }}
+
+cd {{ .OutDir }}/..
+
+vlib {{ .Name }}
+vlib {{ .Name }}/work
+vmap work {{ .Name }}/work
+
+{{ range .Srcs }}
+    {{ if hasSuffix .String ".vhd" }}
+        \${SIM_VHDL_COMPILER} \${SIM_VHDL_FLAGS} {{ . }}
+    {{ else }}
+        \${SIM_SV_COMPILER} \${SIM_SV_FLAGS} {{ . }}
+    {{ end }}
+{{ end }}
+EOF
+
+{{ range .Ips }}
+(
+    cd {{ $outDir }}
+    tar zxf {{ . }}
+    SIM_SCRIPT={{ $outDir }}/`basename {{ . }} .tar.gz`/questa.sh
+    if [ ! -r ${SIM_SCRIPT} ]; then
+        SIM_SCRIPT={{ $outDir }}/`basename {{ . }} .tar.gz`/generic-sim.sh
+        if [ ! -r ${SIM_SCRIPT} ]; then
+            echo "[!] No simulation script for Questa exists"
+            exit 1
+        fi
+    fi
+    cat >> {{ $outScript }} << EOF
+source ${SIM_SCRIPT}
+EOF
+
+)
+{{ end }}
+
+    XSIMDIR=`which xsim`
+    GLBL=`dirname $XSIMDIR`/../data/verilog/src/glbl.v
+
+    cat >> {{ .OutScript }} << EOF
+
+if [ x"\${NEEDS_XSIM_GLBL}" == xtrue ]; then
+    vlog \${SIM_SV_FLAGS} $GLBL
+    EXTRA_MOD=work.glbl
+fi
+
+if [ \$# -ge 1 ]; then
+    vsim \${SIM_FLAGS} {{range .Libs}}-L {{ . }} {{end}} work.board \${EXTRA_MOD} "\$@"
+else
+    vsim -c \${SIM_FLAGS} {{range .Libs}}-L {{ . }} {{end}} work.board \${EXTRA_MOD} -do {{ .OutSimScript }}
+fi
+
+EOF
+chmod 755 {{ .OutScript }}
+
+cat > {{ .OutSimScript }} << EOF
+onfinish exit
+onerror exit
+run -all
+EOF

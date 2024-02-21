@@ -1,0 +1,124 @@
+#!/bin/bash
+set -eu -o pipefail
+
+{{ $outOfContext := .OutOfContext }}
+
+cat > {{ .Out }} <<EOF
+
+# Result folders
+set current_time [clock format [clock seconds] -format "%y-%m-%d--%H-%M"]
+set out_path "{{ .ReportDir }}/\$current_time"
+
+exec mkdir -p \$out_path
+exec mkdir -p \$out_path/checkpoints
+
+proc main {out_path} {
+
+	{{range .BoardFiles}}
+	set_param board.repoPaths [lappend board.repoPaths "{{ . }}"]
+	{{end}}
+
+	set_part "{{ .PartName }}"
+	set_property "target_language"    "Verilog"        [current_project]
+
+	{{ if not .OutOfContext }}
+		set_property "board_part"         "{{ .BoardName}}"       [current_project]
+	{{ end }}
+
+	# Number of timing paths to report
+	set npaths 10
+
+	proc generate_reports {path {npaths 10}} {
+		# Timing
+		report_timing -from [all_registers -output_pins] -to [all_registers -data_pins] -max_paths \$npaths > \$path/datapath_tss.rpt
+		report_timing -from [all_inputs] -to [all_registers -data_pins] -max_paths \$npaths > \$path/datapath_tis.rpt
+		report_timing -from [all_registers -output_pins] -to [all_outputs] -max_paths \$npaths > \$path/datapath_tso.rpt
+		report_timing -from [all_inputs] -to [all_outputs] -max_paths \$npaths > \$path/datapath_tio.rpt
+		report_timing_summary > \$path/timing_summary.rpt
+
+		# Design analysis
+		report_design_analysis -extend -setup -congestion -complexity -timing -file \$path/design_analysis.rpt
+		report_pipeline_analysis -file \$path/pipeline_analysis.rpt
+
+		# Utilization
+		report_utilization -hierarchical_depth 4 -hierarchical > \$path/util_hierarchical.rpt
+		report_utilization > \$path/util_summary.rpt
+	}
+
+	puts "INFO: ([clock format [clock seconds] -format %H:%M:%S]) Reading source code..."
+	{{ range .Ips }}
+	set path "{{ . }}"
+	set normalized [file normalize [string range \$path 1 [string length \$path]]]
+	set dir [file join [pwd] [file dirname \$normalized]]
+	set filename [file tail \$normalized]
+	file mkdir \$dir
+	file copy "{{ . }}" \$dir
+	set ip [file join \$dir \$filename]
+	read_ip \$ip
+	generate_target all [get_files \$ip]
+	set_property GENERATE_SYNTH_CHECKPOINT true [get_files \$ip]
+	synth_ip [get_files \$ip]
+	{{ end }}
+
+	report_ip_status
+
+	{{ range .Rtls }}
+	    {{ if hasSuffix .String ".vhd" }}
+		read_vhdl "{{ . }}"
+	    {{ else }}
+		read_verilog -sv "{{ . }}"
+	    {{ end }}
+	{{ end }}
+
+	puts "INFO: ([clock format [clock seconds] -format %H:%M:%S]) Reading constraints..."
+	{{ range .Constrs }}
+		read_xdc {{ if $outOfContext }} -mode out_of_context {{ end }} "{{ . }}"
+	{{ end }}
+
+
+	puts "INFO: ([clock format [clock seconds] -format %H:%M:%S]) Running synthesis..."
+	synth_design -top {{ .Name }} -include_dirs {{ .IncDir }} {{ if .OutOfContext }} -mode out_of_context {{ end }} -flatten_hierarchy {{ .FlattenStrategy }} > \$out_path/synth.log
+	write_checkpoint -force \$out_path/checkpoints/post_synth
+	exec mkdir -p \$out_path/post_synth
+	generate_reports \$out_path/post_synth
+
+	opt_design > \$out_path/opt.log
+	write_checkpoint -force \$out_path/checkpoints/post_opt
+	exec mkdir -p \$out_path/post_opt
+	generate_reports \$out_path/post_opt
+
+	puts "INFO: ([clock format [clock seconds] -format %H:%M:%S]) Running placement..."
+	place_design > \$out_path/place.log
+	write_checkpoint -force \$out_path/checkpoints/post_place
+	exec mkdir -p \$out_path/post_place
+	generate_reports \$out_path/post_place
+
+	phys_opt_design > \$out_path/phys_opt.log
+	write_checkpoint -force \$out_path/checkpoints/post_phys_opt
+	exec mkdir -p \$out_path/post_phys_opt
+	generate_reports \$out_path/post_phys_opt
+
+	puts "INFO: ([clock format [clock seconds] -format %H:%M:%S]) Running routing..."
+	route_design > \$out_path/route.log
+	write_checkpoint -force \$out_path/checkpoints/post_route
+	exec mkdir -p \$out_path/post_route
+	generate_reports \$out_path/post_route
+
+	{{ if not .OutOfContext }}
+		write_bitstream -force bitstream.bit
+		write_debug_probes -force bitstream.ltx
+	{{ end }}
+}
+
+if {[catch {main \$out_path}]} {
+	set status 1
+	puts "ERROR: ([clock format [clock seconds] -format %H:%M:%S]) Run failed."
+	puts "INFO: Report directory: \$out_path"
+} else {
+	set status 0
+	puts "INFO: ([clock format [clock seconds] -format %H:%M:%S]) Run successful."
+	puts "INFO: Report directory: \$out_path"
+}
+exit \$status
+
+EOF

@@ -1,0 +1,16 @@
+# Set clock period and create clock
+set CLOCK_PERIOD {{ .ClockPeriod }}
+create_clock -name {{ .ClockSignal }} -period $CLOCK_PERIOD [get_ports {{ .ClockSignal }}]
+set_property HD.CLK_SRC BUFGCTRL_X0Y16 [get_ports {{ .ClockSignal }}]
+
+# Set input and output delays to this module to 40% of clock period.
+set IO_DELAY [expr 0.4 * $CLOCK_PERIOD]
+
+# Set_max_delay constrains the maximum delay *of the path*,
+# not the assumed delay of the signal at inputs
+set_max_delay                                                                                        \
+        -from [get_ports -filter { NAME =~ "*" && DIRECTION == "IN" && NAME != {{ .ClockSignal }} }] \
+	[expr $CLOCK_PERIOD - $IO_DELAY]
+
+# Disregard output paths
+set_false_path -to [get_ports *_o]
