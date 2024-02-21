@@ -74,7 +74,6 @@ type flag struct {
 }
 
 type generatorInput struct {
-	DbtVersion      [3]uint
 	SourceDir       string
 	WorkingDir      string
 	OutputDir       string
@@ -90,11 +89,6 @@ type generatorInput struct {
 	PositivePatterns []string
 	NegativePatterns []string
 	Mode             mode
-
-	// These fields are used by dbt-rules < v1.10.0 and must be kept for backward compatibility
-	Version        uint
-	BuildDirPrefix string
-	BuildFlags     map[string]string
 }
 
 type generatorOutput struct {
@@ -103,9 +97,6 @@ type generatorOutput struct {
 	Flags           map[string]flag
 	CompDbRules     []string
 	SelectedTargets []string
-
-	// This field is set by dbt-rules < v1.10.0 and must be kept for backward compatibility
-	BuildDir string
 }
 
 var buildCmd = &cobra.Command{
@@ -144,7 +135,6 @@ func runBuild(args []string, mode mode, modeArgs []string) {
 	moduleFile := module.ReadModuleFile(workspaceRoot)
 	workspaceFlags := moduleFile.Flags
 	positivePatterns, negativePatterns, cmdlineFlags := parseArgs(args)
-	_, _, legacyFlags := parseArgs(args)
 
 	outputDir := defaultOutputDir
 	if workspaceOutputDir, exists := workspaceFlags[outputDirFlagName]; exists {
@@ -168,7 +158,6 @@ func runBuild(args []string, mode mode, modeArgs []string) {
 	log.Debug("Flags persistency: %t.\n", persistFlags)
 
 	genInput := generatorInput{
-		DbtVersion:       util.VersionTriplet(),
 		OutputDir:        outputDir,
 		CmdlineFlags:     cmdlineFlags,
 		WorkspaceFlags:   workspaceFlags,
@@ -178,11 +167,6 @@ func runBuild(args []string, mode mode, modeArgs []string) {
 		Mode:             mode,
 		PositivePatterns: positivePatterns,
 		NegativePatterns: negativePatterns,
-
-		// Legacy fields
-		Version:        2,
-		BuildDirPrefix: outputDir,
-		BuildFlags:     legacyFlags,
 	}
 	switch mode {
 	case modeBuild:
@@ -203,9 +187,6 @@ func runBuild(args []string, mode mode, modeArgs []string) {
 
 	// dbt-rules < v1.10.0 will compute the build directory based on flag values and return
 	// the build directory to be used by DBT.
-	if genOutput.BuildDir != "" {
-		genInput.OutputDir = genOutput.BuildDir
-	}
 
 	// Write the Ninja build file.
 	ninjaFilePath := path.Join(genInput.OutputDir, ninjaFileName)
@@ -334,11 +315,7 @@ func printNinjaOutput(dir, fileName, label string, args []string) {
 
 func completeBuildArgs(toComplete string, mode mode) []string {
 	genOutput := runGenerator(generatorInput{
-		DbtVersion:      util.VersionTriplet(),
 		CompletionsOnly: true,
-
-		// Legacy field expected by dbt-rules < v1.10.0.
-		Version: 2,
 	})
 
 	if strings.Contains(toComplete, "=") {

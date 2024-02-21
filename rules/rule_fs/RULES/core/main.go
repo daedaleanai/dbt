@@ -33,7 +33,6 @@ type targetInfo struct {
 }
 
 type generatorInput struct {
-	DbtVersion       version
 	SourceDir        string
 	WorkingDir       string
 	OutputDir        string

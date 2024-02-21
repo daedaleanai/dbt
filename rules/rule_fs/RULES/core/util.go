@@ -22,8 +22,6 @@ const fileMode = 0755
 
 var currentTarget = ""
 
-var minDbtVersion = version{3, 0, 0}
-
 func checkVersion(curVersion, minVersion version) bool {
 	if curVersion[0] != minVersion[0] {
 		return curVersion[0] > minVersion[0]
@@ -48,11 +46,6 @@ func loadInput() generatorInput {
 	}
 	if err := json.Unmarshal(data, &input); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: Could not parse DBT input: %s.\n", err)
-		os.Exit(1)
-	}
-
-	if !checkVersion(input.DbtVersion, minDbtVersion) {
-		fmt.Fprintf(os.Stderr, "Error: dbt-rules require dbt >= %s, but have been called from dbt %s.\n", minDbtVersion, input.DbtVersion)
 		os.Exit(1)
 	}
 
