@@ -125,6 +125,7 @@ var (
 	commandDb       bool
 	dependencyGraph bool
 	numThreads      int
+	keepGoing       int
 )
 
 func init() {
@@ -133,6 +134,7 @@ func init() {
 	buildCmd.Flags().BoolVar(&commandDb, "compdb", false, "Create compile commands JSON database")
 	buildCmd.Flags().BoolVar(&dependencyGraph, "graph", false, "Create dependency graph")
 	buildCmd.Flags().IntVarP(&numThreads, "threads", "j", -1, "Run N jobs in parallel. Defaults to as many threads as cores available.")
+	buildCmd.Flags().IntVarP(&keepGoing, "keep", "k", 1, "Keep going until N jobs fail (0 means infinity)")
 }
 
 func runBuild(args []string, mode mode, modeArgs []string) {
@@ -246,6 +248,9 @@ func runBuild(args []string, mode mode, modeArgs []string) {
 		}
 		if numThreads >= 0 {
 			ninjaArgs = append(ninjaArgs, fmt.Sprintf("-j%d", numThreads))
+		}
+		if keepGoing != 1 {
+			ninjaArgs = append(ninjaArgs, fmt.Sprintf("-k%d", keepGoing))
 		}
 
 		suffix := ""

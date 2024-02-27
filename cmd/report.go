@@ -18,6 +18,7 @@ var reportCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(reportCmd)
 	reportCmd.Flags().IntVarP(&numThreads, "threads", "j", -1, "Run N jobs in parallel. Defaults to as many threads as cores available.")
+	reportCmd.Flags().IntVarP(&keepGoing, "keep", "k", 1, "Keep going until N jobs fail (0 means infinity)")
 	reportCmd.Flags().SetInterspersed(false)
 }
 
