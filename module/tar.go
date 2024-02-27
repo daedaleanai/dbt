@@ -168,8 +168,13 @@ func (m TarModule) clone(url string) error {
 		// Validate the mirror by making sure the metadata path is present
 		metdata_path := path.Join(m.mirror.path, tarMetadataFileName)
 		if util.FileExists(metdata_path) {
-			err := util.CopyDirRecursively(m.mirror.path, m.path)
-			return err
+			if config.GetConfig().LinkFlag {
+				// Symlink to unpacked file
+				return os.Symlink(m.mirror.path, m.path)
+			} else {
+				// Copy file into DEPS
+				return util.CopyDirRecursively(m.mirror.path, m.path)
+			}
 		}
 	}
 

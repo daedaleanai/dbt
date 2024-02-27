@@ -14,10 +14,13 @@ import (
 type Config struct {
 	Mirror       string
 	PersistFlags bool `yaml:"persist-flags"`
+	LinkFlag     bool `yaml:"link"`
 }
 
-var environment map[string]string
-var config *Config
+var (
+	environment map[string]string
+	config      *Config
+)
 
 const configFileName string = "config.yaml"
 
