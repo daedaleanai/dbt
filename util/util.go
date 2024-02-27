@@ -18,7 +18,7 @@ import (
 
 // DbtVersion is the current version of DBT. The minor version
 // is also used as the MODULE file version.
-var DbtVersion = [3]uint{1, 3, 18}
+var DbtVersion = [3]uint{1, 3, 19}
 
 // ModuleFileName is the name of the file describing each module.
 const (
@@ -29,8 +29,10 @@ const (
 	WarningFileName = "WARNING.readme.txt"
 )
 
-const fileMode = 0664
-const dirMode = 0775
+const (
+	fileMode = 0664
+	dirMode  = 0775
+)
 
 // Reimplementation of CutPrefix for backwards compatibility with versions < 1.20
 func CutPrefix(str string, prefix string) (string, bool) {
