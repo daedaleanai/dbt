@@ -1,5 +1,11 @@
 # Changelog
 
+### v3.1.0 (also: v3.1.0-rc1)
+
+- Add `-k` argument to dbt to specify the number of failures after which ninja must stop execution.
+If this value is 0, ninja only stops when it has built all targets or the remaining targets depend
+on other failed targets. Defaults to 1 for backwards compatibility.
+
 ### v3.0.0 (also: v3.0.0-rc1)
 
 - Target filtering moved to dbt-rules. Minimum dbt-rules version is 2.0.0
@@ -22,7 +28,7 @@
 - The default value of persist-flags has been changed from `true` to `false`.
   This value can be overriden in MODULE file of a project or in the user's configuration.
   The former takes precedence.
-- The build version is deduced from Git tags. It is a hard failure if the deduction fails.  
+- The build version is deduced from Git tags. It is a hard failure if the deduction fails.
   Use `go build --tags=semver-override=vX.Y.Z-dev` when building DBT from source on
   an untagged branch and/or with local changes.
 - `dbt sync --strict` hardened: it no longer overwrites the top level MODULE file.
