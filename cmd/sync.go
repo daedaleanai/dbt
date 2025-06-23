@@ -24,9 +24,11 @@ declared in the MODULE files of each module, starting from the top-level MODULE 
 	Run: runSync,
 }
 
-var update bool
-var ignoreErrors bool
-var strict bool
+var (
+	update       bool
+	ignoreErrors bool
+	strict       bool
+)
 
 func init() {
 	// Whether to use 'master' instead of the version specified in the MODULE file.
@@ -147,14 +149,24 @@ func runSync(cmd *cobra.Command, args []string) {
 				errorFunc("Hash must not be empty in --strict mode.\n")
 			}
 
+			emptyHash := false
+			if moduleFile.EmptyHash != nil {
+				emptyHash = *moduleFile.EmptyHash
+			}
+
 			// Resolve the version string to a hash if we are currently processsing the
 			// workspace module (only one module is "done") and the hash is not set yet or
 			// --update is used to force re-resolution of the version string to a hash.
-			if (update || dep.Hash == "") && len(done) == 1 {
+			if (update || dep.Hash == "") && (len(done) == 1 || emptyHash) {
 				dep.Hash = depModule.RevParse(dep.Version)
 				log.Debug("Resolved dependency version '%s' to hash '%s'.\n", dep.Version, dep.Hash[:7])
 			}
 
+			if dep.Hash == "" {
+				errorFunc(
+					"Resolved dependency version '%s' to empty hash, but corresponding MODULE does not have empty-hash true.\n",
+					dep.Version)
+			}
 			log.Log("Using hash '%s' for version '%s'.\n", dep.Hash[:7], dep.Version)
 
 			// Check that the dependency hash is part of the tree that is referenced by the version string.

@@ -26,6 +26,7 @@ type ModuleFile struct {
 	Dependencies map[string]Dependency
 	Flags        map[string]string
 	PersistFlags *bool `yaml:"persist-flags,omitempty"`
+	EmptyHash    *bool `yaml:"empty-hash,omitempty"`
 }
 
 // MODULE file version 2
