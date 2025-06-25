@@ -7,6 +7,7 @@ basename as a Go module.
 - Add a `dbt lsp` command that implements the driver protocol of the [go/packages](golang.org/x/tools/go/packages) 
 repository. This functionality may be used to perform correct package resolution for dbt files. An 
 integration example in neovim can be found [here](https://github.com/Javier-varez/dbt-nvim/blob/ed9b73547b2f056e8043e5817a6451f9a01e74f1/lua/dbt-nvim/lsp/init.lua#L10).
+- Added the "override-hash" configuration flag to allow the hash of a submodule to be overridden from the top-level module.
 
 ### v3.1.0 (also: v3.1.0-rc1)
 

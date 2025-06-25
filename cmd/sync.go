@@ -23,9 +23,11 @@ declared in the MODULE files of each module, starting from the top-level MODULE 
 	Run: runSync,
 }
 
-var update bool
-var ignoreErrors bool
-var strict bool
+var (
+	update       bool
+	ignoreErrors bool
+	strict       bool
+)
 
 func init() {
 	// Whether to use 'master' instead of the version specified in the MODULE file.
@@ -163,12 +165,19 @@ func runSync(cmd *cobra.Command, args []string) {
 					dep.Hash[:7], depModule.RevParse(dep.Version)[:7], dep.Version)
 			}
 
+			// Get the override-hash option from the MODULE file, if available
+			overrideHash := false
+			if moduleFile.OverrideHash != nil {
+				overrideHash = *moduleFile.OverrideHash
+			}
+
 			// Check the dependency hash against the fixed hash for that module.
 			if _, isHashPinned := pinnedHashes[name]; !isHashPinned {
 				pinnedHashes[name] = dep.Hash
 			}
 			pinnedHash := pinnedHashes[name]
-			if dep.Hash != pinnedHash {
+			// If the override-hash option is set, then the pinned hash is used without error
+			if dep.Hash != pinnedHash && !overrideHash {
 				errorFunc("Dependency requires hash '%s', but hash has been pinned to '%s'.\n", dep.Hash[:7], pinnedHash[:7])
 			}
 
