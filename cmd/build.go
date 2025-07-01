@@ -426,12 +426,8 @@ func normalizeTarget(target string) string {
 	return strings.TrimLeft(target, "/")
 }
 
-func runGenerator(input generatorInput) generatorOutput {
+func populateGenerator() string {
 	workspaceRoot := util.GetWorkspaceRoot()
-	input.Layout = module.ReadModuleFile(workspaceRoot).Layout
-	input.SourceDir = path.Join(workspaceRoot, util.DepsDirName)
-	input.WorkingDir = util.GetWorkingDir()
-
 	// Remove all existing buildfiles.
 	generatorDir := path.Join(workspaceRoot, util.BuildDirName, generatorDirName)
 	util.RemoveDir(generatorDir)
@@ -449,6 +445,18 @@ func runGenerator(input generatorInput) generatorOutput {
 	createGeneratorMainFile(generatorDir, util.OrderedSlice(packages), modules)
 	createRootModFile(path.Join(generatorDir, modFileName), modules)
 	createSumGoFile(generatorDir)
+	return generatorDir
+}
+
+func runGenerator(input generatorInput) generatorOutput {
+	workspaceRoot := util.GetWorkspaceRoot()
+	input.Layout = module.ReadModuleFile(workspaceRoot).Layout
+	input.SourceDir = path.Join(workspaceRoot, util.DepsDirName)
+	input.WorkingDir = util.GetWorkingDir()
+
+	// Remove all existing buildfiles.
+	generatorDir := path.Join(workspaceRoot, util.BuildDirName, generatorDirName)
+	populateGenerator()
 
 	generatorInputPath := path.Join(generatorDir, generatorInputFileName)
 	util.WriteJson(generatorInputPath, &input)
