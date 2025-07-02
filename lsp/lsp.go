@@ -3,6 +3,7 @@ package lsp
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 
@@ -70,13 +71,33 @@ func (d *Driver) HandleRequest(request *packages.DriverRequest, patterns []strin
 	pkgs = d.resolveImports(pkgs)
 
 	response := &packages.DriverResponse{
-		Roots:     roots,
-		Packages:  pkgs,
-		Compiler:  "gc",
-		Arch:      "amd64", // TODO: detect from environment
-		GoVersion: 23,      // TODO: parse from go.mod or MODULE
+		NotHandled: false,
+		Roots:      roots,
+		Packages:   pkgs,
 	}
 	return response, nil
+}
+
+func (d *Driver) appendPackageImports(relevantPkgs []*Package, importPath string) []*Package {
+	unhandled := []string{importPath}
+	for len(unhandled) > 0 {
+		curImportPath := unhandled[0]
+		unhandled = unhandled[1:]
+
+		for _, imp := range d.packages[curImportPath].Imports {
+			curPkg := d.packages[imp]
+			if curPkg == nil {
+				continue
+			}
+
+			if !slices.Contains(relevantPkgs, curPkg) {
+				relevantPkgs = append(relevantPkgs, curPkg)
+				unhandled = append(unhandled, curPkg.ImportPath)
+			}
+		}
+	}
+
+	return relevantPkgs
 }
 
 // findPackages finds packages matching the given patterns
@@ -91,30 +112,36 @@ func (d *Driver) findPackages(patterns []string) ([]*Package, error) {
 			}
 		} else if pattern == "." {
 			// Return package in current directory
-			// wd, err := os.Getwd()
-			// if err != nil {
-			// 	return nil, err
-			// }
+			wd, err := os.Getwd()
+			if err != nil {
+				return nil, err
+			}
 
-			// for _, pkg := range d.packages {
-			// TODO(javer-varez)
-			// if pkg.Dir == wd {
-			// 	matched = append(matched, pkg)
-			// 	break
-			// }
-			// }
+			for _, pkg := range d.packages {
+				idx := slices.IndexFunc(pkg.GoFiles, func(file string) bool {
+					return filepath.Dir(file) == wd
+				})
+
+				if idx != -1 {
+					matched = append(matched, pkg)
+					matched = d.appendPackageImports(matched, pkg.ImportPath)
+					break
+				}
+			}
 		} else if strings.HasSuffix(pattern, "/...") {
 			// Return packages under prefix
 			prefix := strings.TrimSuffix(pattern, "/...")
 			for _, pkg := range d.packages {
 				if pkg.ImportPath == prefix || strings.HasPrefix(pkg.ImportPath, prefix+"/") {
 					matched = append(matched, pkg)
+					matched = d.appendPackageImports(matched, pkg.ImportPath)
 				}
 			}
 		} else {
 			// Exact match
 			if pkg, ok := d.packages[pattern]; ok {
 				matched = append(matched, pkg)
+				matched = d.appendPackageImports(matched, pkg.ImportPath)
 			}
 		}
 	}
