@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"go/parser"
 	"go/token"
+	"io"
 	"os"
 	"path/filepath"
 	"slices"
@@ -47,15 +48,21 @@ type lspGoFile struct {
 	PackageName string
 }
 
-type moduleData struct {
+type lspModuleData struct {
 	moduleName string
 	buildFiles []lspGoFile
 	ruleFiles  []lspGoFile
 	initFiles  []lspGoFile
 }
 
-func processGoFile(file *lspGoFile) error {
-	parsedFile, err := parser.ParseFile(token.NewFileSet(), file.SourcePath, nil, parser.ImportsOnly)
+func lspProcessGoFile(overlays map[string][]byte, file *lspGoFile) error {
+	var src any
+	if innerData, ok := overlays[file.SourcePath]; ok {
+		// If there is an overlay we should take it
+		src = innerData
+	}
+
+	parsedFile, err := parser.ParseFile(token.NewFileSet(), file.SourcePath, src, parser.ImportsOnly)
 	if err != nil {
 		return err
 	}
@@ -70,16 +77,16 @@ func processGoFile(file *lspGoFile) error {
 	return nil
 }
 
-func processModules(generatorDir string, mods []*moduleData) error {
+func lspProcessModules(request *packages.DriverRequest, generatorDir string, mods []*lspModuleData) error {
 	for _, mod := range mods {
 		for i := range mod.ruleFiles {
-			if err := processGoFile(&mod.ruleFiles[i]); err != nil {
+			if err := lspProcessGoFile(request.Overlay, &mod.ruleFiles[i]); err != nil {
 				return err
 			}
 		}
 
 		for i := range mod.buildFiles {
-			if err := processGoFile(&mod.buildFiles[i]); err != nil {
+			if err := lspProcessGoFile(request.Overlay, &mod.buildFiles[i]); err != nil {
 				return err
 			}
 
@@ -88,7 +95,7 @@ func processModules(generatorDir string, mods []*moduleData) error {
 				SourcePath: filepath.Join(generatorDir, packagePath, "init.go"),
 				CopyPath:   filepath.Join(packagePath, "init.go"),
 			}
-			if err := processGoFile(&initFile); err != nil {
+			if err := lspProcessGoFile(request.Overlay, &initFile); err != nil {
 				return err
 			}
 			mod.initFiles = append(mod.initFiles, initFile)
@@ -98,7 +105,7 @@ func processModules(generatorDir string, mods []*moduleData) error {
 	return nil
 }
 
-func packagesFromModules(mods []*moduleData) map[string]*lsp.Package {
+func lspPackagesFromModules(mods []*lspModuleData) map[string]*lsp.Package {
 	packagesByImportPath := make(map[string]*lsp.Package)
 	for _, mod := range mods {
 		allGoFilesInMod := slices.Clone(mod.buildFiles)
@@ -140,11 +147,23 @@ func runLsp(_ *cobra.Command, args []string) {
 
 	util.EnsureManagedDir(util.BuildDirName)
 
+	// Read request from stdin
+	reqData, err := io.ReadAll(os.Stdin)
+	if err != nil {
+		log.Fatal("Error reading request from stdin: %v", err)
+	}
+	log.Debug("Request: %s\n", string(reqData))
+
+	var request packages.DriverRequest
+	if err := json.Unmarshal(reqData, &request); err != nil {
+		log.Fatal("Error decoding driver request: %v", err)
+	}
+
 	// We need the generator to be avalable so that generated files can also participate in package
 	// resolution completions
 	generatorDir := populateGenerator()
 
-	var modData []*moduleData
+	var modData []*lspModuleData
 
 	modules := module.GetAllModules(workspaceRoot)
 	for _, modEntry := range modules.Entries() {
@@ -167,30 +186,31 @@ func runLsp(_ *cobra.Command, args []string) {
 			})
 		}
 
-		modData = append(modData, &moduleData{
+		modData = append(modData, &lspModuleData{
 			moduleName: modEntry.Key,
 			ruleFiles:  rules,
 			buildFiles: buildFiles,
 		})
 	}
 
-	processModules(generatorDir, modData)
-	pkgs := packagesFromModules(modData)
+	lspProcessModules(&request, generatorDir, modData)
+	pkgs := lspPackagesFromModules(modData)
 
 	lspDriver := lsp.NewDriver(pkgs)
-
-	// Read request from stdin
-	var request packages.DriverRequest
-	if err := json.NewDecoder(os.Stdin).Decode(&request); err != nil {
-		log.Fatal("Error decoding driver request: %v", err)
-	}
 
 	response, err := lspDriver.HandleRequest(&request, args)
 	if err != nil {
 		log.Fatal("Error handling request: %v", err)
 	}
 
-	if err := json.NewEncoder(os.Stdout).Encode(response); err != nil {
+	rsp, err := json.Marshal(response)
+	if err != nil {
 		log.Fatal("Error encoding response: %v", err)
+	}
+
+	log.Debug("Response: %s\n", string(rsp))
+
+	if _, err := os.Stdout.Write(rsp); err != nil {
+		log.Fatal("Error writing response: %v", err)
 	}
 }
