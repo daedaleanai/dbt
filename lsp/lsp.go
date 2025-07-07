@@ -28,9 +28,6 @@ type Package struct {
 
 	// Import paths appearing in the package's Go source files
 	Imports []string
-
-	// TODO(javier-varez): Probably remove
-	Errors []error // parse errors
 }
 
 type Driver struct {
@@ -160,24 +157,10 @@ func (d *Driver) convertPackage(dbtPkg *Package) *packages.Package {
 		Imports:         make(map[string]*packages.Package),
 	}
 
-	// Convert file paths to absolute
 	for i, file := range dbtPkg.GoFiles {
 		pkg.GoFiles[i] = file
 		pkg.CompiledGoFiles[i] = file
 	}
-
-	// Handle errors
-	if len(dbtPkg.Errors) > 0 {
-		pkg.Errors = make([]packages.Error, len(dbtPkg.Errors))
-		for i, err := range dbtPkg.Errors {
-			pkg.Errors[i] = packages.Error{
-				Pos:  "-",
-				Msg:  err.Error(),
-				Kind: packages.ParseError,
-			}
-		}
-	}
-
 	return pkg
 }
 

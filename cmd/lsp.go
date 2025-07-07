@@ -141,7 +141,7 @@ func runLsp(_ *cobra.Command, args []string) {
 	workspaceRoot := util.GetWorkspaceRoot()
 	dbtRulesDir := filepath.Join(workspaceRoot, util.DepsDirName, dbtRulesDirName)
 	if !util.DirExists(dbtRulesDir) {
-		log.Fatal("You are running 'dbt build' without '%s' being available. Add that dependency, run 'dbt sync' and try again.\n", dbtRulesDirName)
+		log.Fatal("You are running 'dbt lsp' without '%s' being available. Add that dependency, run 'dbt sync' and try again.\n", dbtRulesDirName)
 		return
 	}
 
