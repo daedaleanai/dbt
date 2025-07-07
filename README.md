@@ -367,3 +367,69 @@ val KernelBinary = cc.Binary{
 	Toolchain: kernelToolchain,
 }
 ```
+
+### LSP integration
+
+`dbt` follows an unconventional directory structure for its `go` files. The `gopls` LSP assumes that 
+package layout corresponds with the directory layout of each go module. However, this is not the case 
+for `dbt`.
+
+In order to provide a good LSP experience, `dbt` provides a `dbt lsp` command that implements the 
+`go/packages` driver interface described [here](https://pkg.go.dev/golang.org/x/tools/go/packages).
+
+`gopls` can be instructed to use a custom `gopackagesdriver` binary to list packages and resolves 
+imports. This is used by other build systems such as [Bazel](https://github.com/bazel-contrib/rules_go/wiki/Editor-and-tool-integration).
+
+#### Neovim configuration
+
+- Create a new filetype for `dbt` go files.
+- Register a custom LSP for this new file type.
+  - Include a `GOPACKAGESDRIVER` environment variable configured to point to the `gopackagesdriver` shell
+  script in the root of this repository.
+  - Use the `gopls` LSP server. The environment variable lets `gopls` know which binary to execute in order 
+  to resolve imports.
+
+Example configuration:
+
+```lua
+-- Register a new filetype named `dbt` for all dbt-related `.go` files.
+-- By using a custom filetype we can better control what LSP will be
+-- triggered for these files, and override the LSP for the dbt files,
+-- while leaving the original gopls LSP behavior for all regular go
+-- packages.
+vim.filetype.add({
+    pattern = {
+        -- Go files in a RULES directory
+        ['.*/RULES/.*%.go'] = 'dbt',
+        -- BUILD.go files in any directory
+        ['.*/BUILD.go'] = 'dbt',
+        -- Init files in the BUILD/GENERATOR directory.
+        ['.*/BUILD/GENERATOR/.*/init.go'] = 'dbt',
+    },
+})
+
+-- Create a new lsp configuration for the dbt files which uses the gopackagesdriver
+vim.lsp.config('dbtpls', {
+    root_markers = { 'MODULE' },
+    cmd = { 'gopls' },
+    cmd_env = { ["GOPACKAGESDRIVER"] = '/path/to/dbt/gopackagesdriver' },
+    filetypes = { 'dbt' },
+})
+
+vim.lsp.enable('dbtpls')
+
+-- Start treesitter with go syntax highlighting and configure and adequate comment string for
+-- each dbt file
+vim.api.nvim_create_autocmd('FileType', {
+    pattern = 'dbt',
+    callback = function(args)
+        -- Go syntax highlighting
+        vim.treesitter.start(args.buf, 'go')
+        -- Comments start with //
+        vim.bo.commentstring = '// %s'
+    end
+})
+```
+
+The [dbt-nvim](https://github.com/Javier-varez/dbt-nvim/tree/main) plugin includes the functionality 
+required to configure the editor.
