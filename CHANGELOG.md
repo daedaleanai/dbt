@@ -1,5 +1,10 @@
 # Changelog
 
+### Future v3.2.0
+
+- Minor fix to the handling of Go modules listed in the `cpp` layout, which now does not include the repository
+basename as a Go module.
+
 ### v3.1.0 (also: v3.1.0-rc1)
 
 - Add `-k` argument to dbt to specify the number of failures after which ninja must stop execution.

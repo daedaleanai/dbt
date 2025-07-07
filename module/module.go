@@ -68,28 +68,21 @@ func listGoModules(module Module, moduleFile ModuleFile) []GoModule {
 
 func listGoModulesCpp(module Module, moduleFile ModuleFile) []GoModule {
 	modulePath := module.RootPath()
-	moduleName := path.Base(modulePath) // FIXME: interface method
-
 	deps := util.OrderedKeys(moduleFile.Dependencies)
-
-	result := []GoModule{}
-	result = append(result, GoModule{
-		Name: moduleName,
-		Deps: deps,
-	})
 
 	rulesDirPath := path.Join(modulePath, rulesDirName)
 
 	if !util.DirExists(rulesDirPath) {
-		return result
+		return nil
 	}
 
-	files, err := ioutil.ReadDir(rulesDirPath)
+	files, err := os.ReadDir(rulesDirPath)
 	if err != nil {
 		log.Fatal("Failed to read content of %s/ directory: %s.\n", rulesDirPath, err)
 	}
 
-	for _, subdirName := range util.OrderedSlice(util.MappedSlice(files, func(fi os.FileInfo) string { return fi.Name() })) {
+	result := []GoModule{}
+	for _, subdirName := range util.OrderedSlice(util.MappedSlice(files, func(fi os.DirEntry) string { return fi.Name() })) {
 		result = append(result, GoModule{
 			Name: subdirName,
 			Deps: deps,
