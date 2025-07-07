@@ -2,7 +2,6 @@ package module
 
 import (
 	"context"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path"
@@ -443,14 +442,18 @@ func GetAllModules(workspaceRoot string) util.OrderedMap[string, Module] {
 		log.Warning("There is no %s/ directory in the workspace. Try running 'dbt sync' first.\n", util.DepsDirName)
 		return util.NewOrderedMap[string, Module]()
 	}
-	files, err := ioutil.ReadDir(depsDir)
+	files, err := os.ReadDir(depsDir)
 	if err != nil {
 		log.Fatal("Failed to read content of %s/ directory: %s.\n", util.DepsDirName, err)
 	}
 	modules := map[string]Module{}
 
 	for _, file := range files {
-		if file.IsDir() || (file.Mode()&os.ModeSymlink) == os.ModeSymlink {
+		info, err := file.Info()
+		if err != nil {
+			log.Fatal("Failed to get file info for", file.Name())
+		}
+		if file.IsDir() || (info.Mode()&os.ModeSymlink) == os.ModeSymlink {
 			modules[file.Name()] = OpenModule(path.Join(depsDir, file.Name()))
 		}
 	}

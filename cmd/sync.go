@@ -3,7 +3,6 @@ package cmd
 import (
 	"errors"
 	"io/fs"
-	"io/ioutil"
 	"os"
 	"path"
 	"strings"
@@ -187,7 +186,7 @@ func runSync(cmd *cobra.Command, args []string) {
 
 	// Delete everything in the DEPS folder that does not belong there
 	depsDir := path.Join(workspaceRoot, util.DepsDirName)
-	content, err := ioutil.ReadDir(depsDir)
+	content, err := os.ReadDir(depsDir)
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		log.Fatal("%v", err)
 	}

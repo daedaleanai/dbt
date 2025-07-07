@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -131,7 +130,7 @@ func MkdirAll(p string) {
 }
 
 func ReadFile(filePath string) []byte {
-	data, err := ioutil.ReadFile(filePath)
+	data, err := os.ReadFile(filePath)
 	if err != nil {
 		log.Fatal("Failed to read file '%s': %s.\n", filePath, err)
 	}
@@ -158,7 +157,7 @@ func WriteFile(filePath string, data []byte) {
 	if err != nil {
 		log.Fatal("Failed to create directory '%s': %s.\n", dir, err)
 	}
-	err = ioutil.WriteFile(filePath, data, fileMode)
+	err = os.WriteFile(filePath, data, fileMode)
 	if err != nil {
 		log.Fatal("Failed to write file '%s': %s.\n", filePath, err)
 	}
@@ -213,15 +212,20 @@ func copyDirRecursivelyInner(sourceDir, destDir string, wg *sync.WaitGroup) erro
 
 	MkdirAll(destDir)
 
-	fileInfos, err := ioutil.ReadDir(sourceDir)
-	for _, fileInfo := range fileInfos {
-		if fileInfo.IsDir() {
-			err = copyDirRecursivelyInner(path.Join(sourceDir, fileInfo.Name()), path.Join(destDir, fileInfo.Name()), wg)
+	dirEntries, err := os.ReadDir(sourceDir)
+	for _, dirEntry := range dirEntries {
+		fileInfo, err := dirEntry.Info()
+		if err != nil {
+			return err
+		}
+
+		if dirEntry.IsDir() {
+			err = copyDirRecursivelyInner(path.Join(sourceDir, dirEntry.Name()), path.Join(destDir, dirEntry.Name()), wg)
 			if err != nil {
 				return err
 			}
 
-			if err := os.Chmod(path.Join(destDir, fileInfo.Name()), fileInfo.Mode()); err != nil {
+			if err := os.Chmod(path.Join(destDir, dirEntry.Name()), fileInfo.Mode()); err != nil {
 				return err
 			}
 		} else {
@@ -233,7 +237,7 @@ func copyDirRecursivelyInner(sourceDir, destDir string, wg *sync.WaitGroup) erro
 				if err := os.Chmod(dest, sourceFileInfo.Mode()); err != nil {
 					log.Fatal("failed to change filemode: ", err)
 				}
-			}(path.Join(sourceDir, fileInfo.Name()), path.Join(destDir, fileInfo.Name()), fileInfo)
+			}(path.Join(sourceDir, dirEntry.Name()), path.Join(destDir, dirEntry.Name()), fileInfo)
 		}
 	}
 
