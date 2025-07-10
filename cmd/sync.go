@@ -71,6 +71,9 @@ func runSync(cmd *cobra.Command, args []string) {
 			log.Fatal("The override for %s overrides a direct dependency of the top MODULE file of %s\n", name, workspaceModuleName)
 		}
 	}
+	if strict && len(overrides) > 0 {
+		log.Fatal("Transitive dependency overrides cannot be used in strict mode, but the top-level MODULE file contains %d overrides\n", len(overrides))
+	}
 
 	workspaceModuleSymlink := ""
 	if workspaceModuleFile.Layout != "cpp" {
