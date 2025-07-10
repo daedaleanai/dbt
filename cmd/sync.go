@@ -220,6 +220,13 @@ func runSync(cmd *cobra.Command, args []string) {
 
 	log.IndentationLevel = 0
 
+	// Verify that all overrides have been used
+	for overrideName := range overrides {
+		if _, ok := pinned[overrideName]; !ok {
+			errorFunc("Override %s was not used\n", overrideName)
+		}
+	}
+
 	// Delete everything in the DEPS folder that does not belong there
 	depsDir := path.Join(workspaceRoot, util.DepsDirName)
 	content, err := os.ReadDir(depsDir)
