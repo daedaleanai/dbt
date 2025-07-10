@@ -24,6 +24,10 @@ type ModuleFile struct {
 	Version      uint
 	Layout       string
 	Dependencies map[string]Dependency
+
+	// Dependency overrides are used to override the url and hashes of transitive dependencies of
+	// the current module
+	Overrides    map[string]Dependency
 	Flags        map[string]string
 	PersistFlags *bool `yaml:"persist-flags,omitempty"`
 }
