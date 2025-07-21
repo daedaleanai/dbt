@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path"
 	"path/filepath"
@@ -226,6 +227,23 @@ func copyDirRecursivelyInner(sourceDir, destDir string, wg *sync.WaitGroup) erro
 			}
 
 			if err := os.Chmod(path.Join(destDir, dirEntry.Name()), fileInfo.Mode()); err != nil {
+				return err
+			}
+		} else if (dirEntry.Type() & fs.ModeSymlink) == fs.ModeSymlink {
+			linkTarget, err := os.Readlink(path.Join(sourceDir, dirEntry.Name()))
+
+			if err != nil {
+				return err
+			}
+			linkPath := path.Join(destDir, dirEntry.Name())
+			dir := path.Dir(linkPath)
+			err = os.MkdirAll(dir, dirMode)
+
+			if err != nil {
+				return err
+			}
+
+			if err = os.Symlink(linkTarget, linkPath); err != nil {
 				return err
 			}
 		} else {
