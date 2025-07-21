@@ -217,6 +217,10 @@ func (m TarModule) download(url string) error {
 			return fmt.Errorf("failed to decompress: %s", err)
 		}
 
+		if header.Typeflag == tar.TypeXGlobalHeader {
+			continue
+		}
+
 		headerRootDir := getRoot(header.Name)
 		if header.Typeflag != tar.TypeDir && headerRootDir == header.Name {
 			return fmt.Errorf("failed to decompress: archive can't have files outside root directory")
