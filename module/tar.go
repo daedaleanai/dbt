@@ -217,8 +217,13 @@ func (m TarModule) download(url string) error {
 			return fmt.Errorf("failed to decompress: %s", err)
 		}
 
-		if header.Typeflag == tar.TypeXGlobalHeader {
+		/// These are not files and are not used by DBT.
+		if header.Typeflag == tar.TypeXGlobalHeader || header.Typeflag == tar.TypeXHeader {
 			continue
+		}
+
+		if header.Typeflag == tar.TypeChar || header.Typeflag == tar.TypeBlock || header.Typeflag == tar.TypeFifo {
+			return fmt.Errorf("failed to decompress: archive can't have device or fifo nodes")
 		}
 
 		headerRootDir := getRoot(header.Name)
