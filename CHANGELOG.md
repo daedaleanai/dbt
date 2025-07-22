@@ -1,5 +1,9 @@
 # Changelog
 
+### v3.2.1
+
+- Fix symlinks in mirrored modules
+
 ### v3.2.0
 
 - Minor fix to the handling of Go modules listed in the `cpp` layout, which now does not include the repository
