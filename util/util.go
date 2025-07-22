@@ -236,12 +236,6 @@ func copyDirRecursivelyInner(sourceDir, destDir string, wg *sync.WaitGroup) erro
 				return err
 			}
 			linkPath := path.Join(destDir, dirEntry.Name())
-			dir := path.Dir(linkPath)
-			err = os.MkdirAll(dir, dirMode)
-
-			if err != nil {
-				return err
-			}
 
 			if err = os.Symlink(linkTarget, linkPath); err != nil {
 				return err
