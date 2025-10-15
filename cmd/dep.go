@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"os"
 	"path"
 	"regexp"
 
@@ -41,6 +42,15 @@ var (
 		Run:               runRemove,
 		ValidArgsFunction: completeDepArgs,
 	}
+
+	updateCmd = &cobra.Command{
+		Use:               "update",
+		Args:              cobra.ExactArgs(1),
+		Short:             "Updates the requested dependency",
+		Long:              `Updates the requested dependency.`,
+		Run:               runUpdate,
+		ValidArgsFunction: completeDepArgs,
+	}
 )
 
 var url, version string
@@ -53,6 +63,8 @@ func init() {
 	addCmd.Flags().StringVar(&version, "version", masterVersion, "Dependency version")
 
 	depCmd.AddCommand(removeCmd)
+
+	depCmd.AddCommand(updateCmd)
 }
 
 func runAdd(cmd *cobra.Command, args []string) {
@@ -111,6 +123,40 @@ func runRemove(cmd *cobra.Command, args []string) {
 	delete(moduleFile.Dependencies, name)
 	module.WriteModuleFile(moduleRoot, moduleFile)
 	log.Success("Removed dependency '%s' from module '%s'.\n", name, moduleName)
+}
+
+func runUpdate(cmd *cobra.Command, args []string) {
+	// We interpret the first argument as the direct dependency to update. If not given a revision,
+	// we assume latest.
+
+	depName := args[0]
+
+	workspaceRoot := util.GetWorkspaceRoot()
+	workspaceModuleFile := module.ReadModuleFile(workspaceRoot)
+
+	dep, ok := workspaceModuleFile.Dependencies[depName]
+	if !ok {
+		log.Fatal("Unknown dependency %q", depName)
+	}
+
+	tempModulePath, err := os.MkdirTemp("", "")
+	if err != nil {
+		log.Fatal("Unable to create temporary directory")
+	}
+	defer os.RemoveAll(tempModulePath)
+
+	tempModulePath = path.Join(tempModulePath, depName)
+
+	depModule := module.OpenOrCreateModule(tempModulePath, dep.URL, dep.Type, dep.Hash)
+	if depModule.URL() != dep.URL {
+		log.Fatal("Dependency requires URL %q, but the on-disk module has URL %q.\n", dep.URL, depModule.URL())
+	}
+
+	dep.Hash = depModule.RevParse(dep.Version)
+	log.Log("Resolved dependency version '%s' to hash '%s'.\n", dep.Version, dep.Hash[:7])
+
+	workspaceModuleFile.Dependencies[depName] = dep
+	module.WriteModuleFile(workspaceRoot, workspaceModuleFile)
 }
 
 func checkName(name string) {
